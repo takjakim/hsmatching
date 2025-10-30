@@ -78,7 +78,7 @@ const MAJORS = [
   { key: "ir", name: "국제관계와 지역학", vec: { E: 0.6, S: 0.6, I: 0.6, V: 0.6 } }
 ];
 
-const ROLES = [
+export const ROLES = [
   { key: "policyAnalyst", name: "정책분석가", vec: { I: 0.9, C: 0.7, V: 0.6 } },
   { key: "prComm", name: "PR와 커뮤니케이션", vec: { E: 0.85, A: 0.7, S: 0.6 } },
   { key: "journalist", name: "기자와 에디터", vec: { I: 0.7, A: 0.7, E: 0.6 } },
@@ -88,7 +88,16 @@ const ROLES = [
   { key: "uxResearch", name: "UX 리서처", vec: { I: 0.8, S: 0.6 } },
   { key: "dataJournalist", name: "데이터 저널리스트", vec: { I: 0.85, A: 0.6 } },
   { key: "diplomat", name: "외교와 공공외교", vec: { E: 0.6, S: 0.6, V: 0.7 } },
-  { key: "museumCurator", name: "박물관 큐레이터", vec: { A: 0.6, C: 0.7, I: 0.6 } }
+  { key: "museumCurator", name: "박물관 큐레이터", vec: { A: 0.6, C: 0.7, I: 0.6 } },
+  // 경영학과 관련 직무 추가
+  { key: "marketingManager", name: "마케팅 매니저", vec: { E: 0.9, A: 0.8, S: 0.6 } },
+  { key: "financialAnalyst", name: "재무 분석가", vec: { I: 0.9, C: 0.8 } },
+  { key: "managementConsultant", name: "경영 컨설턴트", vec: { I: 0.8, E: 0.8, C: 0.6 } },
+  { key: "productManager", name: "프로덕트 매니저", vec: { E: 0.7, I: 0.7, A: 0.6 } },
+  { key: "entrepreneur", name: "창업가/사업가", vec: { E: 0.9, R: 0.6, A: 0.7, V: 0.5 } },
+  { key: "businessDeveloper", name: "사업 개발 매니저", vec: { E: 0.9, S: 0.7, I: 0.5 } },
+  { key: "dataScientist", name: "데이터 사이언티스트", vec: { I: 0.95, C: 0.7, R: 0.4 } },
+  { key: "socialEntrepreneur", name: "사회적기업가", vec: { V: 0.95, E: 0.8, S: 0.7 } }
 ];
 
 // ----- 유틸: 코사인 유사도 -----
@@ -105,7 +114,11 @@ function cosineSim(vecA: Partial<Record<Dim, number>>, vecB: Partial<Record<Dim,
   return denom === 0 ? 0 : dot / denom;
 }
 
-export default function HSMatchingPrototype() {
+interface HSMatchingPrototypeProps {
+  onComplete?: (result: Record<Dim, number>) => void;
+}
+
+export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeProps = {}) {
   const [step, setStep] = useState(0);
   const [scores, setScores] = useState<Partial<Record<Dim, number>>>({ R: 0, E: 0, I: 0, S: 0, C: 0, A: 0, V: 0 });
   const [losers, setLosers] = useState<Choice[]>([]);
@@ -113,6 +126,7 @@ export default function HSMatchingPrototype() {
   const [adaptiveQs, setAdaptiveQs] = useState<Q[]>([]);
   // 디버그 패널 토글 상태
   const [showDebug, setShowDebug] = useState(false);
+  const [resultSaved, setResultSaved] = useState(false);
 
   const mainTotal = QUESTIONS.length;
   const totalAll = mainTotal + adaptiveQs.length;
@@ -196,6 +210,14 @@ export default function HSMatchingPrototype() {
 
     return { norm: normObj, majors, roles };
   }, [step, totalAll, scores]);
+
+  // 검사 완료 시 결과 전달
+  useEffect(() => {
+    if (result && !resultSaved && onComplete) {
+      onComplete(result.norm);
+      setResultSaved(true);
+    }
+  }, [result, resultSaved, onComplete]);
 
   function generateExplanation(norm: Record<Dim, number>, majors: any[], roles: any[]) {
     const order = Object.keys(norm).map((k) => [k, norm[k as Dim]] as [string, number]).sort((a, b) => b[1] - a[1]);
@@ -286,7 +308,7 @@ export default function HSMatchingPrototype() {
 
         {/* Progress */}
         <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden mb-6">
-          <div className="h-full bg-slate-800 transition-all" style={{ width: `${progress}%` }} />
+          <div className="h-full bg-[#3b82f6] transition-all" style={{ width: `${progress}%` }} />
         </div>
 
         <div className="space-y-6">
@@ -300,7 +322,7 @@ export default function HSMatchingPrototype() {
                   <li>선택은 R,E,I,S,C,A,V 점수로 환산됩니다. 마지막에 전공 Top 3와 직무 Top 5, 개인화 설명을 제공합니다.</li>
                 </ul>
                 <div className="mt-6">
-                  <button onClick={() => setStep(1)} className="px-5 py-3 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-800">시작하기</button>
+                  <button onClick={() => setStep(1)} className="px-5 py-3 rounded-xl bg-[#1e3a8a] text-white font-medium hover:bg-[#3b82f6]">시작하기</button>
                 </div>
               </motion.section>
             )}
@@ -343,7 +365,7 @@ export default function HSMatchingPrototype() {
                           <PolarGrid />
                           <PolarAngleAxis dataKey="axis" />
                           <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                          <Radar name="나" dataKey="score" stroke="#334155" fill="#334155" fillOpacity={0.4} />
+                          <Radar name="나" dataKey="score" stroke="#1e3a8a" fill="#3b82f6" fillOpacity={0.4} />
                         </RadarChart>
                       </ResponsiveContainer>
                     </div>
@@ -352,7 +374,7 @@ export default function HSMatchingPrototype() {
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                     <h3 className="font-semibold mb-2 text-slate-700">V(가치/공공성) 게이지</h3>
                     <div className="h-3 w-full bg-white border rounded-full overflow-hidden">
-                      <div className="h-full bg-slate-800" style={{ width: `${Math.round((result.norm.V || 0) * 100)}%` }} />
+                      <div className="h-full bg-[#d4b896]" style={{ width: `${Math.round((result.norm.V || 0) * 100)}%` }} />
                     </div>
                     <div className="mt-1 text-right text-sm text-slate-600">{Math.round((result.norm.V || 0) * 100)}%</div>
                   </div>
@@ -402,7 +424,7 @@ export default function HSMatchingPrototype() {
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                  <button onClick={() => { setScores({ R: 0, E: 0, I: 0, S: 0, C: 0, A: 0, V: 0 }); setStep(0); setLosers([]); setSkipped([]); setAdaptiveQs([]); }} className="px-4 py-2 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-800">다시 하기</button>
+                  <button onClick={() => { setScores({ R: 0, E: 0, I: 0, S: 0, C: 0, A: 0, V: 0 }); setStep(0); setLosers([]); setSkipped([]); setAdaptiveQs([]); setResultSaved(false); }} className="px-4 py-2 rounded-xl bg-[#1e3a8a] text-white font-medium hover:bg-[#3b82f6]">다시 하기</button>
                   <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50">맨 위로</button>
                 </div>
               </motion.section>
