@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from "recharts";
 import { motion } from "framer-motion";
-import { getCurrentCourses, AVAILABLE_COURSES, CURRENT_STUDENT } from "../data/dummyData";
+import { getCurrentCourses, AVAILABLE_COURSES, CURRENT_STUDENT, getCurrentCompetency } from "../data/dummyData";
 import { calculateLearningProfile, compareProfiles, recommendCourses } from "../utils/profileAnalysis";
 import { recommendRoles, getRoleDescription } from "../utils/roleRecommendation";
 
@@ -89,6 +89,7 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
 
   const careerTestResult = riasecResult;
   const CURRENT_COURSES = getCurrentCourses();
+  const competencyResult = getCurrentCompetency();
 
   // 학습 프로파일 계산
   const learningProfile = useMemo(() => {
@@ -460,6 +461,72 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
               )}
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* 전공능력 연계 분석 */}
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <h3 className="text-lg font-bold text-gray-800 mb-4">
+          📋 전공능력진단과의 연계 분석
+        </h3>
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-[#3b82f6] rounded-xl p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h4 className="font-bold text-[#1e3a8a] text-lg">전공능력 종합 점수</h4>
+              <p className="text-sm text-gray-600">{competencyResult.department} · {competencyResult.testDate}</p>
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-[#1e3a8a]">{competencyResult.overallScore}점</div>
+              <div className="text-sm text-gray-600">백분위 {competencyResult.overallPercentile}%</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 상위 3개 능력 */}
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+            <h4 className="font-semibold text-green-800 mb-3">🌟 강점 역량 Top 3</h4>
+            <div className="space-y-2">
+              {competencyResult.competencies
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 3)
+                .map((comp, index) => (
+                  <div key={index} className="flex items-center justify-between bg-white rounded-lg p-2">
+                    <span className="text-sm text-gray-800 font-medium">{comp.competencyName}</span>
+                    <span className="text-sm font-bold text-green-700">{comp.score}점</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          {/* 개선 필요 능력 */}
+          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+            <h4 className="font-semibold text-orange-800 mb-3">📈 개선 권장 영역</h4>
+            <div className="space-y-2">
+              {competencyResult.competencies
+                .sort((a, b) => a.score - b.score)
+                .slice(0, 3)
+                .map((comp, index) => (
+                  <div key={index} className="flex items-center justify-between bg-white rounded-lg p-2">
+                    <span className="text-sm text-gray-800 font-medium">{comp.competencyName}</span>
+                    <span className="text-sm font-bold text-orange-700">{comp.score}점</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 통합 인사이트 */}
+        <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl">
+          <h4 className="font-semibold text-purple-800 mb-2 flex items-center">
+            <span className="mr-2">💡</span> 통합 인사이트
+          </h4>
+          <p className="text-sm text-gray-700 leading-relaxed">
+            RIASEC 진로 적성, 수강 과목 패턴, 전공능력진단 결과를 종합하면, 
+            당신의 <strong>강점은 {competencyResult.competencies.sort((a, b) => b.score - a.score)[0].competencyName}</strong>이고, 
+            <strong> 학습 경험은 {learningProfile.topDimensions[0].label}</strong> 영역이 가장 발달했습니다. 
+            이를 바탕으로 추천된 직무를 검토하고, 개선이 필요한 역량은 추천 과목을 통해 보완하세요.
+          </p>
         </div>
       </div>
 

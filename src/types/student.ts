@@ -56,3 +56,22 @@ export interface StudentGrades {
   records: GradeRecord[];
 }
 
+// 전공능력진단검사 결과
+export interface MajorCompetency {
+  competencyName: string;
+  score: number;
+  percentile: number;
+  level: 'high' | 'medium' | 'low';
+  description: string;
+}
+
+export interface MajorCompetencyResult {
+  testDate: string;
+  department: string;
+  overallScore: number;
+  overallPercentile: number;
+  competencies: MajorCompetency[];
+  strengths: string[];
+  improvements: string[];
+}
+

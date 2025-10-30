@@ -60,6 +60,13 @@ export default function Dashboard({ onNavigate, riasecCompleted = false }: Dashb
       color: "from-[#60a5fa] to-[#3b82f6]"
     },
     {
+      id: "competency",
+      title: "전공능력진단",
+      description: "전공 핵심역량 측정 결과",
+      icon: "📋",
+      color: "from-[#d4b896] to-[#60a5fa]"
+    },
+    {
       id: "insight",
       title: "진로-학습 분석",
       description: "적성과 수강 과목 패턴 비교",
@@ -173,20 +180,20 @@ export default function Dashboard({ onNavigate, riasecCompleted = false }: Dashb
         <h3 className="text-lg font-bold text-gray-800 mb-4">📌 최근 활동</h3>
         <div className="space-y-3">
           {[
-            riasecCompleted && { date: "2025-10-30", text: "진로 적성검사 완료", type: "success" },
-            { date: "2025-10-28", text: "2025년 2학기 수강신청 완료", type: "success" },
-            { date: "2025-08-20", text: "2025년 1학기 성적 조회 가능", type: "info" }
-          ].filter(Boolean).map((activity, index) => (
+            ...(riasecCompleted ? [{ date: "2025-10-30", text: "진로 적성검사 완료", type: "success" as const }] : []),
+            { date: "2025-10-28", text: "2025년 2학기 수강신청 완료", type: "success" as const },
+            { date: "2025-08-20", text: "2025년 1학기 성적 조회 가능", type: "info" as const }
+          ].map((activity, index) => (
             <div
               key={index}
               className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg"
             >
               <div className={`w-2 h-2 rounded-full ${
-                activity!.type === "success" ? "bg-green-500" : "bg-blue-500"
+                activity.type === "success" ? "bg-green-500" : "bg-blue-500"
               }`} />
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-800">{activity!.text}</p>
-                <p className="text-xs text-gray-500">{activity!.date}</p>
+                <p className="text-sm font-medium text-gray-800">{activity.text}</p>
+                <p className="text-xs text-gray-500">{activity.date}</p>
               </div>
             </div>
           ))}

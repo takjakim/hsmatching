@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import PersonalInfo from "./pages/PersonalInfo";
 import GradesInfo from "./pages/GradesInfo";
 import CoursesInfo from "./pages/CoursesInfo";
+import MajorCompetency from "./pages/MajorCompetency";
 import CareerInsight from "./pages/CareerInsight";
 import HSMatchingPrototype from "./HSMatchingPrototype";
 import { CURRENT_STUDENT } from "./data/dummyData";
@@ -68,6 +69,8 @@ export default function App() {
         return <GradesInfo />;
       case "courses":
         return <CoursesInfo />;
+      case "competency":
+        return <MajorCompetency />;
       case "insight":
         return <CareerInsight riasecResult={riasecResult} onStartTest={() => setCurrentPage("riasec")} />;
       case "riasec":

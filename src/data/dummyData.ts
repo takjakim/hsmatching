@@ -1,4 +1,4 @@
-import { Student, Course, StudentGrades } from "../types/student";
+import { Student, Course, StudentGrades, MajorCompetencyResult } from "../types/student";
 
 // 더미 학생 정보 - 경영학과 3학년 (수강 이력 풍부)
 export const DUMMY_STUDENT: Student = {
@@ -486,6 +486,128 @@ export const DUMMY_GRADES: StudentGrades = {
   ]
 };
 
+// 경영학과 3학년 전공능력진단 결과
+export const SENIOR_COMPETENCY: MajorCompetencyResult = {
+  testDate: "2025-06-15",
+  department: "경영학과",
+  overallScore: 82.5,
+  overallPercentile: 88.3,
+  competencies: [
+    {
+      competencyName: "경영 전문지식",
+      score: 85,
+      percentile: 90,
+      level: "high",
+      description: "경영학 이론과 실무 지식에 대한 이해도"
+    },
+    {
+      competencyName: "문제해결능력",
+      score: 88,
+      percentile: 92,
+      level: "high",
+      description: "복잡한 경영 문제를 분석하고 해결하는 능력"
+    },
+    {
+      competencyName: "의사소통능력",
+      score: 90,
+      percentile: 94,
+      level: "high",
+      description: "효과적인 의사소통 및 프레젠테이션 능력"
+    },
+    {
+      competencyName: "리더십",
+      score: 78,
+      percentile: 82,
+      level: "medium",
+      description: "팀을 이끌고 동기부여하는 능력"
+    },
+    {
+      competencyName: "글로벌역량",
+      score: 75,
+      percentile: 80,
+      level: "medium",
+      description: "국제 비즈니스 환경에 대한 이해와 적응력"
+    },
+    {
+      competencyName: "윤리의식",
+      score: 92,
+      percentile: 95,
+      level: "high",
+      description: "경영 윤리와 사회적 책임에 대한 의식"
+    }
+  ],
+  strengths: [
+    "의사소통능력과 윤리의식이 특히 우수함",
+    "문제해결능력이 뛰어나 분석 중심 직무에 적합",
+    "경영 전문지식 기반이 탄탄함"
+  ],
+  improvements: [
+    "리더십 역량을 더 개발하면 관리자 역할에 유리",
+    "글로벌 역량 강화를 위해 국제경영 관련 경험 확대 권장"
+  ]
+};
+
+// 무전공 1학년 전공능력진단 결과 (기초 수준)
+export const FRESHMAN_COMPETENCY: MajorCompetencyResult = {
+  testDate: "2025-03-10",
+  department: "무전공",
+  overallScore: 65.2,
+  overallPercentile: 68.5,
+  competencies: [
+    {
+      competencyName: "자기주도학습",
+      score: 70,
+      percentile: 72,
+      level: "medium",
+      description: "스스로 학습 계획을 세우고 실행하는 능력"
+    },
+    {
+      competencyName: "기초학업능력",
+      score: 68,
+      percentile: 70,
+      level: "medium",
+      description: "대학 수준의 읽기, 쓰기, 계산 능력"
+    },
+    {
+      competencyName: "창의적사고",
+      score: 72,
+      percentile: 75,
+      level: "medium",
+      description: "새로운 아이디어를 생성하고 문제를 창의적으로 해결"
+    },
+    {
+      competencyName: "협업능력",
+      score: 65,
+      percentile: 67,
+      level: "medium",
+      description: "팀 프로젝트에서 효과적으로 협력하는 능력"
+    },
+    {
+      competencyName: "디지털리터러시",
+      score: 58,
+      percentile: 62,
+      level: "low",
+      description: "디지털 도구와 정보를 효과적으로 활용하는 능력"
+    },
+    {
+      competencyName: "진로탐색역량",
+      score: 62,
+      percentile: 65,
+      level: "medium",
+      description: "자신의 진로를 탐색하고 설계하는 능력"
+    }
+  ],
+  strengths: [
+    "창의적 사고력이 좋아 다양한 전공 탐색 가능",
+    "자기주도학습 능력이 양호함"
+  ],
+  improvements: [
+    "디지털 리터러시 향상을 위한 컴퓨터 활용 교육 필요",
+    "협업 능력 개발을 위해 팀 프로젝트 활동 권장",
+    "다양한 전공 탐색을 통해 진로 방향 설정 필요"
+  ]
+};
+
 // 학생 데이터 선택 함수
 export function setCurrentStudent(studentId: string) {
   if (studentId === FRESHMAN_STUDENT.studentId) {
@@ -505,5 +627,11 @@ export function getCurrentGrades() {
   return CURRENT_STUDENT.studentId === FRESHMAN_STUDENT.studentId 
     ? FRESHMAN_GRADES 
     : DUMMY_GRADES;
+}
+
+export function getCurrentCompetency() {
+  return CURRENT_STUDENT.studentId === FRESHMAN_STUDENT.studentId
+    ? FRESHMAN_COMPETENCY
+    : SENIOR_COMPETENCY;
 }
 
