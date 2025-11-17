@@ -4,6 +4,24 @@ import { motion } from "framer-motion";
 import { getCurrentCourses, AVAILABLE_COURSES, CURRENT_STUDENT, getCurrentCompetency } from "../data/dummyData";
 import { calculateLearningProfile, compareProfiles, recommendCourses } from "../utils/profileAnalysis";
 import { recommendRoles, getRoleDescription } from "../utils/roleRecommendation";
+import { MAJORS } from "../data/majorList";
+
+// 코사인 유사도 계산 함수
+function cosineSimilarity(vecA: Record<Dim, number>, vecB: Partial<Record<Dim, number>>): number {
+  const DIMS: Dim[] = ['R', 'I', 'A', 'S', 'E', 'C', 'V'];
+  let dot = 0, a2 = 0, b2 = 0;
+  
+  DIMS.forEach((dim) => {
+    const a = vecA[dim] || 0;
+    const b = vecB[dim] || 0;
+    dot += a * b;
+    a2 += a * a;
+    b2 += b * b;
+  });
+  
+  const denom = Math.sqrt(a2) * Math.sqrt(b2);
+  return denom === 0 ? 0 : dot / denom;
+}
 
 type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C' | 'V';
 type RiasecResult = Record<Dim, number>;
@@ -111,11 +129,32 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
     return recommendRoles(careerTestResult, 8);
   }, [careerTestResult]);
 
-  // 레이더 차트 데이터
+  // 추천 학과 (RIASEC 결과 기반)
+  const recommendedMajors = useMemo(() => {
+    return MAJORS.map((major) => ({
+      ...major,
+      matchScore: cosineSimilarity(careerTestResult, major.vec)
+    }))
+    .sort((a, b) => b.matchScore - a.matchScore)
+    .slice(0, 5);
+  }, [careerTestResult]);
+
+  // 무전공 학생 여부 확인
+  const isFreshman = CURRENT_STUDENT.department === "무전공" || CURRENT_STUDENT.grade === 1;
+
+  // 레이더 차트 데이터 (RIASEC 라벨 한글로 표기)
   const radarData = useMemo(() => {
     const dims: Array<'R' | 'I' | 'A' | 'S' | 'E' | 'C'> = ['R', 'I', 'A', 'S', 'E', 'C'];
+    const dimLabels: Record<string, string> = {
+      R: "R(현장형)",
+      I: "I(탐구형)",
+      A: "A(예술형)",
+      S: "S(사회형)",
+      E: "E(진취형)",
+      C: "C(사무형)"
+    };
     return dims.map(dim => ({
-      axis: dim,
+      axis: dimLabels[dim] || dim,
       진로적성: Math.round(careerTestResult[dim] * 100),
       학습경험: Math.round(learningProfile.normalized[dim] * 100)
     }));
@@ -134,6 +173,17 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
     return "bg-red-600";
   };
 
+  // RIASEC 차원 한글 라벨
+  const dimLabels: Record<Dim | string, string> = {
+    R: "R(현장형)",
+    I: "I(탐구형)",
+    A: "A(예술형)",
+    S: "S(사회형)",
+    E: "E(진취형)",
+    C: "C(사무형)",
+    V: "V(가치)"
+  };
+
   return (
     <div className="space-y-6">
       {/* 페이지 헤더 */}
@@ -147,32 +197,96 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
         </p>
       </div>
 
-      {/* 일치도 점수 */}
-      <div className={`rounded-xl shadow-md p-6 border-2 ${getAlignmentColor(comparison.alignment)}`}>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-bold mb-1">진로-학습 일치도</h3>
-            <p className="text-sm opacity-80">
-              적성 검사 결과와 수강 과목 패턴의 일치 정도
-            </p>
-          </div>
-          <div className="text-right">
-            <div className="text-5xl font-bold">{comparison.alignment}점</div>
-            <div className="text-sm font-medium mt-1">
-              {comparison.alignment >= 80 ? "매우 일치" : 
-               comparison.alignment >= 60 ? "대체로 일치" : "재검토 필요"}
+      {/* 무전공 학생: 추천 학과 및 추천 직무 우선 표시 */}
+      {isFreshman && (
+        <>
+          {/* 추천 학과 */}
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">
+              🎓 적성에 맞는 추천 학과 Top 5
+            </h3>
+            <div className="space-y-3">
+              {recommendedMajors.map((major, index) => (
+                <div 
+                  key={major.key}
+                  className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className="inline-block px-2 py-1 bg-[#1e3a8a] text-white text-xs font-bold rounded">
+                          #{index + 1}
+                        </span>
+                        <h4 className="font-bold text-gray-800">{major.name}</h4>
+                      </div>
+                    </div>
+                    <div className="ml-4 text-right">
+                      <div className="text-2xl font-bold text-[#1e3a8a]">
+                        {Math.round(major.matchScore * 100)}
+                      </div>
+                      <div className="text-xs text-gray-600">매칭도</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-        
-        {/* 진행바 */}
-        <div className="w-full h-4 bg-white/50 rounded-full overflow-hidden">
-          <div 
-            className={`h-full ${getAlignmentBgColor(comparison.alignment)} transition-all duration-500`}
-            style={{ width: `${comparison.alignment}%` }}
-          />
-        </div>
-      </div>
+
+          {/* 추천 직무 */}
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">
+              💼 적성에 맞는 추천 직무 Top 8
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {recommendedRoles.map((role, index) => (
+                <div 
+                  key={role.key}
+                  className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl hover:shadow-md transition"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className="inline-block px-2 py-1 bg-[#3b82f6] text-white text-xs font-bold rounded">
+                          #{index + 1}
+                        </span>
+                        <h4 className="font-bold text-gray-800">{role.name}</h4>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">
+                        {getRoleDescription(role.key)}
+                      </p>
+                      {role.profileStrength && (
+                        <p className="text-xs text-gray-500 italic">
+                          {role.profileStrength}
+                        </p>
+                      )}
+                    </div>
+                    <div className="ml-4 text-center">
+                      <div className="text-2xl font-bold text-[#3b82f6]">
+                        {Math.round(role.matchScore * 100)}
+                      </div>
+                      <div className="text-xs text-gray-600">매칭도</div>
+                    </div>
+                  </div>
+                  {role.matchReasons.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-blue-200">
+                      <div className="flex flex-wrap gap-2">
+                        {role.matchReasons.slice(0, 3).map((reason, idx) => (
+                          <span 
+                            key={idx}
+                            className="text-xs bg-white text-blue-700 px-2 py-1 rounded-full border border-blue-200"
+                          >
+                            {reason}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* 레이더 차트 비교 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -225,7 +339,7 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
                     </div>
                     <div className="flex-1">
                       <div className="flex justify-between items-center mb-1">
-                        <span className="font-medium text-gray-800">{dim}</span>
+                        <span className="font-medium text-gray-800">{dimLabels[dim] || dim}</span>
                         <span className="text-sm text-gray-600">
                           {Math.round(value * 100)}점
                         </span>
@@ -253,13 +367,13 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
                   <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-[#60a5fa] rounded-full flex items-center justify-center font-bold">
                     {index + 1}
                   </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-medium text-gray-800">{item.dim}</span>
-                      <span className="text-sm text-gray-600">
-                        {Math.round(item.value * 100)}점
-                      </span>
-                    </div>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-medium text-gray-800">{dimLabels[item.dim] || item.dim}</span>
+                        <span className="text-sm text-gray-600">
+                          {Math.round(item.value * 100)}점
+                        </span>
+                      </div>
                     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-[#60a5fa]"
@@ -410,11 +524,12 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
         </div>
       </div>
 
-      {/* 추천 직무 */}
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <h3 className="text-lg font-bold text-gray-800 mb-4">
-          💼 적성에 맞는 추천 직무 Top 8
-        </h3>
+      {/* 전공 학생: 추천 직무 */}
+      {!isFreshman && (
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">
+            💼 적성에 맞는 추천 직무 Top 8
+          </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {recommendedRoles.map((role, index) => (
             <div 
@@ -462,7 +577,8 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
             </div>
           ))}
         </div>
-      </div>
+        </div>
+      )}
 
       {/* 전공능력 연계 분석 */}
       <div className="bg-white rounded-xl shadow-md p-6">
@@ -567,6 +683,33 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
             : "다양한 영역을 탐색 중입니다. 가치 지향적 과목도 수강해보면 새로운 관심사를 발견할 수 있습니다."
           }
         </p>
+      </div>
+
+      {/* 진로-학습 일치도 (최종) */}
+      <div className={`rounded-xl shadow-md p-6 border-2 ${getAlignmentColor(comparison.alignment)}`}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold mb-1">진로-학습 일치도</h3>
+            <p className="text-sm opacity-80">
+              적성 검사 결과와 수강 과목 패턴의 일치 정도
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-5xl font-bold">{comparison.alignment}점</div>
+            <div className="text-sm font-medium mt-1">
+              {comparison.alignment >= 80 ? "매우 일치" : 
+               comparison.alignment >= 60 ? "대체로 일치" : "재검토 필요"}
+            </div>
+          </div>
+        </div>
+        
+        {/* 진행바 */}
+        <div className="w-full h-4 bg-white/50 rounded-full overflow-hidden">
+          <div 
+            className={`h-full ${getAlignmentBgColor(comparison.alignment)} transition-all duration-500`}
+            style={{ width: `${comparison.alignment}%` }}
+          />
+        </div>
       </div>
     </div>
   );

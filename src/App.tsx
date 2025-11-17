@@ -47,6 +47,24 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    // 로그아웃 시 localStorage 캐시 초기화
+    // 현재 학생의 RIASEC 검사 결과 삭제
+    if (CURRENT_STUDENT && CURRENT_STUDENT.studentId) {
+      localStorage.removeItem(`riasecResult_${CURRENT_STUDENT.studentId}`);
+    }
+    
+    // 모든 학생의 RIASEC 결과를 삭제하려면 (선택사항)
+    // Object.keys(localStorage).forEach(key => {
+    //   if (key.startsWith('riasecResult_')) {
+    //     localStorage.removeItem(key);
+    //   }
+    // });
+    
+    // 기타 캐시 데이터가 있다면 여기서 삭제
+    // localStorage.removeItem('기타_캐시_키');
+    
+    // 상태 초기화
+    setRiasecResult(null);
     setIsLoggedIn(false);
     setCurrentPage("dashboard");
   };
