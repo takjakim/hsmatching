@@ -3,6 +3,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
 import { MAJORS } from "./data/majorList";
 
+// 이미지 경로 매핑 함수 (public 폴더 사용)
+function getImagePath(questionId: number, key: 'a' | 'b'): string | null {
+  if (questionId < 1 || questionId > 6) return null;
+  const imageName = `id${String(questionId).padStart(2, '0')}${key}.png`;
+  // public 폴더는 루트 경로로 접근
+  return `/img/${imageName}`;
+}
+
 /**
  * 전체 학과 커버 전공·직무 매칭 프로토타입 (A/B/None + Adaptive)
  * - 3지선다: A, B, 둘 다 관심 없음(None)
@@ -510,37 +518,68 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                 <h2 className="text-lg md:text-xl font-semibold mb-4">{currentQ.prompt}</h2>
 
                 <div className="grid md:grid-cols-3 gap-4">
-                  {(["A", "B"] as const).map((key) => (
-                    <motion.button
-                      key={key}
-                      whileHover={{ 
-                        scale: 1.02,
-                        boxShadow: "0 10px 25px rgba(59, 130, 246, 0.2)",
-                        borderColor: "#3b82f6"
-                      }}
-                      whileTap={{ 
-                        scale: 0.96,
-                        boxShadow: "0 5px 15px rgba(59, 130, 246, 0.3)"
-                      }}
-                      onClick={() => handlePick(key)}
-                      className="text-left bg-slate-50 hover:bg-blue-50 border-2 border-slate-200 rounded-2xl p-5 shadow-sm transition-all duration-200"
-                    >
-                      <motion.div
-                        initial={{ opacity: 0.7 }}
-                        whileHover={{ opacity: 1 }}
-                        className="text-xs uppercase tracking-wide text-slate-500 mb-2 font-semibold"
+                  {(["A", "B"] as const).map((key) => {
+                    // 문항 1~6번에 대해 이미지 경로 생성
+                    const questionId = currentQ.id;
+                    const hasImage = questionId >= 1 && questionId <= 6;
+                    
+                    // 이미지 경로 생성
+                    let imagePath: string | null = null;
+                    if (hasImage) {
+                      imagePath = getImagePath(questionId, key.toLowerCase() as 'a' | 'b');
+                    }
+                    
+                    return (
+                      <motion.button
+                        key={key}
+                        whileHover={{ 
+                          scale: 1.02,
+                          boxShadow: "0 10px 25px rgba(59, 130, 246, 0.2)",
+                          borderColor: "#3b82f6"
+                        }}
+                        whileTap={{ 
+                          scale: 0.96,
+                          boxShadow: "0 5px 15px rgba(59, 130, 246, 0.3)"
+                        }}
+                        onClick={() => handlePick(key)}
+                        className={`text-left bg-slate-50 hover:bg-blue-50 border-2 border-slate-200 rounded-2xl p-5 shadow-sm transition-all duration-200 ${hasImage ? 'flex flex-col items-center' : ''}`}
                       >
-                        선택 {key}
-                      </motion.div>
-                      <motion.div
-                        initial={{ color: "#1e293b" }}
-                        whileHover={{ color: "#0f172a" }}
-                        className="text-slate-800 font-medium leading-relaxed"
-                      >
-                        {currentQ[key].text}
-                      </motion.div>
-                    </motion.button>
-                  ))}
+                        {hasImage && imagePath && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="mb-4 w-full"
+                          >
+                            <img 
+                              src={imagePath} 
+                              alt={`문항 ${questionId} ${key} 선택지`}
+                              className="w-full h-auto rounded-xl object-contain max-h-64 bg-slate-100"
+                              onError={(e) => {
+                                // 이미지 로드 실패 시 숨기기
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          </motion.div>
+                        )}
+                        <div className="w-full">
+                          <motion.div
+                            initial={{ opacity: 0.7 }}
+                            whileHover={{ opacity: 1 }}
+                            className="text-xs uppercase tracking-wide text-slate-500 mb-2 font-semibold"
+                          >
+                            선택 {key}
+                          </motion.div>
+                          <motion.div
+                            initial={{ color: "#1e293b" }}
+                            whileHover={{ color: "#0f172a" }}
+                            className="text-slate-800 font-medium leading-relaxed"
+                          >
+                            {currentQ[key].text}
+                          </motion.div>
+                        </div>
+                      </motion.button>
+                    );
+                  })}
                   <motion.button
                     whileHover={{ 
                       scale: 1.02,

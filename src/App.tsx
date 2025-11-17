@@ -17,40 +17,44 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [riasecResult, setRiasecResult] = useState<RiasecResult | null>(null);
+  const [currentStudentId, setCurrentStudentId] = useState<string | null>(null);
 
-  // localStorage에서 검사 결과 불러오기
+  // 레거시 키 정리 (이전 버전에서 사용하던 단일 키 제거)
   useEffect(() => {
-    if (isLoggedIn) {
-      const saved = localStorage.getItem("riasecResult");
-      if (saved) {
-        try {
-          setRiasecResult(JSON.parse(saved));
-        } catch (e) {
-          console.error("Failed to parse saved RIASEC result", e);
-        }
-      }
-    }
-  }, [isLoggedIn]);
+    localStorage.removeItem("riasecResult");
+  }, []);
 
-  const handleLogin = (studentId: string) => {
-    setIsLoggedIn(true);
-    setCurrentPage("dashboard");
-    // 학생별로 localStorage 키를 분리하여 저장
-    const savedResult = localStorage.getItem(`riasecResult_${studentId}`);
+  // 학생별 RIASEC 결과 불러오기
+  useEffect(() => {
+    if (!currentStudentId) {
+      setRiasecResult(null);
+      return;
+    }
+
+    const savedResult = localStorage.getItem(`riasecResult_${currentStudentId}`);
     if (savedResult) {
       try {
         setRiasecResult(JSON.parse(savedResult));
       } catch (e) {
         console.error("Failed to parse saved RIASEC result", e);
+        setRiasecResult(null);
       }
+    } else {
+      setRiasecResult(null);
     }
+  }, [currentStudentId]);
+
+  const handleLogin = (studentId: string) => {
+    setIsLoggedIn(true);
+    setCurrentPage("dashboard");
+    setCurrentStudentId(studentId);
   };
 
   const handleLogout = () => {
     // 로그아웃 시 localStorage 캐시 초기화
     // 현재 학생의 RIASEC 검사 결과 삭제
-    if (CURRENT_STUDENT && CURRENT_STUDENT.studentId) {
-      localStorage.removeItem(`riasecResult_${CURRENT_STUDENT.studentId}`);
+    if (currentStudentId) {
+      localStorage.removeItem(`riasecResult_${currentStudentId}`);
     }
     
     // 모든 학생의 RIASEC 결과를 삭제하려면 (선택사항)
@@ -65,14 +69,16 @@ export default function App() {
     
     // 상태 초기화
     setRiasecResult(null);
+    setCurrentStudentId(null);
     setIsLoggedIn(false);
     setCurrentPage("dashboard");
   };
 
   const handleRiasecComplete = (result: RiasecResult) => {
     setRiasecResult(result);
+    const targetStudentId = currentStudentId || CURRENT_STUDENT.studentId;
     // 학생별로 localStorage에 저장
-    localStorage.setItem(`riasecResult_${CURRENT_STUDENT.studentId}`, JSON.stringify(result));
+    localStorage.setItem(`riasecResult_${targetStudentId}`, JSON.stringify(result));
     // 검사 완료 후 인사이트 페이지로 이동
     setCurrentPage("insight");
   };

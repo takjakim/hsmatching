@@ -4,24 +4,7 @@ import { motion } from "framer-motion";
 import { getCurrentCourses, AVAILABLE_COURSES, CURRENT_STUDENT, getCurrentCompetency } from "../data/dummyData";
 import { calculateLearningProfile, compareProfiles, recommendCourses } from "../utils/profileAnalysis";
 import { recommendRoles, getRoleDescription } from "../utils/roleRecommendation";
-import { MAJORS } from "../data/majorList";
-
-// 코사인 유사도 계산 함수
-function cosineSimilarity(vecA: Record<Dim, number>, vecB: Partial<Record<Dim, number>>): number {
-  const DIMS: Dim[] = ['R', 'I', 'A', 'S', 'E', 'C', 'V'];
-  let dot = 0, a2 = 0, b2 = 0;
-  
-  DIMS.forEach((dim) => {
-    const a = vecA[dim] || 0;
-    const b = vecB[dim] || 0;
-    dot += a * b;
-    a2 += a * a;
-    b2 += b * b;
-  });
-  
-  const denom = Math.sqrt(a2) * Math.sqrt(b2);
-  return denom === 0 ? 0 : dot / denom;
-}
+import { recommendMajors } from "../utils/recommendMajors";
 
 type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C' | 'V';
 type RiasecResult = Record<Dim, number>;
@@ -129,14 +112,9 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
     return recommendRoles(careerTestResult, 8);
   }, [careerTestResult]);
 
-  // 추천 학과 (RIASEC 결과 기반)
+  // 추천 학과 (새 알고리즘)
   const recommendedMajors = useMemo(() => {
-    return MAJORS.map((major) => ({
-      ...major,
-      matchScore: cosineSimilarity(careerTestResult, major.vec)
-    }))
-    .sort((a, b) => b.matchScore - a.matchScore)
-    .slice(0, 5);
+    return recommendMajors(careerTestResult, { limit: 5 });
   }, [careerTestResult]);
 
   // 무전공 학생 여부 확인
@@ -197,41 +175,62 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
         </p>
       </div>
 
-      {/* 무전공 학생: 추천 학과 및 추천 직무 우선 표시 */}
-      {isFreshman && (
-        <>
-          {/* 추천 학과 */}
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">
-              🎓 적성에 맞는 추천 학과 Top 5
-            </h3>
-            <div className="space-y-3">
-              {recommendedMajors.map((major, index) => (
-                <div 
-                  key={major.key}
-                  className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <span className="inline-block px-2 py-1 bg-[#1e3a8a] text-white text-xs font-bold rounded">
-                          #{index + 1}
-                        </span>
-                        <h4 className="font-bold text-gray-800">{major.name}</h4>
-                      </div>
+      {/* 추천 학과 - 모든 학생에게 표시 */}
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <h3 className="text-lg font-bold text-gray-800 mb-4">
+          🎓 적성에 맞는 추천 학과 Top 5
+        </h3>
+        {recommendedMajors.length === 0 ? (
+          <div className="text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-300 rounded-xl p-4 text-center">
+            RIASEC 검사를 완료하면 개인화된 학과 추천을 확인할 수 있습니다.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {recommendedMajors.map((major, index) => (
+              <div 
+                key={major.key}
+                className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <span className="inline-block px-2 py-1 bg-[#1e3a8a] text-white text-xs font-bold rounded">
+                        #{index + 1}
+                      </span>
+                      <h4 className="font-bold text-gray-800">{major.name}</h4>
                     </div>
-                    <div className="ml-4 text-right">
-                      <div className="text-2xl font-bold text-[#1e3a8a]">
-                        {Math.round(major.matchScore * 100)}
+                    {major.reasons?.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {major.reasons.slice(0, 3).map((reason, idx) => (
+                          <span 
+                            key={idx}
+                            className="text-xs bg-white text-purple-700 px-2 py-1 rounded-full border border-purple-200"
+                          >
+                            {reason}
+                          </span>
+                        ))}
                       </div>
-                      <div className="text-xs text-gray-600">매칭도</div>
+                    )}
+                  </div>
+                  <div className="ml-4 text-right">
+                    <div className="text-2xl font-bold text-[#1e3a8a]">
+                      {major.matchScore}
                     </div>
+                    <div className="text-xs text-gray-600">매칭도</div>
                   </div>
                 </div>
-              ))}
-            </div>
+                <div className="text-xs text-gray-500">
+                  적성 시그니처: {major.signature.replace('>', ' → ')}
+                </div>
+              </div>
+            ))}
           </div>
+        )}
+      </div>
 
+      {/* 무전공 학생: 추천 직무 우선 표시 */}
+      {isFreshman && (
+        <>
           {/* 추천 직무 */}
           <div className="bg-white rounded-xl shadow-md p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4">
