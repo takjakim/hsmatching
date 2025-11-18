@@ -114,6 +114,91 @@ const QUESTIONS: Q[] = [
   { id: 54, prompt: "바이오 연구에서 더 중요한 것은?", A: { text: "실험을 통해 새로운 발견을 하는 것", weights: [["R", 0.9],["I", 0.5],["A", 0.3]] }, B: { text: "이론적 모델과 논리적 검증", weights: [["I", 0.7],["C", 0.7]] } }
 ];
 
+type KeyQuestion = Q & {
+  signature: Dim[];
+};
+
+const KEY_QUESTIONS: KeyQuestion[] = [
+  {
+    id: 9001,
+    signature: ["C", "S"],
+    prompt: "사무·사회형 조합에서 더 끌리는 길은?",
+    A: {
+      text: "공공정책/법무 중심으로 규정과 절차를 설계하고 집행",
+      weights: [["C", 0.9], ["I", 0.5], ["V", 0.4]]
+    },
+    B: {
+      text: "인사·교육·상담으로 사람과 조직의 성장을 지원",
+      weights: [["S", 0.8], ["E", 0.4], ["C", 0.4]]
+    }
+  },
+  {
+    id: 9002,
+    signature: ["A", "I"],
+    prompt: "예술·탐구형 내에서 선호하는 방향은?",
+    A: {
+      text: "순수 예술과 공연, 감성 표현 중심 창작",
+      weights: [["A", 1], ["E", 0.4], ["S", 0.3]]
+    },
+    B: {
+      text: "디지털콘텐츠/UX 등 연구·데이터 기반 디자인",
+      weights: [["I", 0.6], ["C", 0.4], ["A", 0.5]]
+    }
+  },
+  {
+    id: 9003,
+    signature: ["R", "I"],
+    prompt: "현장·탐구형에서 더 매력적인 커리어는?",
+    A: {
+      text: "스마트 인프라·기계 등 엔지니어링 실무 설계",
+      weights: [["R", 0.9], ["I", 0.5], ["C", 0.4]]
+    },
+    B: {
+      text: "기초과학/연구소에서 이론 검증과 분석",
+      weights: [["I", 0.8], ["C", 0.5], ["R", 0.3]]
+    }
+  },
+  {
+    id: 9004,
+    signature: ["E", "I"],
+    prompt: "진취·탐구형의 진로 중 더 끌리는 것은?",
+    A: {
+      text: "데이터 드리븐 경영/컨설팅으로 의사결정 지원",
+      weights: [["E", 0.7], ["I", 0.6], ["C", 0.4]]
+    },
+    B: {
+      text: "창업/프로덕트 리더십으로 제품과 시장을 개척",
+      weights: [["E", 0.9], ["A", 0.4], ["S", 0.4]]
+    }
+  },
+  {
+    id: 9005,
+    signature: ["S", "V"],
+    prompt: "사회·가치 지향에서 우선순위는?",
+    A: {
+      text: "청소년·상담·교육 등 개인 성장 지원",
+      weights: [["S", 0.95], ["V", 0.7], ["E", 0.4]]
+    },
+    B: {
+      text: "공공정책/국제개발 등 구조적 변화를 설계",
+      weights: [["V", 0.9], ["I", 0.5], ["C", 0.4]]
+    }
+  },
+  {
+    id: 9006,
+    signature: ["E", "A"],
+    prompt: "진취·창의 조합에서 더 맞는 역할은?",
+    A: {
+      text: "브랜드/마케팅·콘텐츠 전략으로 대중과 소통",
+      weights: [["E", 0.9], ["A", 0.6], ["S", 0.4]]
+    },
+    B: {
+      text: "디지털 제품·서비스 기획으로 사용자 경험 혁신",
+      weights: [["A", 0.6], ["I", 0.5], ["C", 0.4]]
+    }
+  }
+];
+
 // ----- 전공 및 직무 프로파일 -----
 // MAJORS는 major_list.csv 파일에서 자동으로 생성됩니다 (data/majorList.ts 참조)
 export { MAJORS };
@@ -238,24 +323,69 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
     const q = step <= mainTotal ? shuffledQuestions[step - 1] : adaptiveQs[step - mainTotal - 1];
     if (!q) return;
 
+    let nextScores = scores;
+    let nextLosers = losers;
+
     if (choice === "NONE") {
       setSkipped((s) => s.concat(q.id));
-      setLosers((L) => L.concat([q.A, q.B]));
+      nextLosers = losers.concat([q.A, q.B]);
+      setLosers(nextLosers);
     } else {
       const selected = choice === "A" ? q.A : q.B;
       const other = choice === "A" ? q.B : q.A;
-      setScores((prev) => applyWeights(prev, selected.weights));
-      setLosers((L) => L.concat([other]));
+      nextScores = applyWeights(scores, selected.weights);
+      nextLosers = losers.concat([other]);
+      setScores(nextScores);
+      setLosers(nextLosers);
     }
 
-    setStep((s) => {
-      const next = s + 1;
-      if (s === mainTotal) {
-        const generated = buildAdaptiveQuestions(scores, losers, 4);
-        setAdaptiveQs(generated);
-      }
-      return next;
-    });
+    if (step === mainTotal) {
+      const generated = buildAdaptiveQuestions(nextScores, nextLosers, 4);
+      setAdaptiveQs(generated);
+    }
+
+    setStep((prev) => prev + 1);
+  }
+
+  function selectKeyQuestions(norm: Partial<Record<Dim, number>>, limit: number): Q[] {
+    if (limit <= 0) return [];
+    const ordered = DIMS.slice().sort((a, b) => (norm[b] || 0) - (norm[a] || 0));
+    const top3 = ordered.slice(0, 3);
+
+    const scored = KEY_QUESTIONS.map((q) => {
+      const score = q.signature.reduce((acc, dim) => {
+        const idx = top3.indexOf(dim);
+        return acc + (idx === -1 ? 10 : idx);
+      }, 0);
+      return { question: q, score };
+    }).filter(({ score }) => score < 20);
+
+    return scored
+      .sort((a, b) => a.score - b.score)
+      .slice(0, limit)
+      .map(({ question }) => question);
+  }
+
+  function buildReinforcementQuestions(lowDims: Dim[], curLosers: Choice[], limit: number): Q[] {
+    if (limit <= 0) return [];
+    const bucketA = curLosers.filter((c) => c.weights.some((w) => w[0] === lowDims[0]));
+    const bucketB = curLosers.filter((c) => c.weights.some((w) => w[0] === lowDims[1]));
+
+    const pairs: Q[] = [];
+    const n = Math.min(limit, Math.max(bucketA.length, bucketB.length, 0));
+    for (let i = 0; i < n; i++) {
+      const a = bucketA[i % Math.max(1, bucketA.length)] || curLosers[i % Math.max(1, curLosers.length)];
+      const b = bucketB[i % Math.max(1, bucketB.length)] || curLosers[(i + 1) % Math.max(1, curLosers.length)];
+      pairs.push({ id: 1000 + i, prompt: "덜 선호된 영역을 다시 비교해봅시다. 더 마음이 가는 활동은?", A: a, B: b });
+    }
+
+    while (pairs.length < limit && curLosers.length >= 2) {
+      const a = curLosers[Math.floor(Math.random() * curLosers.length)];
+      const b = curLosers[Math.floor(Math.random() * curLosers.length)];
+      if (a !== b) pairs.push({ id: 2000 + pairs.length, prompt: "한 번 더 비교해볼까요?", A: a, B: b });
+    }
+
+    return pairs;
   }
 
   function buildAdaptiveQuestions(curScores: Partial<Record<Dim, number>>, curLosers: Choice[], maxQ: number): Q[] {
@@ -266,24 +396,11 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
 
     const lowDims = DIMS.slice().sort((a, b) => (norm[a] || 0) - (norm[b] || 0)).slice(0, 2);
 
-    const bucketA = curLosers.filter((c) => c.weights.some((w) => w[0] === lowDims[0]));
-    const bucketB = curLosers.filter((c) => c.weights.some((w) => w[0] === lowDims[1]));
+    const keyQuota = Math.min(2, maxQ);
+    const keyQs = selectKeyQuestions(norm, keyQuota);
+    const reinforcementQs = buildReinforcementQuestions(lowDims, curLosers, Math.max(0, maxQ - keyQs.length));
 
-    const pairs: Q[] = [];
-    const n = Math.min(maxQ, Math.max(bucketA.length, bucketB.length, 0));
-    for (let i = 0; i < n; i++) {
-      const a = bucketA[i % Math.max(1, bucketA.length)] || curLosers[i % Math.max(1, curLosers.length)];
-      const b = bucketB[i % Math.max(1, bucketB.length)] || curLosers[(i + 1) % Math.max(1, curLosers.length)];
-      pairs.push({ id: 1000 + i, prompt: "덜 선호된 영역을 다시 비교해봅시다. 더 마음이 가는 활동은?", A: a, B: b });
-    }
-
-    while (pairs.length < maxQ && curLosers.length >= 2) {
-      const a = curLosers[Math.floor(Math.random() * curLosers.length)];
-      const b = curLosers[Math.floor(Math.random() * curLosers.length)];
-      if (a !== b) pairs.push({ id: 2000 + pairs.length, prompt: "한 번 더 비교해볼까요?", A: a, B: b });
-    }
-
-    return pairs;
+    return [...keyQs, ...reinforcementQs].slice(0, maxQ);
   }
 
   const result = useMemo(() => {
