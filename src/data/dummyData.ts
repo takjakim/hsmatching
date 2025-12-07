@@ -38,6 +38,14 @@ export const FRESHMAN_STUDENT: Student = {
   registrationNumber: "070903-4******"
 };
 
+// 관리자 계정 정보
+export const ADMIN_ACCOUNT = {
+  studentId: "admin",
+  password: "admin123",
+  name: "관리자",
+  isAdmin: true
+};
+
 // 현재 로그인한 학생 정보 (기본값)
 export let CURRENT_STUDENT: Student = DUMMY_STUDENT;
 

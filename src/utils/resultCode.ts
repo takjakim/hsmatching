@@ -1,4 +1,5 @@
 // 결과 코드 생성 및 관리 유틸리티
+import { collectDeviceInfo, DeviceInfo } from "./deviceInfo";
 
 /**
  * 랜덤 코드 생성 (6자리 이상)
@@ -17,9 +18,13 @@ export function generateResultCode(): string {
  * 결과를 코드와 함께 저장
  */
 export function saveResultWithCode(result: any, code: string): void {
+  // 기기 정보 수집
+  const deviceInfo = collectDeviceInfo();
+  
   const resultData = {
     code,
     result,
+    deviceInfo, // 기기 정보 추가
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() // 90일 후 만료
   };
@@ -53,6 +58,29 @@ export function getResultByCode(code: string): any | null {
     }
     
     return resultData.result;
+  } catch (e) {
+    console.error('Failed to parse result data', e);
+    return null;
+  }
+}
+
+/**
+ * 코드로 전체 데이터 조회 (기기 정보 포함)
+ */
+export function getFullResultByCode(code: string): any | null {
+  const data = localStorage.getItem(`result_${code}`);
+  if (!data) return null;
+  
+  try {
+    const resultData = JSON.parse(data);
+    
+    // 만료 확인
+    if (new Date(resultData.expiresAt) < new Date()) {
+      localStorage.removeItem(`result_${code}`);
+      return null;
+    }
+    
+    return resultData;
   } catch (e) {
     console.error('Failed to parse result data', e);
     return null;

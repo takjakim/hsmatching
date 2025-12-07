@@ -171,6 +171,9 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
   const [lastCompletedBlock, setLastCompletedBlock] = useState(0);
   // 결과 코드
   const [resultCode, setResultCode] = useState<string | null>(null);
+  // 제외된 전공/직무 목록
+  const [excludedMajors, setExcludedMajors] = useState<Set<string>>(new Set());
+  const [excludedRoles, setExcludedRoles] = useState<Set<string>>(new Set());
   
   // 다시 하기 함수 (문항도 다시 섞기)
   const handleReset = () => {
@@ -182,6 +185,8 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
     setShowBlockComplete(false);
     setLastCompletedBlock(0);
     setShuffledQuestions(shuffleArray(QUESTIONS)); // 문항 다시 섞기
+    setExcludedMajors(new Set());
+    setExcludedRoles(new Set());
   };
 
   const mainTotal = shuffledQuestions.length;
@@ -222,17 +227,19 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
       normalized[d] = (scores[d] || 0) / maxVal;
     });
 
-    // 직무 추천 (상위 2개)
-    const topRoles = recommendRoles(normalized, 2);
+    // 직무 추천 (상위 3개, 제외된 항목 필터링)
+    const allRoles = recommendRoles(normalized, 10);
+    const topRoles = allRoles.filter(role => !excludedRoles.has(role.key)).slice(0, 3);
     
-    // 전공 추천 (상위 2개)
-    const topMajors = recommendMajors(normalized, { limit: 2 });
+    // 전공 추천 (상위 3개, 제외된 항목 필터링)
+    const allMajors = recommendMajors(normalized, { limit: 10 });
+    const topMajors = allMajors.filter(major => !excludedMajors.has(major.key)).slice(0, 3);
 
     return {
       roles: topRoles,
       majors: topMajors
     };
-  }, [step, scores]);
+  }, [step, scores, excludedMajors, excludedRoles]);
 
   function applyWeights(next: Partial<Record<Dim, number>>, weights: Array<[Dim, number]>) {
     const copy = { ...next };
@@ -359,11 +366,19 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
       return acc;
     }, {} as Record<Dim, number>);
 
-    const majors = MAJORS.map((m) => ({ ...m, score: cosineSim(normObj, m.vec) })).sort((a, b) => b.score - a.score).slice(0, 5);
-    const roles = ROLES.map((r) => ({ ...r, score: cosineSim(normObj, r.vec) })).sort((a, b) => b.score - a.score).slice(0, 5);
+    // 제외된 항목을 필터링하여 추천
+    const allMajors = MAJORS.map((m) => ({ ...m, score: cosineSim(normObj, m.vec) }))
+      .filter(m => !excludedMajors.has(m.key))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+    
+    const allRoles = ROLES.map((r) => ({ ...r, score: cosineSim(normObj, r.vec) }))
+      .filter(r => !excludedRoles.has(r.key))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
 
-    return { norm: normObj, majors, roles };
-  }, [step, totalAll, scores]);
+    return { norm: normObj, majors: allMajors, roles: allRoles };
+  }, [step, totalAll, scores, excludedMajors, excludedRoles]);
 
   // RIASEC 레이더 데이터 (먼저 정의)
   const riasecData = useMemo(() => {
@@ -585,12 +600,25 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                         추천 전공
                       </div>
                       <div className="space-y-1">
-                        {liveRecommendations.majors.slice(0, 2).map((major, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-xs">
-                            <span className="text-gray-700 truncate">{major.name}</span>
+                        {liveRecommendations.majors.map((major, idx) => (
+                          <div 
+                            key={major.key || idx} 
+                            className="group relative flex items-center justify-between text-xs hover:bg-blue-100 rounded px-1 py-0.5 transition-colors"
+                          >
+                            <span className="text-gray-700 truncate flex-1">{major.name}</span>
                             <span className="text-blue-600 font-medium ml-2">
                               {major.matchScore}%
                             </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExcludedMajors(prev => new Set(prev).add(major.key));
+                              }}
+                              className="opacity-0 group-hover:opacity-100 ml-2 text-red-500 hover:text-red-700 transition-opacity"
+                              title="이 전공 추천받지 않기"
+                            >
+                              ✕
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -605,12 +633,25 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                         추천 직무
                       </div>
                       <div className="space-y-1">
-                        {liveRecommendations.roles.slice(0, 2).map((role, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-xs">
-                            <span className="text-gray-700 truncate">{role.name}</span>
+                        {liveRecommendations.roles.map((role, idx) => (
+                          <div 
+                            key={role.key || idx} 
+                            className="group relative flex items-center justify-between text-xs hover:bg-emerald-100 rounded px-1 py-0.5 transition-colors"
+                          >
+                            <span className="text-gray-700 truncate flex-1">{role.name}</span>
                             <span className="text-emerald-600 font-medium ml-2">
                               {Math.round(role.matchScore * 100)}%
                             </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExcludedRoles(prev => new Set(prev).add(role.key));
+                              }}
+                              className="opacity-0 group-hover:opacity-100 ml-2 text-red-500 hover:text-red-700 transition-opacity"
+                              title="이 직무 추천받지 않기"
+                            >
+                              ✕
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -720,7 +761,8 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                   <h2 className="text-2xl md:text-3xl font-bold text-gray-800 leading-tight mb-3">
                     {currentQ.prompt}
                   </h2>
-                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  {/* PC에서만 표시되는 키보드 단축키 안내 */}
+                  <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500">
                     <span className="bg-gray-100 px-2 py-1 rounded">1</span>
                     <span>또는</span>
                     <span className="bg-gray-100 px-2 py-1 rounded">2</span>

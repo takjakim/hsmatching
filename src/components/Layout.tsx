@@ -7,13 +7,15 @@ interface LayoutProps {
   currentPage: string;
   onPageChange: (page: string) => void;
   onLogout: () => void;
+  isAdmin?: boolean;
 }
 
-export default function Layout({ children, currentPage, onPageChange, onLogout }: LayoutProps) {
+export default function Layout({ children, currentPage, onPageChange, onLogout, isAdmin = false }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
 
-  const menuItems = [
+  // 일반 학생 메뉴
+  const studentMenuItems = [
     { id: "dashboard", label: "대시보드", icon: "🏠" },
     { id: "personal", label: "개인신상", icon: "👤" },
     { id: "grades", label: "학점이수", icon: "📊" },
@@ -22,6 +24,13 @@ export default function Layout({ children, currentPage, onPageChange, onLogout }
     { id: "insight", label: "진로-학습 분석", icon: "💡" },
     { id: "riasec", label: "진로매칭", icon: "🎯" },
   ];
+
+  // 관리자 메뉴
+  const adminMenuItems = [
+    { id: "admin-logs", label: "응답 로그", icon: "📊" },
+  ];
+
+  const menuItems = isAdmin ? adminMenuItems : studentMenuItems;
 
   const handleMenuClick = (pageId: string) => {
     onPageChange(pageId);
@@ -100,7 +109,9 @@ export default function Layout({ children, currentPage, onPageChange, onLogout }
                 <div>
                   <h1 className="text-xl font-bold text-gray-800">MYiCap</h1>
                   <p className="text-xs text-gray-600">MYONGJI CAPABILITY PLUS</p>
-                  <p className="text-xs text-gray-600">명지역량통합관리시스템</p>
+                  <p className="text-xs text-gray-600">
+                    {isAdmin ? "관리자 시스템" : "명지역량통합관리시스템"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -108,10 +119,19 @@ export default function Layout({ children, currentPage, onPageChange, onLogout }
             {/* 사용자 정보 */}
             <div className="flex items-center space-x-4">
               <div className="text-right">
-                <p className="font-semibold text-sm text-gray-800">{CURRENT_STUDENT.name}</p>
-                <p className="text-xs text-gray-600">
-                  {CURRENT_STUDENT.studentId} · {CURRENT_STUDENT.department}
-                </p>
+                {isAdmin ? (
+                  <>
+                    <p className="font-semibold text-sm text-gray-800">관리자</p>
+                    <p className="text-xs text-gray-600">시스템 관리자</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold text-sm text-gray-800">{CURRENT_STUDENT.name}</p>
+                    <p className="text-xs text-gray-600">
+                      {CURRENT_STUDENT.studentId} · {CURRENT_STUDENT.department}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>

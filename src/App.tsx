@@ -10,6 +10,7 @@ import CareerInsight from "./pages/CareerInsight";
 import HSMatchingPrototype from "./HSMatchingPrototype";
 import ResultViewer from "./pages/ResultViewer";
 import PublicLanding from "./pages/PublicLanding";
+import AdminLogs from "./pages/AdminLogs";
 import { CURRENT_STUDENT } from "./data/dummyData";
 
 type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C';
@@ -20,6 +21,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState("landing");
   const [riasecResult, setRiasecResult] = useState<RiasecResult | null>(null);
   const [currentStudentId, setCurrentStudentId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // 레거시 키 정리 (이전 버전에서 사용하던 단일 키 제거)
   useEffect(() => {
@@ -46,16 +48,21 @@ export default function App() {
     }
   }, [currentStudentId]);
 
-  const handleLogin = (studentId: string) => {
+  const handleLogin = (studentId: string, isAdminUser: boolean = false) => {
     setIsLoggedIn(true);
-    setCurrentPage("dashboard");
+    setIsAdmin(isAdminUser);
+    if (isAdminUser) {
+      setCurrentPage("admin-logs");
+    } else {
+      setCurrentPage("dashboard");
+    }
     setCurrentStudentId(studentId);
   };
 
   const handleLogout = () => {
     // 로그아웃 시 localStorage 캐시 초기화
     // 현재 학생의 RIASEC 검사 결과 삭제
-    if (currentStudentId) {
+    if (currentStudentId && !isAdmin) {
       localStorage.removeItem(`riasecResult_${currentStudentId}`);
     }
     
@@ -73,6 +80,7 @@ export default function App() {
     setRiasecResult(null);
     setCurrentStudentId(null);
     setIsLoggedIn(false);
+    setIsAdmin(false);
     setCurrentPage("dashboard");
   };
 
@@ -154,21 +162,54 @@ export default function App() {
       case "login":
         return <Login onLogin={handleLogin} />;
       case "dashboard":
+        // 관리자는 대시보드 접근 불가
+        if (isAdmin) {
+          setCurrentPage("admin-logs");
+          return null;
+        }
         return <Dashboard onNavigate={setCurrentPage} riasecCompleted={!!riasecResult} />;
       case "personal":
+        // 관리자는 일반 학생 페이지 접근 불가
+        if (isAdmin) {
+          setCurrentPage("admin-logs");
+          return null;
+        }
         return <PersonalInfo />;
       case "grades":
+        if (isAdmin) {
+          setCurrentPage("admin-logs");
+          return null;
+        }
         return <GradesInfo />;
       case "courses":
+        if (isAdmin) {
+          setCurrentPage("admin-logs");
+          return null;
+        }
         return <CoursesInfo />;
       case "competency":
+        if (isAdmin) {
+          setCurrentPage("admin-logs");
+          return null;
+        }
         return <MajorCompetency />;
       case "insight":
+        if (isAdmin) {
+          setCurrentPage("admin-logs");
+          return null;
+        }
         return <CareerInsight riasecResult={riasecResult} onStartTest={() => setCurrentPage("riasec")} />;
       case "riasec":
         return <HSMatchingPrototype onComplete={handleRiasecComplete} />;
       case "result-viewer":
         return <ResultViewer />;
+      case "admin-logs":
+        // 관리자만 접근 가능
+        if (!isAdmin) {
+          setCurrentPage("dashboard");
+          return null;
+        }
+        return <AdminLogs />;
       default:
         if (isLoggedIn) {
           return <Dashboard onNavigate={setCurrentPage} riasecCompleted={!!riasecResult} />;
@@ -228,6 +269,7 @@ export default function App() {
       currentPage={currentPage}
       onPageChange={setCurrentPage}
       onLogout={handleLogout}
+      isAdmin={isAdmin}
     >
       {renderPage()}
     </Layout>
