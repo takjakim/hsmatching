@@ -11,6 +11,7 @@ interface LayoutProps {
 
 export default function Layout({ children, currentPage, onPageChange, onLogout }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
 
   const menuItems = [
     { id: "dashboard", label: "대시보드", icon: "🏠" },
@@ -28,17 +29,42 @@ export default function Layout({ children, currentPage, onPageChange, onLogout }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 상단 헤더 */}
-      <header className="bg-gradient-to-r from-[#1e3a8a] to-[#3b82f6] text-white shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      {/* 최상단 정보 바 */}
+      <div className="bg-gray-700 text-white text-sm py-2">
+        <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between">
-            {/* 로고 & 햄버거 메뉴 */}
+            <div className="flex items-center space-x-4">
+              <span>시스템 문의 02-300-1684 / 취업관련 문의 02-300-1579(인문), 031-324-1554(자연)</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => onPageChange("dashboard")}
+                className="hover:text-blue-300 transition"
+              >
+                Home
+              </button>
+              <button
+                onClick={onLogout}
+                className="hover:text-blue-300 transition"
+              >
+                LOGOUT
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 메인 헤더 */}
+      <header className="bg-white shadow-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between mb-4">
+            {/* 로고 & 타이틀 */}
             <div className="flex items-center space-x-4">
               {/* 모바일 햄버거 메뉴 */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden bg-white/20 hover:bg-white/30 p-2 rounded-lg transition"
+                className="lg:hidden text-gray-700 hover:text-blue-600 p-2 rounded-lg transition"
               >
                 <svg
                   className="w-6 h-6"
@@ -66,70 +92,109 @@ export default function Layout({ children, currentPage, onPageChange, onLogout }
 
               {/* 로고 */}
               <div className="flex items-center space-x-3">
-                <div className="bg-white text-[#1e3a8a] rounded-lg p-2">
-                  <svg
-                    className="w-6 h-6 md:w-8 md:h-8"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                    />
-                  </svg>
-                </div>
-                <div className="hidden md:block">
-                  <h1 className="text-lg md:text-xl font-bold">학생 정보 시스템</h1>
-                  <p className="text-xs md:text-sm text-blue-200">Student Portal</p>
+                <img 
+                  src="https://myicap.mju.ac.kr/files/web1/images/common/logo.png" 
+                  alt="MYiCap 로고" 
+                  className="h-12 w-auto object-contain"
+                />
+                <div>
+                  <h1 className="text-xl font-bold text-gray-800">MYiCap</h1>
+                  <p className="text-xs text-gray-600">MYONGJI CAPABILITY PLUS</p>
+                  <p className="text-xs text-gray-600">명지역량통합관리시스템</p>
                 </div>
               </div>
             </div>
             
-            {/* 사용자 정보 & 로그아웃 */}
-            <div className="flex items-center space-x-2 md:space-x-4">
+            {/* 사용자 정보 */}
+            <div className="flex items-center space-x-4">
               <div className="text-right">
-                <p className="font-semibold text-sm md:text-base">{CURRENT_STUDENT.name}</p>
-                <p className="text-xs text-blue-200 hidden sm:block">
+                <p className="font-semibold text-sm text-gray-800">{CURRENT_STUDENT.name}</p>
+                <p className="text-xs text-gray-600">
                   {CURRENT_STUDENT.studentId} · {CURRENT_STUDENT.department}
                 </p>
               </div>
-              <button
-                onClick={onLogout}
-                className="bg-white/20 hover:bg-white/30 px-3 py-2 md:px-4 md:py-2 rounded-lg transition text-xs md:text-sm font-medium"
-              >
-                로그아웃
-              </button>
             </div>
           </div>
+
+          {/* 가로 네비게이션 바 */}
+          <nav className="hidden md:flex items-center space-x-1 bg-blue-50 rounded-lg p-1">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleMenuClick(item.id)}
+                className={`px-4 py-2 rounded-md transition font-medium text-sm ${
+                  currentPage === item.id
+                    ? "bg-blue-600 text-white shadow-md"
+                    : "text-gray-700 hover:bg-blue-100"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
         </div>
       </header>
 
       {/* 메인 컨텐츠 영역 */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex gap-6 relative">
-          {/* 데스크톱 사이드바 */}
-          <aside className="hidden lg:block w-64 flex-shrink-0">
-            <div className="bg-white rounded-xl shadow-md p-4 sticky top-24">
-              <nav className="space-y-1">
+          {/* 데스크톱 사이드바 (호버 시 활성화) */}
+          <aside 
+            className="hidden lg:block flex-shrink-0 relative"
+            onMouseEnter={() => setIsSidebarHovered(true)}
+            onMouseLeave={() => setIsSidebarHovered(false)}
+          >
+            {/* 플로팅 이모지 버튼 (항상 표시) */}
+            <div className="sticky top-32">
+              <div className="flex flex-col space-y-2">
                 {menuItems.map((item) => (
-                  <button
+                  <motion.button
                     key={item.id}
                     onClick={() => handleMenuClick(item.id)}
-                    className={`w-full text-left px-4 py-3 rounded-lg transition font-medium flex items-center space-x-3 ${
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`w-12 h-12 rounded-lg transition-all duration-200 flex items-center justify-center text-2xl shadow-md ${
                       currentPage === item.id
-                        ? "bg-[#1e3a8a] text-white shadow-md"
-                        : "text-gray-700 hover:bg-gray-100"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-blue-50"
                     }`}
+                    title={item.label}
                   >
-                    <span className="text-xl">{item.icon}</span>
-                    <span>{item.label}</span>
-                  </button>
+                    {item.icon}
+                  </motion.button>
                 ))}
-              </nav>
+              </div>
             </div>
+
+            {/* 확장된 사이드바 (호버 시 표시) */}
+            <AnimatePresence>
+              {isSidebarHovered && (
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute left-14 top-0 w-56 bg-white rounded-xl shadow-lg p-4 z-50"
+                >
+                  <nav className="space-y-1">
+                    {menuItems.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => handleMenuClick(item.id)}
+                        className={`w-full text-left px-4 py-3 rounded-lg transition font-medium flex items-center space-x-3 ${
+                          currentPage === item.id
+                            ? "bg-blue-600 text-white shadow-md"
+                            : "text-gray-700 hover:bg-blue-50"
+                        }`}
+                      >
+                        <span className="text-xl">{item.icon}</span>
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </nav>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </aside>
 
           {/* 모바일 사이드바 (오버레이) */}
@@ -154,7 +219,7 @@ export default function Layout({ children, currentPage, onPageChange, onLogout }
                   className="lg:hidden fixed left-0 top-0 bottom-0 w-64 bg-white shadow-2xl z-50 overflow-y-auto"
                 >
                   {/* 모바일 메뉴 헤더 */}
-                  <div className="bg-gradient-to-r from-[#1e3a8a] to-[#3b82f6] text-white p-4 sticky top-0">
+                  <div className="bg-blue-600 text-white p-4 sticky top-0">
                     <div className="flex items-center justify-between">
                       <h2 className="font-bold text-lg">메뉴</h2>
                       <button
@@ -176,8 +241,8 @@ export default function Layout({ children, currentPage, onPageChange, onLogout }
                         onClick={() => handleMenuClick(item.id)}
                         className={`w-full text-left px-4 py-3 rounded-lg transition font-medium flex items-center space-x-3 ${
                           currentPage === item.id
-                            ? "bg-[#1e3a8a] text-white shadow-md"
-                            : "text-gray-700 hover:bg-gray-100"
+                            ? "bg-blue-600 text-white shadow-md"
+                            : "text-gray-700 hover:bg-blue-50"
                         }`}
                       >
                         <span className="text-xl">{item.icon}</span>

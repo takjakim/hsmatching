@@ -15,23 +15,23 @@ export default function GradesInfo() {
   return (
     <div className="space-y-6">
       {/* 페이지 헤더 */}
-      <div className="bg-gradient-to-r from-[#3b82f6] to-[#60a5fa] text-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center space-x-3 mb-2">
-          <span className="text-3xl">📊</span>
-          <h2 className="text-2xl font-bold">학점이수</h2>
-        </div>
-        <p className="text-green-100">학기별 성적 및 학점 이수 현황을 확인할 수 있습니다.</p>
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <h2 className="text-xl font-bold text-gray-800 flex items-center">
+          <span className="mr-2">📊</span>
+          학점이수
+        </h2>
+        <p className="text-sm text-gray-600 mt-1">학기별 성적 및 학점 이수 현황을 확인할 수 있습니다.</p>
       </div>
 
       {/* 요약 정보 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {[
-          { label: "평점평균", value: CURRENT_GRADES.averageGpa.toFixed(2), color: "bg-[#1e3a8a]" },
-          { label: "백분위점수", value: CURRENT_GRADES.percentileScore.toFixed(1), color: "bg-[#3b82f6]" },
-          { label: "신청학점", value: CURRENT_GRADES.totalRegisteredCredits, color: "bg-[#60a5fa]" },
-          { label: "취득학점", value: CURRENT_GRADES.totalAcquiredCredits, color: "bg-[#d4b896]" }
+          { label: "평점평균", value: CURRENT_GRADES.averageGpa.toFixed(2), color: "bg-blue-600" },
+          { label: "백분위점수", value: CURRENT_GRADES.percentileScore.toFixed(1), color: "bg-blue-600" },
+          { label: "신청학점", value: CURRENT_GRADES.totalRegisteredCredits, color: "bg-blue-600" },
+          { label: "취득학점", value: CURRENT_GRADES.totalAcquiredCredits, color: "bg-blue-600" }
         ].map((stat) => (
-          <div key={stat.label} className={`${stat.color} text-white rounded-xl shadow-md p-5`}>
+          <div key={stat.label} className={`${stat.color} text-white rounded-xl shadow-md p-6`}>
             <p className="text-sm text-white/80 mb-1">{stat.label}</p>
             <p className="text-3xl font-bold">{stat.value}</p>
           </div>

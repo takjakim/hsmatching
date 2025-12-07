@@ -1,17 +1,10 @@
 // 직무 추천 유틸리티
+import { OCC_ROLES, type RoleProfile } from "../data/occMatching";
+import type { Dim } from "../data/questionPool";
 
-import { ROLES } from "../HSMatchingPrototype";
+const DIMS: Dim[] = ['R', 'I', 'A', 'S', 'E', 'C'];
 
-type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C' | 'V';
-const DIMS: Dim[] = ['R', 'I', 'A', 'S', 'E', 'C', 'V'];
-
-interface Role {
-  key: string;
-  name: string;
-  vec: Partial<Record<Dim, number>>;
-}
-
-interface RecommendedRole extends Role {
+interface RecommendedRole extends RoleProfile {
   matchScore: number;
   matchReasons: string[];
   profileStrength: string;
@@ -23,8 +16,7 @@ const DIM_LABELS: Record<Dim, string> = {
   A: '창의형',
   S: '사회형',
   E: '설득형',
-  C: '관습형',
-  V: '가치형'
+  C: '관습형'
 };
 
 /**
@@ -48,11 +40,8 @@ function cosineSimilarity(vecA: Record<Dim, number>, vecB: Partial<Record<Dim, n
 /**
  * 진로 적성 기반 직무 추천
  */
-export function recommendRoles(
-  careerProfile: Record<Dim, number>,
-  topN: number = 8
-): RecommendedRole[] {
-  return ROLES
+export function recommendRoles(careerProfile: Record<Dim, number>, topN: number = 8): RecommendedRole[] {
+  return OCC_ROLES
     .map(role => {
       const matchScore = cosineSimilarity(careerProfile, role.vec);
       
@@ -78,12 +67,7 @@ export function recommendRoles(
         profileStrength = `${strongDims.slice(0, 3).join(", ")} 성향이 강한 직무`;
       }
 
-      return {
-        ...role,
-        matchScore,
-        matchReasons,
-        profileStrength
-      };
+      return { ...(role as RoleProfile), matchScore, matchReasons, profileStrength };
     })
     .sort((a, b) => b.matchScore - a.matchScore)
     .slice(0, topN);

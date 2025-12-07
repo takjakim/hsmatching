@@ -34,12 +34,12 @@ export default function PersonalInfo() {
   return (
     <div className="space-y-6">
       {/* 페이지 헤더 */}
-      <div className="bg-gradient-to-r from-[#1e3a8a] to-[#3b82f6] text-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center space-x-3 mb-2">
-          <span className="text-3xl">👤</span>
-          <h2 className="text-2xl font-bold">개인신상</h2>
-        </div>
-        <p className="text-blue-100">기본 신상 정보를 확인할 수 있습니다.</p>
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <h2 className="text-xl font-bold text-gray-800 flex items-center">
+          <span className="mr-2">👤</span>
+          개인신상
+        </h2>
+        <p className="text-sm text-gray-600 mt-1">기본 신상 정보를 확인할 수 있습니다.</p>
       </div>
 
       {/* 기본신상 정보 카드 */}
@@ -103,10 +103,10 @@ export default function PersonalInfo() {
 
       {/* 수정 버튼 */}
       <div className="flex justify-end space-x-3">
-        <button className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition">
+        <button className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg text-sm transition">
           취소
         </button>
-        <button className="px-6 py-2 bg-[#1e3a8a] hover:bg-[#3b82f6] text-white font-medium rounded-lg transition shadow-md">
+        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition">
           정보 수정
         </button>
       </div>

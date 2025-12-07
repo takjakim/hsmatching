@@ -22,22 +22,22 @@ export default function CoursesInfo() {
   return (
     <div className="space-y-6">
       {/* 페이지 헤더 */}
-      <div className="bg-gradient-to-r from-[#60a5fa] to-[#3b82f6] text-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center space-x-3 mb-2">
-          <span className="text-3xl">📚</span>
-          <h2 className="text-2xl font-bold">수강현황</h2>
-        </div>
-        <p className="text-purple-100">학기별 수강 과목 목록을 확인할 수 있습니다.</p>
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <h2 className="text-xl font-bold text-gray-800 flex items-center">
+          <span className="mr-2">📚</span>
+          수강현황
+        </h2>
+        <p className="text-sm text-gray-600 mt-1">학기별 수강 과목 목록을 확인할 수 있습니다.</p>
       </div>
 
       {/* 요약 정보 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
           {
             label: "총 수강 과목",
             value: CURRENT_COURSES.length,
             icon: "📖",
-            color: "bg-[#1e3a8a]"
+            color: "bg-blue-600"
           },
           {
             label: CURRENT_STUDENT.grade === 1 ? "기초교양 과목" : "전공 과목",
@@ -45,16 +45,16 @@ export default function CoursesInfo() {
               ? CURRENT_COURSES.filter(c => c.completionType === "기초교양").length
               : CURRENT_COURSES.filter(c => c.completionType === "전공").length,
             icon: "🎯",
-            color: "bg-[#3b82f6]"
+            color: "bg-blue-600"
           },
           {
             label: "핵심교양 과목",
             value: CURRENT_COURSES.filter(c => c.completionType === "핵심교양").length,
             icon: "🌟",
-            color: "bg-[#60a5fa]"
+            color: "bg-blue-600"
           }
         ].map((stat) => (
-          <div key={stat.label} className={`${stat.color} text-white rounded-xl shadow-md p-5`}>
+          <div key={stat.label} className={`${stat.color} text-white rounded-xl shadow-md p-6`}>
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm text-white/80">{stat.label}</p>
               <span className="text-2xl">{stat.icon}</span>
