@@ -1,6 +1,6 @@
 import { MAJORS } from "../data/majorList";
+import type { Dim } from "../data/questionPool";
 
-type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C' | 'V';
 type RiasecResult = Partial<Record<Dim, number>>;
 
 interface MajorProfile {
@@ -15,7 +15,7 @@ export interface RecommendedMajor extends MajorProfile {
   reasons: string[];
 }
 
-const DIMS: Dim[] = ['R', 'I', 'A', 'S', 'E', 'C', 'V'];
+const DIMS: Dim[] = ['R', 'I', 'A', 'S', 'E', 'C'];
 
 interface PreparedVector {
   vector: Record<Dim, number>;
@@ -81,8 +81,7 @@ function buildReasons(topDims: Dim[], majorVec: Record<Dim, number>) {
     A: "예술형",
     S: "사회형",
     E: "진취형",
-    C: "사무형",
-    V: "가치형"
+    C: "사무형"
   };
 
   return topDims

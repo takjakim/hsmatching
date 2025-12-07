@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from "recharts";
 import { motion } from "framer-motion";
 import { getCurrentCourses, AVAILABLE_COURSES, CURRENT_STUDENT, getCurrentCompetency } from "../data/dummyData";
@@ -6,15 +6,31 @@ import { calculateLearningProfile, compareProfiles, recommendCourses } from "../
 import { recommendRoles, getRoleDescription } from "../utils/roleRecommendation";
 import { recommendMajors } from "../utils/recommendMajors";
 
-type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C' | 'V';
+type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C';
 type RiasecResult = Record<Dim, number>;
 
 interface CareerInsightProps {
-  riasecResult: RiasecResult | null;
+  riasecResult: Record<Dim, number> | null;
   onStartTest: () => void;
 }
 
 export default function CareerInsight({ riasecResult, onStartTest }: CareerInsightProps) {
+  // URL 해시 처리 (페이지 로드 시 해당 섹션으로 스크롤)
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '');
+    if (hash && riasecResult) {
+      // 페이지 렌더링 후 스크롤
+      setTimeout(() => {
+        const element = document.getElementById(hash);
+        if (element) {
+          const yOffset = -120;
+          const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+      }, 300);
+    }
+  }, [riasecResult]);
+
   // 검사를 완료하지 않은 경우
   if (!riasecResult) {
     return (

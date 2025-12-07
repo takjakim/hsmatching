@@ -1,9 +1,9 @@
 // 학습 프로파일 분석 유틸리티
 
 import { Course } from "../types/student";
+import type { Dim } from "../data/questionPool";
 
-type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C' | 'V';
-const DIMS: Dim[] = ['R', 'I', 'A', 'S', 'E', 'C', 'V'];
+const DIMS: Dim[] = ['R', 'I', 'A', 'S', 'E', 'C'];
 
 export interface LearningProfile {
   normalized: Record<Dim, number>;
@@ -26,8 +26,7 @@ const DIM_LABELS: Record<Dim, string> = {
   A: '창의형 (Artistic)',
   S: '사회형 (Social)',
   E: '설득형 (Enterprising)',
-  C: '관습형 (Conventional)',
-  V: '가치형 (Values)'
+  C: '관습형 (Conventional)'
 };
 
 /**

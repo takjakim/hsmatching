@@ -8,14 +8,16 @@ import CoursesInfo from "./pages/CoursesInfo";
 import MajorCompetency from "./pages/MajorCompetency";
 import CareerInsight from "./pages/CareerInsight";
 import HSMatchingPrototype from "./HSMatchingPrototype";
+import ResultViewer from "./pages/ResultViewer";
+import PublicLanding from "./pages/PublicLanding";
 import { CURRENT_STUDENT } from "./data/dummyData";
 
-type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C' | 'V';
+type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C';
 type RiasecResult = Record<Dim, number>;
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentPage, setCurrentPage] = useState("dashboard");
+  const [currentPage, setCurrentPage] = useState("landing");
   const [riasecResult, setRiasecResult] = useState<RiasecResult | null>(null);
   const [currentStudentId, setCurrentStudentId] = useState<string | null>(null);
 
@@ -74,17 +76,83 @@ export default function App() {
     setCurrentPage("dashboard");
   };
 
-  const handleRiasecComplete = (result: RiasecResult) => {
+  const handleRiasecComplete = (result: Record<Dim, number>) => {
     setRiasecResult(result);
     const targetStudentId = currentStudentId || CURRENT_STUDENT.studentId;
     // 학생별로 localStorage에 저장
     localStorage.setItem(`riasecResult_${targetStudentId}`, JSON.stringify(result));
-    // 검사 완료 후 인사이트 페이지로 이동
-    setCurrentPage("insight");
+    // 검사 완료 후 인사이트 페이지로 이동 (로그인한 경우만)
+    if (isLoggedIn) {
+      setCurrentPage("insight");
+    }
+    // 공개 사용자는 결과 페이지에 머무름
   };
+
+  // URL 파라미터 및 해시 처리 (초기 로드 시에만)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const hash = window.location.hash.replace('#', '');
+    
+    // 초기 로드 시에만 URL 파라미터 처리
+    if (code && currentPage === "landing") {
+      setCurrentPage('result-viewer');
+    } else if (hash && currentPage === "landing") {
+      // 해시가 있으면 해당 페이지로 이동
+      // CareerInsight 페이지의 섹션 ID들
+      const insightSections = ['recommended-majors', 'recommended-roles', 'profile-comparison', 'recommended-courses'];
+      if (insightSections.includes(hash)) {
+        // 로그인 상태 확인 및 결과 확인
+        if (isLoggedIn) {
+          // 결과가 없어도 insight 페이지로 이동 (검사 안내 표시)
+          setCurrentPage('insight');
+        } else {
+          // 로그인 안 했으면 로그인 페이지로
+          setCurrentPage('login');
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 초기 로드 시에만 실행
+
+  // 초기 페이지 설정 (로그인 안 했으면 랜딩 페이지)
+  useEffect(() => {
+    // 초기 로드 시에만 실행 (currentPage가 초기값일 때)
+    if (!isLoggedIn && currentPage === "dashboard") {
+      setCurrentPage("landing");
+    }
+  }, [isLoggedIn]); // currentPage 의존성 제거하여 무한 루프 방지
+
+  // 디버깅: 페이지 변경 추적
+  useEffect(() => {
+    console.log("현재 페이지:", currentPage, "로그인 상태:", isLoggedIn);
+  }, [currentPage, isLoggedIn]);
 
   const renderPage = () => {
     switch (currentPage) {
+      case "landing":
+        return (
+          <PublicLanding
+            onStartTest={() => {
+              console.log("검사 시작 버튼 클릭됨 - riasec로 이동");
+              // URL 해시 제거
+              window.history.replaceState(null, '', window.location.pathname);
+              setCurrentPage("riasec");
+            }}
+            onViewResult={() => {
+              console.log("결과 조회 버튼 클릭됨 - result-viewer로 이동");
+              window.history.replaceState(null, '', window.location.pathname);
+              setCurrentPage("result-viewer");
+            }}
+            onLogin={() => {
+              console.log("로그인 버튼 클릭됨 - login으로 이동");
+              window.history.replaceState(null, '', window.location.pathname);
+              setCurrentPage("login");
+            }}
+          />
+        );
+      case "login":
+        return <Login onLogin={handleLogin} />;
       case "dashboard":
         return <Dashboard onNavigate={setCurrentPage} riasecCompleted={!!riasecResult} />;
       case "personal":
@@ -99,12 +167,59 @@ export default function App() {
         return <CareerInsight riasecResult={riasecResult} onStartTest={() => setCurrentPage("riasec")} />;
       case "riasec":
         return <HSMatchingPrototype onComplete={handleRiasecComplete} />;
+      case "result-viewer":
+        return <ResultViewer />;
       default:
-        return <Dashboard onNavigate={setCurrentPage} riasecCompleted={!!riasecResult} />;
+        if (isLoggedIn) {
+          return <Dashboard onNavigate={setCurrentPage} riasecCompleted={!!riasecResult} />;
+        } else {
+          return (
+            <PublicLanding
+              onStartTest={() => {
+                console.log("검사 시작 버튼 클릭됨 (default)");
+                setCurrentPage("riasec");
+              }}
+              onViewResult={() => {
+                console.log("결과 조회 버튼 클릭됨 (default)");
+                setCurrentPage("result-viewer");
+              }}
+              onLogin={() => {
+                console.log("로그인 버튼 클릭됨 (default)");
+                setCurrentPage("login");
+              }}
+            />
+          );
+        }
     }
   };
 
+  // 공개 페이지 (로그인 불필요)
+  const publicPages = ["landing", "riasec", "result-viewer", "login"];
+  const isPublicPage = publicPages.includes(currentPage);
+
+  // 공개 페이지는 Layout 없이 표시
+  if (isPublicPage) {
+    // riasec와 login 페이지는 자체 레이아웃이 있으므로 래퍼 없이 표시
+    if (currentPage === "riasec" || currentPage === "login") {
+      console.log("공개 페이지 렌더링 (래퍼 없음):", currentPage, "isPublicPage:", isPublicPage);
+      const pageContent = renderPage();
+      console.log("렌더링된 페이지 콘텐츠:", pageContent ? "있음" : "없음");
+      return pageContent;
+    }
+    // 다른 공개 페이지는 래퍼 사용
+    console.log("공개 페이지 렌더링 (래퍼 있음):", currentPage);
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          {renderPage()}
+        </div>
+      </div>
+    );
+  }
+
+  // 로그인 필요 페이지
   if (!isLoggedIn) {
+    console.log("로그인 필요 - Login 페이지로 리다이렉트");
     return <Login onLogin={handleLogin} />;
   }
 

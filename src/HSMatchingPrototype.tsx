@@ -4,6 +4,9 @@ import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Responsi
 import { MAJORS } from "./data/majorList";
 import { QUESTION_POOL, Dim, Choice, Question as Q } from "./data/questionPool";
 import { OCC_ROLES } from "./data/occMatching";
+import { generateResultCode, saveResultWithCode } from "./utils/resultCode";
+import { recommendRoles } from "./utils/roleRecommendation";
+import { recommendMajors } from "./utils/recommendMajors";
 
 // 이미지 경로 매핑 함수 (public 폴더 사용)
 function getImagePath(questionId: number, key: 'a' | 'b'): string | null {
@@ -166,6 +169,8 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
   const [showBlockComplete, setShowBlockComplete] = useState(false);
   // 마지막 블록 완료 시점 추적
   const [lastCompletedBlock, setLastCompletedBlock] = useState(0);
+  // 결과 코드
+  const [resultCode, setResultCode] = useState<string | null>(null);
   
   // 다시 하기 함수 (문항도 다시 섞기)
   const handleReset = () => {
@@ -205,6 +210,30 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
     return Math.round((current / denom) * 100);
   }, [step, mainTotal, totalAll]);
 
+  // 진행 중 추천 (60문항 이상일 때)
+  const liveRecommendations = useMemo(() => {
+    if (step < 60) return null;
+    
+    // 현재 점수를 정규화
+    const values = DIMS.map((d) => scores[d] || 0);
+    const maxVal = Math.max(1, ...values);
+    const normalized: Record<Dim, number> = {} as Record<Dim, number>;
+    DIMS.forEach((d) => {
+      normalized[d] = (scores[d] || 0) / maxVal;
+    });
+
+    // 직무 추천 (상위 2개)
+    const topRoles = recommendRoles(normalized, 2);
+    
+    // 전공 추천 (상위 2개)
+    const topMajors = recommendMajors(normalized, { limit: 2 });
+
+    return {
+      roles: topRoles,
+      majors: topMajors
+    };
+  }, [step, scores]);
+
   function applyWeights(next: Partial<Record<Dim, number>>, weights: Array<[Dim, number]>) {
     const copy = { ...next };
     for (let i = 0; i < weights.length; i++) {
@@ -236,6 +265,35 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
 
     setStep((prev) => prev + 1);
   }
+
+  // 키보드 이벤트 리스너 (1번 키: A 선택, 2번 키: B 선택)
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // 입력 필드에 포커스가 있으면 무시
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // 검사 진행 중일 때만 작동 (인트로나 결과 화면에서는 작동 안 함)
+      const inMain = step >= 1 && step <= mainTotal;
+      const inAdaptive = step > mainTotal && step <= totalAll;
+      
+      if (inMain || inAdaptive) {
+        if (e.key === '1') {
+          e.preventDefault();
+          handlePick('A');
+        } else if (e.key === '2') {
+          e.preventDefault();
+          handlePick('B');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [step, mainTotal, totalAll, shuffledQuestions, adaptiveQs, scores, losers]);
 
   function selectKeyQuestions(norm: Partial<Record<Dim, number>>, limit: number): Q[] {
     if (limit <= 0) return [];
@@ -307,13 +365,49 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
     return { norm: normObj, majors, roles };
   }, [step, totalAll, scores]);
 
-  // 검사 완료 시 결과 전달
+  // RIASEC 레이더 데이터 (먼저 정의)
+  const riasecData = useMemo(() => {
+    if (!result) return [] as any[];
+    const order: Dim[] = ["R", "I", "A", "S", "E", "C"]; // 보기 좋은 시계 배치
+    const dimLabels: Record<Dim, string> = { 
+      R: "R(현장형)", 
+      I: "I(탐구형)", 
+      A: "A(예술형)", 
+      S: "S(사회형)", 
+      E: "E(진취형)", 
+      C: "C(사무형)"
+    };
+    return order.map((d) => ({
+      axis: dimLabels[d],
+      score: Math.round((result.norm[d] || 0) * 100)
+    }));
+  }, [result]);
+
+  // 검사 완료 시 결과 전달 및 코드 생성
   useEffect(() => {
-    if (result && !resultSaved && onComplete) {
-      onComplete(result.norm);
+    if (result && !resultSaved) {
+      // 코드 생성 및 저장
+      const code = generateResultCode();
+      setResultCode(code);
+      
+      // 전체 결과 데이터 저장 (코드 포함)
+      const fullResult = {
+        norm: result.norm,
+        majors: result.majors,
+        roles: result.roles,
+        riasecData: riasecData,
+        explanation: generateExplanation(result.norm, result.majors, result.roles)
+      };
+      saveResultWithCode(fullResult, code);
+      
+      // onComplete 콜백 호출 (기존 로직 유지)
+      if (onComplete) {
+        onComplete(result.norm);
+      }
+      
       setResultSaved(true);
     }
-  }, [result, resultSaved, onComplete]);
+  }, [result, resultSaved, onComplete, riasecData]);
 
   function generateExplanation(norm: Record<Dim, number>, majors: any[], roles: any[]) {
     const order = Object.keys(norm).map((k) => [k, norm[k as Dim]] as [string, number]).sort((a, b) => b[1] - a[1]);
@@ -335,24 +429,6 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
     const roleLine = roles.length ? "추천 직무로는 " + topRoles + " 등이 있습니다." : "";
     return { lead, majorLine, roleLine, bullets };
   }
-
-  // RIASEC 레이더 데이터
-  const riasecData = useMemo(() => {
-    if (!result) return [] as any[];
-    const order: Dim[] = ["R", "I", "A", "S", "E", "C"]; // 보기 좋은 시계 배치
-    const dimLabels: Record<Dim, string> = { 
-      R: "R(현장형)", 
-      I: "I(탐구형)", 
-      A: "A(예술형)", 
-      S: "S(사회형)", 
-      E: "E(진취형)", 
-      C: "C(사무형)"
-    };
-    return order.map((k) => ({ 
-      axis: dimLabels[k] || k, 
-      score: (result.norm[k] || 0) * 100 
-    }));
-  }, [result]);
 
   // 디버그 데이터: 현재 점수 정규화, 낮은 차원, 교차 후보 샘플 등
   const debugData = useMemo(() => {
@@ -488,6 +564,61 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                 ))}
               </div>
             </div>
+
+            {/* 진행 중 추천 (60문항 이상) */}
+            {liveRecommendations && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 pt-4 border-t border-gray-200"
+              >
+                <div className="text-xs text-gray-500 mb-2 flex items-center">
+                  <span className="mr-1">💡</span>
+                  현재까지의 응답을 바탕으로 한 추천
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* 전공 추천 */}
+                  {liveRecommendations.majors.length > 0 && (
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200">
+                      <div className="text-xs font-semibold text-blue-700 mb-1 flex items-center">
+                        <span className="mr-1">🎓</span>
+                        추천 전공
+                      </div>
+                      <div className="space-y-1">
+                        {liveRecommendations.majors.slice(0, 2).map((major, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-xs">
+                            <span className="text-gray-700 truncate">{major.name}</span>
+                            <span className="text-blue-600 font-medium ml-2">
+                              {major.matchScore}%
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* 직무 추천 */}
+                  {liveRecommendations.roles.length > 0 && (
+                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-lg p-3 border border-emerald-200">
+                      <div className="text-xs font-semibold text-emerald-700 mb-1 flex items-center">
+                        <span className="mr-1">💼</span>
+                        추천 직무
+                      </div>
+                      <div className="space-y-1">
+                        {liveRecommendations.roles.slice(0, 2).map((role, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-xs">
+                            <span className="text-gray-700 truncate">{role.name}</span>
+                            <span className="text-emerald-600 font-medium ml-2">
+                              {Math.round(role.matchScore * 100)}%
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         )}
 
@@ -586,9 +717,15 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
               >
                 {/* 문항 헤더 */}
                 <div className="mb-6">
-                  <h2 className="text-2xl md:text-3xl font-bold text-gray-800 leading-tight">
+                  <h2 className="text-2xl md:text-3xl font-bold text-gray-800 leading-tight mb-3">
                     {currentQ.prompt}
                   </h2>
+                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                    <span className="bg-gray-100 px-2 py-1 rounded">1</span>
+                    <span>또는</span>
+                    <span className="bg-gray-100 px-2 py-1 rounded">2</span>
+                    <span>키로 빠르게 선택할 수 있습니다</span>
+                  </div>
                 </div>
 
                 {/* 선택지 - 2개 균형잡힌 레이아웃 */}
@@ -698,7 +835,43 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                     </div>
                   </motion.div>
                   <h2 className="text-3xl font-bold text-gray-800 mb-2">검사 완료!</h2>
-                  <p className="text-gray-600">당신의 진로 적성 분석 결과입니다</p>
+                  <p className="text-gray-600 mb-4">당신의 진로 적성 분석 결과입니다</p>
+                  
+                  {/* 결과 코드 표시 */}
+                  {resultCode && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl p-4 mb-4 no-print"
+                    >
+                      <p className="text-sm text-gray-600 mb-2 text-center">결과 확인 코드</p>
+                      <div className="flex items-center justify-center space-x-3 mb-3">
+                        <code className="text-2xl font-bold text-blue-700 tracking-wider bg-white px-4 py-2 rounded-lg shadow-sm">
+                          {resultCode}
+                        </code>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(resultCode);
+                            alert('코드가 복사되었습니다!');
+                          }}
+                          className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition"
+                        >
+                          복사
+                        </button>
+                      </div>
+                      <div className="text-center space-y-2">
+                        <p className="text-xs text-gray-500">
+                          이 코드로 언제든지 결과를 확인할 수 있습니다
+                        </p>
+                        <a
+                          href={`?code=${resultCode}`}
+                          className="inline-block px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm transition"
+                        >
+                          🔗 결과 조회 페이지로 이동
+                        </a>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
 
                 {/* RIASEC 레이더 */}
@@ -850,7 +1023,7 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                 </div>
 
                 {/* 액션 버튼 */}
-                <div className="flex flex-wrap gap-4 justify-center pt-6 border-t border-gray-200">
+                <div className="flex flex-wrap gap-4 justify-center pt-6 border-t border-gray-200 no-print">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -858,6 +1031,34 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                     className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
                   >
                     🔄 다시 하기
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      // PDF 다운로드 (간단한 구현)
+                      window.print();
+                    }}
+                    className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                  >
+                    📄 PDF 다운로드
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      const email = prompt('이메일 주소를 입력하세요:');
+                      if (email) {
+                        // 실제로는 백엔드 API를 호출해야 하지만, 여기서는 안내만 표시
+                        const subject = encodeURIComponent('진로 적성검사 결과');
+                        const resultUrl = `${window.location.origin}${window.location.pathname}?code=${resultCode}`;
+                        const body = encodeURIComponent(`결과 확인 코드: ${resultCode}\n\n결과를 확인하려면 다음 링크를 방문하세요:\n${resultUrl}`);
+                        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+                      }
+                    }}
+                    className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                  >
+                    📧 이메일로 보내기
                   </motion.button>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
