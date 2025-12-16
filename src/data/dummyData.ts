@@ -43,7 +43,7 @@ export const FRESHMAN_STUDENT: Student = {
 export const MIS_STUDENT: Student = {
   studentId: "2501002",
   password: "mis123",
-  name: "박데이터",
+  name: "김명지",
   nameEng: "PARK DATA",
   department: "경영정보학과",
   grade: 2, // 현재 2학년 (전공 선택 후)
@@ -85,8 +85,7 @@ export const MIS_YEAR1_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "월2,3,4 (경영관 101)",
     retake: false,
-    professor: "김경영",
-    riasecProfile: { E: 0.7, I: 0.5, C: 0.5 }
+    professor: "김경영"
   },
   {
     year: 2025,
@@ -97,8 +96,7 @@ export const MIS_YEAR1_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "화3,4,5 (경영관 102)",
     retake: false,
-    professor: "이경제",
-    riasecProfile: { I: 0.8, C: 0.6, E: 0.4 }
+    professor: "이경제"
   },
   {
     year: 2025,
@@ -109,8 +107,7 @@ export const MIS_YEAR1_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "수1,2,3 (경영관 103)",
     retake: false,
-    professor: "박통계",
-    riasecProfile: { I: 0.9, C: 0.7, R: 0.3 }
+    professor: "박통계"
   },
   // 전공필수
   {
@@ -123,7 +120,6 @@ export const MIS_YEAR1_COURSES: Course[] = [
     timeAndRoom: "목2,3,4 (정보관 201)",
     retake: false,
     professor: "최정보",
-    riasecProfile: { I: 0.7, C: 0.7, E: 0.5 }
   },
   {
     year: 2025,
@@ -134,8 +130,7 @@ export const MIS_YEAR1_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "금1,2,3 (정보관 301)",
     retake: false,
-    professor: "정파이썬",
-    riasecProfile: { I: 0.8, R: 0.6, C: 0.5 }
+    professor: "정파이썬"
   },
   // 무전공 입학생 전용
   {
@@ -147,13 +142,13 @@ export const MIS_YEAR1_COURSES: Course[] = [
     credits: 1,
     timeAndRoom: "월6,7 (경영관 세미나실)",
     retake: false,
-    professor: "한진로",
-    riasecProfile: { S: 0.6, E: 0.5, I: 0.4 }
+    professor: "한진로"
   }
 ];
 
 // 경영정보학과 2학년 교과목
 export const MIS_YEAR2_COURSES: Course[] = [
+  // 2학년 1학기
   {
     year: 2026,
     semester: 1,
@@ -163,8 +158,7 @@ export const MIS_YEAR2_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "월2,3,4 (정보관 401)",
     retake: false,
-    professor: "최한별",
-    riasecProfile: { I: 0.9, R: 0.7, C: 0.6 }
+    professor: "최한별"
   },
   {
     year: 2026,
@@ -175,13 +169,113 @@ export const MIS_YEAR2_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "화3,4,5 (정보관 402)",
     retake: false,
-    professor: "남호헌",
-    riasecProfile: { I: 0.8, C: 0.8, R: 0.5 }
+    professor: "남호헌"
+  },
+  {
+    year: 2026,
+    semester: 1,
+    courseNumber: "경과104",
+    courseName: "회계원리",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "수2,3,4 (경영관 201)",
+    retake: false,
+    professor: "이회계"
+  },
+  {
+    year: 2026,
+    semester: 1,
+    courseNumber: "경과106",
+    courseName: "마케팅원론",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "목3,4,5 (경영관 202)",
+    retake: false,
+    professor: "박마케팅"
+  },
+  {
+    year: 2026,
+    semester: 1,
+    courseNumber: "경과120",
+    courseName: "ERP개론",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "금2,3,4 (정보관 403)",
+    retake: false,
+    professor: "강성구"
+  },
+  // 2학년 2학기
+  {
+    year: 2026,
+    semester: 2,
+    courseNumber: "경과135",
+    courseName: "컴퓨터프로그래밍",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "월2,3,4 (정보관 404)",
+    retake: false,
+    professor: "정프로그래밍"
+  },
+  {
+    year: 2026,
+    semester: 2,
+    courseNumber: "경과141",
+    courseName: "데이터베이스분석",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "화3,4,5 (정보관 405)",
+    retake: false,
+    professor: "남호헌"
+  },
+  {
+    year: 2026,
+    semester: 2,
+    courseNumber: "경과143",
+    courseName: "운영관리",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "수2,3,4 (경영관 203)",
+    retake: false,
+    professor: "윤운영"
+  },
+  {
+    year: 2026,
+    semester: 2,
+    courseNumber: "경과145",
+    courseName: "데이터분석",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "목3,4,5 (정보관 406)",
+    retake: false,
+    professor: "최한별"
+  },
+  {
+    year: 2026,
+    semester: 2,
+    courseNumber: "경과147",
+    courseName: "재무관리",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "금2,3,4 (경영관 204)",
+    retake: false,
+    professor: "최재무"
+  },
+  {
+    year: 2026,
+    semester: 2,
+    courseNumber: "경정262",
+    courseName: "시스템분석과 설계",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "월5,6,7 (정보관 407)",
+    retake: false,
+    professor: "김시스템"
   }
 ];
 
 // 경영정보학과 3학년 교과목
 export const MIS_YEAR3_COURSES: Course[] = [
+  // 3학년 1학기
   {
     year: 2027,
     semester: 1,
@@ -191,8 +285,7 @@ export const MIS_YEAR3_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "월2,3,4 (정보관 501)",
     retake: false,
-    professor: "강성구",
-    riasecProfile: { R: 0.8, C: 0.7, I: 0.6, E: 0.4 }
+    professor: "강성구"
   },
   {
     year: 2027,
@@ -203,9 +296,42 @@ export const MIS_YEAR3_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "화3,4,5 (정보관 502)",
     retake: false,
-    professor: "이한준",
-    riasecProfile: { I: 0.95, R: 0.6, C: 0.5 }
+    professor: "이한준"
   },
+  {
+    year: 2027,
+    semester: 1,
+    courseNumber: "경과113",
+    courseName: "인적자원관리",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "수2,3,4 (경영관 301)",
+    retake: false,
+    professor: "홍인사"
+  },
+  {
+    year: 2027,
+    semester: 1,
+    courseNumber: "경과119",
+    courseName: "SAP모듈",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "목3,4,5 (정보관 503)",
+    retake: false,
+    professor: "강성구"
+  },
+  {
+    year: 2027,
+    semester: 1,
+    courseNumber: "경과122",
+    courseName: "비즈니스프로세스애널리틱스",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "금2,3,4 (정보관 504)",
+    retake: false,
+    professor: "박비즈니스"
+  },
+  // 3학년 2학기
   {
     year: 2027,
     semester: 2,
@@ -213,10 +339,97 @@ export const MIS_YEAR3_COURSES: Course[] = [
     courseName: "머신러닝",
     completionType: "전공",
     credits: 3,
-    timeAndRoom: "수1,2,3 (정보관 503)",
+    timeAndRoom: "월2,3,4 (정보관 505)",
     retake: false,
-    professor: "이한준",
-    riasecProfile: { I: 0.95, R: 0.6, C: 0.5 }
+    professor: "이한준"
+  },
+  {
+    year: 2027,
+    semester: 2,
+    courseNumber: "경과144",
+    courseName: "ERP경영시뮬레이션게임",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "화3,4,5 (정보관 506)",
+    retake: false,
+    professor: "강성구"
+  },
+  {
+    year: 2027,
+    semester: 2,
+    courseNumber: "경정332",
+    courseName: "정보공학",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "수2,3,4 (정보관 507)",
+    retake: false,
+    professor: "정정보"
+  },
+  {
+    year: 2027,
+    semester: 2,
+    courseNumber: "경정341",
+    courseName: "정보시스템관리",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "목3,4,5 (정보관 508)",
+    retake: false,
+    professor: "김정보시스템"
+  },
+  {
+    year: 2027,
+    semester: 2,
+    courseNumber: "경정377",
+    courseName: "ERP개발",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "금2,3,4 (정보관 509)",
+    retake: false,
+    professor: "강성구"
+  },
+  {
+    year: 2027,
+    semester: 2,
+    courseNumber: "경정378",
+    courseName: "모바일앱개발",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "월5,6,7 (정보관 510)",
+    retake: false,
+    professor: "김환선"
+  },
+  {
+    year: 2027,
+    semester: 2,
+    courseNumber: "경정381",
+    courseName: "데이터마이닝",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "화5,6,7 (정보관 511)",
+    retake: false,
+    professor: "이한준"
+  },
+  {
+    year: 2027,
+    semester: 2,
+    courseNumber: "경정384",
+    courseName: "객체지향언어",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "수5,6,7 (정보관 512)",
+    retake: false,
+    professor: "정객체지향"
+  },
+  {
+    year: 2027,
+    semester: 2,
+    courseNumber: "경정385",
+    courseName: "로보틱프로세스자동화",
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "목5,6,7 (정보관 513)",
+    retake: false,
+    professor: "강영식"
   }
 ];
 
@@ -231,8 +444,7 @@ export const MIS_YEAR4_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "월2,3,4 (정보관 601)",
     retake: false,
-    professor: "강성구",
-    riasecProfile: { R: 0.9, E: 0.7, I: 0.6, C: 0.5 }
+    professor: "강성구"
   },
   {
     year: 2028,
@@ -243,8 +455,7 @@ export const MIS_YEAR4_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "화3,4,5 (정보관 602)",
     retake: false,
-    professor: "최한별",
-    riasecProfile: { I: 0.85, R: 0.7, C: 0.6 }
+    professor: "최한별"
   },
   {
     year: 2028,
@@ -255,8 +466,7 @@ export const MIS_YEAR4_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "수1,2,3 (정보관 603)",
     retake: false,
-    professor: "강성구",
-    riasecProfile: { C: 0.9, I: 0.7, E: 0.4 }
+    professor: "강성구"
   },
   {
     year: 2028,
@@ -267,8 +477,7 @@ export const MIS_YEAR4_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "목2,3,4 (정보관 604)",
     retake: false,
-    professor: "이한준",
-    riasecProfile: { I: 0.9, R: 0.8, A: 0.5, E: 0.4 }
+    professor: "이한준"
   },
   {
     year: 2028,
@@ -279,8 +488,7 @@ export const MIS_YEAR4_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "금1,2,3 (정보관 605)",
     retake: false,
-    professor: "김환선",
-    riasecProfile: { R: 0.8, I: 0.7, A: 0.5 }
+    professor: "김환선"
   },
   {
     year: 2028,
@@ -291,8 +499,7 @@ export const MIS_YEAR4_COURSES: Course[] = [
     credits: 2,
     timeAndRoom: "월6,7 (정보관 세미나실)",
     retake: false,
-    professor: "강성구",
-    riasecProfile: { E: 0.8, S: 0.7, C: 0.5 }
+    professor: "강성구"
   },
   {
     year: 2028,
@@ -303,8 +510,7 @@ export const MIS_YEAR4_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "화3,4,5 (정보관 606)",
     retake: false,
-    professor: "강영식",
-    riasecProfile: { R: 0.85, I: 0.8, C: 0.6 }
+    professor: "강영식"
   }
 ];
 
@@ -530,9 +736,12 @@ export function getCourseGrade(courseNumber: string): number {
     "GEN101-A01": 1, "GEN102-A01": 1, "GEN103-A01": 1,
     "MIS101-A01": 1, "MIS102-A01": 1, "MIS100-A01": 1,
     // 2학년
-    "MIS5864": 2, "MIS6244": 2,
+    "MIS5864": 2, "MIS6244": 2, "경과104": 2, "경과106": 2, "경과120": 2,
+    "경과135": 2, "경과141": 2, "경과143": 2, "경과145": 2, "경과147": 2, "경정262": 2,
     // 3학년
     "MIS5867": 3, "MIS5866": 3, "MIS5865": 3,
+    "경과113": 3, "경과119": 3, "경과122": 3, "경과144": 3,
+    "경정332": 3, "경정341": 3, "경정377": 3, "경정378": 3, "경정381": 3, "경정384": 3, "경정385": 3,
     // 4학년
     "MIS5872": 4, "MIS5871": 4, "MIS5868": 4,
     "MIS5873": 4, "MIS5870": 4, "MIS5869": 4, "MIS5874": 4
@@ -603,8 +812,7 @@ export const FRESHMAN_COURSES: Course[] = [
     credits: 2,
     timeAndRoom: "월1,2 (본관 101)",
     retake: false,
-    professor: "김진로",
-    riasecProfile: { S: 0.6, E: 0.5, V: 0.4 } // 자기탐색, 진로 설계
+    professor: "김진로"
   },
   {
     year: 2025,
@@ -615,8 +823,7 @@ export const FRESHMAN_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "화3,4,5 (본관 203)",
     retake: false,
-    professor: "박작문",
-    riasecProfile: { A: 0.7, E: 0.5, S: 0.4 } // 창의적 표현, 소통
+    professor: "박작문"
   },
   {
     year: 2025,
@@ -627,8 +834,7 @@ export const FRESHMAN_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "수2,3,4 (정보관 301)",
     retake: false,
-    professor: "정컴퓨터",
-    riasecProfile: { R: 0.5, C: 0.6, I: 0.4 } // 실무 기술, 체계
+    professor: "정컴퓨터"
   }
 ];
 
@@ -645,7 +851,6 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "월2,3,4 (경영관 301)",
     retake: false,
     professor: "박전략",
-    riasecProfile: { E: 0.8, I: 0.7, C: 0.5 } // 리더십, 분석, 체계
   },
   {
     year: 2025,
@@ -657,7 +862,7 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "화5,6,7 (경영관 405)",
     retake: false,
     professor: "이마케팅",
-    riasecProfile: { E: 0.9, A: 0.7, S: 0.6 } // 설득, 창의, 소비자 이해
+    // riasecProfile: { E: 0.9, A: 0.7, S: 0.6 } // 설득, 창의, 소비자 이해
   },
   {
     year: 2025,
@@ -669,7 +874,7 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "수3,4,5 (경영관 201)",
     retake: false,
     professor: "최재무",
-    riasecProfile: { I: 0.9, C: 0.8 } // 분석, 체계적 계산
+    // riasecProfile: { I: 0.9, C: 0.8 } // 분석, 체계적 계산
   },
   {
     year: 2025,
@@ -681,7 +886,7 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "목2,3,4 (경영관 302)",
     retake: false,
     professor: "정조직",
-    riasecProfile: { S: 0.9, I: 0.6, E: 0.5 } // 사람 이해, 분석, 관리
+    // riasecProfile: { S: 0.9, I: 0.6, E: 0.5 } // 사람 이해, 분석, 관리
   },
   {
     year: 2025,
@@ -693,7 +898,7 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "금1,2,3 (정보관 501)",
     retake: false,
     professor: "김정보",
-    riasecProfile: { I: 0.8, C: 0.7, R: 0.4 } // 분석, 시스템 설계, 실무
+    // riasecProfile: { I: 0.8, C: 0.7, R: 0.4 } // 분석, 시스템 설계, 실무
   },
   {
     year: 2025,
@@ -705,7 +910,7 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "온1,2,3",
     retake: false,
     professor: "안데이터",
-    riasecProfile: { I: 0.9, C: 0.6 } // 데이터 분석, 논리적 사고
+    // riasecProfile: { I: 0.9, C: 0.6 } // 데이터 분석, 논리적 사고
   },
   
   // 2025년 1학기
@@ -719,7 +924,7 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "월3,4,5 (경영관 303)",
     retake: false,
     professor: "홍인사",
-    riasecProfile: { S: 0.8, C: 0.7, E: 0.5 } // 사람 관리, 체계, 조정
+    // riasecProfile: { S: 0.8, C: 0.7, E: 0.5 } // 사람 관리, 체계, 조정
   },
   {
     year: 2025,
@@ -731,7 +936,7 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "화2,3,4 (경영관 401)",
     retake: false,
     professor: "윤생산",
-    riasecProfile: { C: 0.8, I: 0.7, R: 0.6 } // 프로세스 관리, 분석, 실무
+    // riasecProfile: { C: 0.8, I: 0.7, R: 0.6 } // 프로세스 관리, 분석, 실무
   },
   {
     year: 2025,
@@ -743,7 +948,7 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "수6,7,8 (경영관 202)",
     retake: false,
     professor: "강소비자",
-    riasecProfile: { S: 0.8, I: 0.7, A: 0.5 } // 소비자 이해, 분석, 창의적 접근
+    // riasecProfile: { S: 0.8, I: 0.7, A: 0.5 } // 소비자 이해, 분석, 창의적 접근
   },
   {
     year: 2025,
@@ -755,7 +960,7 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "목5,6,7 (경영관 304)",
     retake: false,
     professor: "서국제",
-    riasecProfile: { E: 0.7, I: 0.6, S: 0.6 } // 글로벌 커뮤니케이션, 분석, 문화 이해
+    // riasecProfile: { E: 0.7, I: 0.6, S: 0.6 } // 글로벌 커뮤니케이션, 분석, 문화 이해
   },
   {
     year: 2025,
@@ -767,7 +972,7 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "금3,4,5 (경영관 501)",
     retake: false,
     professor: "조통계",
-    riasecProfile: { I: 0.9, C: 0.7 } // 데이터 분석, 정량적 사고
+    // riasecProfile: { I: 0.9, C: 0.7 } // 데이터 분석, 정량적 사고
   },
   {
     year: 2025,
@@ -779,7 +984,7 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "온1,2",
     retake: false,
     professor: "한혁신",
-    riasecProfile: { E: 0.8, A: 0.7, V: 0.6 } // 창업가 정신, 혁신, 가치 창출
+    // riasecProfile: { E: 0.8, A: 0.7, V: 0.6 } // 창업가 정신, 혁신, 가치 창출
   },
 
   // 2024년 2학기
@@ -793,7 +998,7 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "월1,2,3 (경영관 101)",
     retake: false,
     professor: "김원론",
-    riasecProfile: { E: 0.6, I: 0.6, C: 0.5 } // 전반적 경영 이해
+    // riasecProfile: { E: 0.6, I: 0.6, C: 0.5 } // 전반적 경영 이해
   },
   {
     year: 2024,
@@ -805,7 +1010,7 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "화4,5,6 (경영관 102)",
     retake: false,
     professor: "이회계",
-    riasecProfile: { C: 0.9, I: 0.7 } // 체계적 기록, 분석
+    // riasecProfile: { C: 0.9, I: 0.7 } // 체계적 기록, 분석
   },
   {
     year: 2024,
@@ -817,7 +1022,7 @@ export const DUMMY_COURSES: Course[] = [
     timeAndRoom: "수1,2,3 (경영관 201)",
     retake: false,
     professor: "박경제",
-    riasecProfile: { I: 0.9, C: 0.6 } // 경제 분석, 이론적 사고
+    // riasecProfile: { I: 0.9, C: 0.6 } // 경제 분석, 이론적 사고
   }
 ];
 
@@ -833,7 +1038,7 @@ export const AVAILABLE_COURSES: Course[] = [
     timeAndRoom: "화3,4,5 (경영관 303)",
     retake: false,
     professor: "김창업",
-    riasecProfile: { E: 0.9, A: 0.7, R: 0.5, V: 0.4 }
+    // riasecProfile: { E: 0.9, A: 0.7, R: 0.5, V: 0.4 }
   },
   {
     year: 2025,
@@ -845,7 +1050,7 @@ export const AVAILABLE_COURSES: Course[] = [
     timeAndRoom: "목6,7,8 (경영관 404)",
     retake: false,
     professor: "박소셜",
-    riasecProfile: { A: 0.9, E: 0.8, S: 0.6 }
+    // riasecProfile: { A: 0.9, E: 0.8, S: 0.6 }
   },
   {
     year: 2025,
@@ -857,7 +1062,7 @@ export const AVAILABLE_COURSES: Course[] = [
     timeAndRoom: "수1,2,3 (정보관 502)",
     retake: false,
     professor: "최빅데이터",
-    riasecProfile: { I: 0.9, C: 0.7, R: 0.4 }
+    // riasecProfile: { I: 0.9, C: 0.7, R: 0.4 }
   },
   {
     year: 2025,
@@ -869,7 +1074,7 @@ export const AVAILABLE_COURSES: Course[] = [
     timeAndRoom: "금4,5,6 (경영관 305)",
     retake: false,
     professor: "이글로벌",
-    riasecProfile: { E: 0.8, S: 0.8, A: 0.5 }
+    // riasecProfile: { E: 0.8, S: 0.8, A: 0.5 }
   },
   {
     year: 2025,
@@ -881,7 +1086,7 @@ export const AVAILABLE_COURSES: Course[] = [
     timeAndRoom: "월6,7,8 (경영관 306)",
     retake: false,
     professor: "정사회적",
-    riasecProfile: { V: 0.9, S: 0.7, E: 0.6 }
+    // riasecProfile: { V: 0.9, S: 0.7, E: 0.6 }
   },
   {
     year: 2025,
@@ -893,7 +1098,7 @@ export const AVAILABLE_COURSES: Course[] = [
     timeAndRoom: "화1,2,3 (정보관 503)",
     retake: false,
     professor: "한시뮬",
-    riasecProfile: { I: 0.8, R: 0.7, C: 0.6 }
+    // riasecProfile: { I: 0.8, R: 0.7, C: 0.6 }
   },
   {
     year: 2025,
@@ -905,7 +1110,7 @@ export const AVAILABLE_COURSES: Course[] = [
     timeAndRoom: "온2,3,4",
     retake: false,
     professor: "임디자인",
-    riasecProfile: { A: 0.9, S: 0.6, E: 0.5 }
+    // riasecProfile: { A: 0.9, S: 0.6, E: 0.5 }
   },
   {
     year: 2025,
@@ -917,7 +1122,7 @@ export const AVAILABLE_COURSES: Course[] = [
     timeAndRoom: "온1,2",
     retake: false,
     professor: "오AI",
-    riasecProfile: { I: 0.8, C: 0.5, R: 0.4 }
+    // riasecProfile: { I: 0.8, C: 0.5, R: 0.4 }
   }
 ];
 
@@ -1331,5 +1536,19 @@ export function getMISCareerRoadmap(year?: number, semester?: number) {
 // 경영정보학과 추천 직무 조회 함수
 export function getMISRecommendedCareers() {
   return MIS_RECOMMENDED_CAREERS;
+}
+
+// 학년별로 수강한 교과목 조회 (누적)
+export function getCoursesByGradeUpTo(targetGrade: number): Course[] {
+  if (CURRENT_STUDENT.studentId !== MIS_STUDENT.studentId) {
+    return getCurrentCourses();
+  }
+  
+  let courses: Course[] = [];
+  if (targetGrade >= 1) courses = [...courses, ...MIS_YEAR1_COURSES];
+  if (targetGrade >= 2) courses = [...courses, ...MIS_YEAR2_COURSES];
+  if (targetGrade >= 3) courses = [...courses, ...MIS_YEAR3_COURSES];
+  if (targetGrade >= 4) courses = [...courses, ...MIS_YEAR4_COURSES];
+  return courses;
 }
 

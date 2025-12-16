@@ -240,11 +240,40 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
       targetGrade: getCourseGrade(course.courseNumber)
     }));
 
+    // 트랙 관련 교과목만 필터링 (relatedCourses에 포함된 교과목)
+    const relatedCourseNames = career.relatedCourses;
+    const trackCourses = allCourses.filter(course => 
+      relatedCourseNames.some(rc => 
+        course.courseName.includes(rc) || 
+        rc.includes(course.courseName) ||
+        // 부분 매칭 (예: "데이터분석" -> "데이터분석프로그래밍", "데이터베이스활용" 등)
+        course.courseName.toLowerCase().includes(rc.toLowerCase()) ||
+        rc.toLowerCase().includes(course.courseName.toLowerCase())
+      )
+    );
+
+    // 1학년 필수 교과목도 포함
+    const requiredCourses = allCourses.filter(course => 
+      course.completionType === '학문기초' || 
+      course.completionType === '전공필수' ||
+      course.courseName.includes('경영학입문') ||
+      course.courseName.includes('경제학원론') ||
+      course.courseName.includes('경상통계학') ||
+      course.courseName.includes('경영정보') ||
+      course.courseName.includes('프로그래밍기초')
+    );
+
+    // 트랙 관련 교과목 + 필수 교과목 합치기 (중복 제거)
+    const coursesToPlace = [...new Map([
+      ...requiredCourses.map(c => [c.plannedId, c]),
+      ...trackCourses.map(c => [c.plannedId, c])
+    ]).values()];
+
     const newSemesters = initialSemesters.map(sem => ({ ...sem, courses: [] as PlannedCourse[] }));
     const placedIds = new Set<string>();
 
-    allCourses.forEach(course => {
-      const targetYear = course.targetGrade || 1;
+    coursesToPlace.forEach(course => {
+      const targetYear = course.targetGrade || getCourseGrade(course.courseNumber) || 1;
       const semester = course.semester || 1;
       const semIdx = (targetYear - 1) * 2 + (semester - 1);
 
@@ -285,28 +314,28 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
   return (
     <div className="space-y-6">
       {/* 헤더 */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+      <div className="bg-white rounded-xl shadow-md p-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h2 className="text-2xl font-bold mb-1">📐 나의 4년 커리큘럼 플래너</h2>
-            <p className="text-indigo-100">교과목 블럭을 드래그하여 나만의 커리어 경로를 설계하세요</p>
+            <h2 className="text-xl font-bold text-gray-800 mb-1">📐 나의 4년 커리큘럼 플래너</h2>
+            <p className="text-gray-600 text-sm">교과목 블럭을 드래그하여 나만의 커리어 경로를 설계하세요</p>
           </div>
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setShowLoadModal(true)}
-              className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition font-medium"
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition font-medium"
             >
               📂 불러오기
             </button>
             <button
               onClick={() => setShowSaveModal(true)}
-              className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition font-medium"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium"
             >
               💾 저장하기
             </button>
             <button
               onClick={resetPlan}
-              className="px-4 py-2 bg-red-500/50 hover:bg-red-500/70 rounded-lg transition font-medium"
+              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition font-medium"
             >
               🔄 초기화
             </button>
@@ -322,7 +351,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
             <span>📊</span> 학점 현황
           </h3>
           <div className="text-center mb-4">
-            <div className="text-4xl font-bold text-indigo-600">{totalCredits}</div>
+            <div className="text-4xl font-bold text-blue-600">{totalCredits}</div>
             <div className="text-gray-500">총 학점</div>
           </div>
           <div className="grid grid-cols-4 gap-2">
@@ -382,7 +411,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                 key={microDegree.id} 
                 className={`p-4 rounded-lg border-2 transition-all ${
                   isComplete 
-                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-400' 
+                    ? 'bg-green-50 border-green-400' 
                     : 'bg-gray-50 border-gray-200'
                 }`}
               >
@@ -422,14 +451,15 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
 
       {/* 메인 플래너 영역 */}
       <div className="grid lg:grid-cols-4 gap-6">
-        {/* 교과목 풀 */}
-        <div className="lg:col-span-1 bg-white rounded-xl shadow-md p-4 max-h-[700px] overflow-y-auto">
-          <h3 className="font-bold text-gray-800 mb-4 sticky top-0 bg-white pb-2 z-10 flex items-center gap-2">
-            <span>📚</span> 교과목 풀
-            <span className="text-xs bg-gray-200 px-2 py-0.5 rounded-full">
-              {availableCourses.length}개
-            </span>
-          </h3>
+        {/* 교과목 풀 - 사이드바 (sticky) */}
+        <div className="lg:col-span-1">
+          <div className="lg:sticky lg:top-6 bg-white rounded-xl shadow-sm p-4 max-h-[400px] lg:max-h-[calc(100vh-8rem)] overflow-y-auto scrollbar-hide">
+            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b border-gray-200 pb-3">
+              <span>📚</span> 교과목 풀
+              <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+                {availableCourses.length}개
+              </span>
+            </h3>
           
           {/* 학년별 필터/범례 */}
           <div className="flex flex-wrap gap-1 mb-3 pb-2 border-b border-gray-200">
@@ -456,8 +486,8 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                   whileTap={{ scale: 0.98 }}
                   className={`p-3 rounded-lg cursor-grab active:cursor-grabbing border-2 transition-all ${
                     draggedCourse?.plannedId === course.plannedId 
-                      ? 'border-indigo-500 bg-indigo-50 shadow-lg' 
-                      : `${getGradeBgColor(grade)} hover:border-indigo-300`
+                      ? 'border-blue-500 bg-blue-50 shadow-lg' 
+                      : `${getGradeBgColor(grade)} hover:border-blue-300`
                   }`}
                 >
                   <div className="flex items-start justify-between">
@@ -500,6 +530,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
               </div>
             )}
           </div>
+          </div>
         </div>
 
         {/* 8학기 그리드 */}
@@ -510,7 +541,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => handleDropToSemester(semIdx)}
               className={`bg-white rounded-xl shadow-md p-4 min-h-[200px] transition-all ${
-                draggedCourse ? 'ring-2 ring-indigo-300 ring-dashed' : ''
+                draggedCourse ? 'ring-2 ring-blue-300 ring-dashed' : ''
               }`}
             >
               <div className="flex items-center justify-between mb-3">
@@ -542,8 +573,8 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                         onDragEnd={handleDragEnd}
                         className={`p-2 rounded-lg cursor-grab active:cursor-grabbing border transition-all ${
                           draggedCourse?.plannedId === course.plannedId
-                            ? 'border-indigo-500 bg-indigo-50 shadow-lg'
-                            : `${getGradeBgColor(grade)} hover:border-indigo-300`
+                            ? 'border-blue-500 bg-blue-50 shadow-lg'
+                            : `${getGradeBgColor(grade)} hover:border-blue-300`
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -590,7 +621,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
 
                 {semester.courses.length === 0 && (
                   <div className={`h-full flex items-center justify-center text-gray-400 text-sm border-2 border-dashed rounded-lg p-4 ${
-                    draggedCourse ? 'border-indigo-400 bg-indigo-50/50' : 'border-gray-200'
+                    draggedCourse ? 'border-blue-400 bg-blue-50/50' : 'border-gray-200'
                   }`}>
                     {draggedCourse ? '여기에 놓으세요' : '과목을 드래그하세요'}
                   </div>
@@ -616,8 +647,8 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
               onClick={() => applyCareerTrack(career.title)}
               className={`px-4 py-2 rounded-lg font-medium transition-all ${
                 selectedCareerTrack === career.title
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-indigo-100'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               {career.title}
@@ -649,7 +680,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                 value={planName}
                 onChange={(e) => setPlanName(e.target.value)}
                 placeholder="계획 이름을 입력하세요"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 outline-none"
               />
               <div className="flex gap-3">
                 <button
@@ -660,7 +691,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                 </button>
                 <button
                   onClick={savePlan}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                 >
                   저장
                 </button>
@@ -699,7 +730,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                     <button
                       key={idx}
                       onClick={() => loadPlan(plan)}
-                      className="w-full p-4 border border-gray-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition text-left"
+                      className="w-full p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition text-left"
                     >
                       <div className="font-medium text-gray-800">{plan.name}</div>
                       <div className="text-xs text-gray-500 mt-1">

@@ -4,9 +4,10 @@ import { DUMMY_STUDENT, FRESHMAN_STUDENT, MIS_STUDENT, ADMIN_ACCOUNT, setCurrent
 
 interface LoginProps {
   onLogin: (studentId: string, isAdmin?: boolean) => void;
+  onNavigateToLanding?: () => void;
 }
 
-export default function Login({ onLogin }: LoginProps) {
+export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
   const [studentId, setStudentId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -136,6 +137,22 @@ export default function Login({ onLogin }: LoginProps) {
               로그인
             </button>
           </form>
+
+          {/* 외부사용자 버튼 */}
+          {onNavigateToLanding && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={onNavigateToLanding}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-4 rounded-lg transition duration-200 border border-gray-300"
+              >
+                외부사용자
+              </button>
+              <p className="text-xs text-gray-500 text-center mt-2">
+                계정이 없으신가요? 랜딩 페이지로 이동합니다
+              </p>
+            </div>
+          )}
 
           {/* 테스트 계정 안내 */}
           <div className="mt-6 pt-6 border-t border-gray-200">

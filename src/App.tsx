@@ -19,7 +19,7 @@ type RiasecResult = Record<Dim, number>;
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentPage, setCurrentPage] = useState("landing");
+  const [currentPage, setCurrentPage] = useState("login");
   const [riasecResult, setRiasecResult] = useState<RiasecResult | null>(null);
   const [currentStudentId, setCurrentStudentId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -104,9 +104,9 @@ export default function App() {
     const hash = window.location.hash.replace('#', '');
     
     // 초기 로드 시에만 URL 파라미터 처리
-    if (code && currentPage === "landing") {
+    if (code && currentPage === "login") {
       setCurrentPage('result-viewer');
-    } else if (hash && currentPage === "landing") {
+    } else if (hash && currentPage === "login") {
       // 해시가 있으면 해당 페이지로 이동
       // CareerInsight 페이지의 섹션 ID들
       const insightSections = ['recommended-majors', 'recommended-roles', 'profile-comparison', 'recommended-courses'];
@@ -116,19 +116,19 @@ export default function App() {
           // 결과가 없어도 insight 페이지로 이동 (검사 안내 표시)
           setCurrentPage('insight');
         } else {
-          // 로그인 안 했으면 로그인 페이지로
-          setCurrentPage('login');
+          // 로그인 안 했으면 로그인 페이지 유지
+          // 이미 login 페이지이므로 변경 불필요
         }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 초기 로드 시에만 실행
 
-  // 초기 페이지 설정 (로그인 안 했으면 랜딩 페이지)
+  // 초기 페이지 설정 (로그인 안 했으면 로그인 페이지)
   useEffect(() => {
     // 초기 로드 시에만 실행 (currentPage가 초기값일 때)
     if (!isLoggedIn && currentPage === "dashboard") {
-      setCurrentPage("landing");
+      setCurrentPage("login");
     }
   }, [isLoggedIn]); // currentPage 의존성 제거하여 무한 루프 방지
 
@@ -161,7 +161,7 @@ export default function App() {
           />
         );
       case "login":
-        return <Login onLogin={handleLogin} />;
+        return <Login onLogin={handleLogin} onNavigateToLanding={() => setCurrentPage("landing")} />;
       case "dashboard":
         // 관리자는 대시보드 접근 불가
         if (isAdmin) {
@@ -221,22 +221,7 @@ export default function App() {
         if (isLoggedIn) {
           return <Dashboard onNavigate={setCurrentPage} riasecCompleted={!!riasecResult} />;
         } else {
-          return (
-            <PublicLanding
-              onStartTest={() => {
-                console.log("검사 시작 버튼 클릭됨 (default)");
-                setCurrentPage("riasec");
-              }}
-              onViewResult={() => {
-                console.log("결과 조회 버튼 클릭됨 (default)");
-                setCurrentPage("result-viewer");
-              }}
-              onLogin={() => {
-                console.log("로그인 버튼 클릭됨 (default)");
-                setCurrentPage("login");
-              }}
-            />
-          );
+          return <Login onLogin={handleLogin} onNavigateToLanding={() => setCurrentPage("landing")} />;
         }
     }
   };
