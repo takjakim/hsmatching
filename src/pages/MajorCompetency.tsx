@@ -46,36 +46,36 @@ export default function MajorCompetency() {
   return (
     <div className="space-y-6">
       {/* 페이지 헤더 */}
-      <div className="bg-gradient-to-r from-[#d4b896] to-[#3b82f6] text-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center space-x-3 mb-2">
-          <span className="text-3xl">📋</span>
-          <h2 className="text-2xl font-bold">전공능력진단검사</h2>
-        </div>
-        <p className="text-white/90">
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <h2 className="text-xl font-bold text-gray-800 flex items-center">
+          <span className="mr-2">📋</span>
+          전공능력진단검사
+        </h2>
+        <p className="text-sm text-gray-600 mt-1">
           {competencyResult.department} 전공능력 및 핵심역량 진단 결과
         </p>
       </div>
 
       {/* 종합 점수 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-gradient-to-r from-[#1e3a8a] to-[#3b82f6] text-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold mb-2 opacity-90">종합 점수</h3>
+        <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-600">
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">종합 점수</h3>
           <div className="flex items-end space-x-2">
-            <span className="text-5xl font-bold">{competencyResult.overallScore}</span>
-            <span className="text-2xl mb-2 opacity-80">/ 100</span>
+            <span className="text-5xl font-bold text-blue-600">{competencyResult.overallScore}</span>
+            <span className="text-2xl mb-2 text-gray-500">/ 100</span>
           </div>
-          <p className="text-sm opacity-80 mt-2">
+          <p className="text-sm text-gray-500 mt-2">
             검사일: {competencyResult.testDate}
           </p>
         </div>
 
-        <div className="bg-gradient-to-r from-[#60a5fa] to-[#3b82f6] text-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold mb-2 opacity-90">백분위 순위</h3>
+        <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-600">
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">백분위 순위</h3>
           <div className="flex items-end space-x-2">
-            <span className="text-5xl font-bold">{competencyResult.overallPercentile}</span>
-            <span className="text-2xl mb-2 opacity-80">%</span>
+            <span className="text-5xl font-bold text-blue-600">{competencyResult.overallPercentile}</span>
+            <span className="text-2xl mb-2 text-gray-500">%</span>
           </div>
-          <p className="text-sm opacity-80 mt-2">
+          <p className="text-sm text-gray-500 mt-2">
             상위 {(100 - competencyResult.overallPercentile).toFixed(1)}%
           </p>
         </div>
@@ -95,9 +95,9 @@ export default function MajorCompetency() {
                 <Radar 
                   name="점수" 
                   dataKey="점수" 
-                  stroke="#1e3a8a" 
+                  stroke="#3b82f6" 
                   fill="#3b82f6" 
-                  fillOpacity={0.6} 
+                  fillOpacity={0.4} 
                 />
               </RadarChart>
             </ResponsiveContainer>
@@ -149,9 +149,9 @@ export default function MajorCompetency() {
                     <span className="text-gray-600">점수</span>
                     <span className="font-bold text-gray-800">{comp.score}점</span>
                   </div>
-                  <div className="w-full h-2 bg-white rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-[#3b82f6]"
+                      className="h-full bg-blue-600"
                       style={{ width: `${comp.score}%` }}
                     />
                   </div>
@@ -160,9 +160,9 @@ export default function MajorCompetency() {
                     <span className="text-gray-600">백분위</span>
                     <span className="font-bold text-gray-800">{comp.percentile}%</span>
                   </div>
-                  <div className="w-full h-2 bg-white rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-[#60a5fa]"
+                      className="h-full bg-blue-500"
                       style={{ width: `${comp.percentile}%` }}
                     />
                   </div>
@@ -208,15 +208,15 @@ export default function MajorCompetency() {
 
       {/* 학생별 특별 메시지 */}
       {CURRENT_STUDENT.grade === 1 ? (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-[#3b82f6] rounded-xl p-6">
-          <h3 className="text-lg font-bold text-[#1e3a8a] mb-3 flex items-center">
+        <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-600">
+          <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center">
             <span className="mr-2">💡</span> 신입생을 위한 안내
           </h3>
           <p className="text-gray-700 leading-relaxed mb-3">
             신입생으로서 기초 능력을 점검했습니다. 이 결과를 바탕으로 1학년 동안 부족한 역량을 
             개발하고, RIASEC 진로 적성검사와 함께 자신에게 맞는 전공을 탐색해보세요.
           </p>
-          <div className="bg-white rounded-lg p-4 border border-[#3b82f6]">
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
             <p className="text-sm text-gray-600 font-medium mb-2">추천 활동:</p>
             <ul className="text-sm text-gray-700 space-y-1">
               <li>• 다양한 전공 체험 프로그램 참여</li>
@@ -227,8 +227,8 @@ export default function MajorCompetency() {
           </div>
         </div>
       ) : (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-[#1e3a8a] rounded-xl p-6">
-          <h3 className="text-lg font-bold text-[#1e3a8a] mb-3 flex items-center">
+        <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-600">
+          <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center">
             <span className="mr-2">🎯</span> 전공 역량 활용 가이드
           </h3>
           <p className="text-gray-700 leading-relaxed mb-3">
@@ -236,7 +236,7 @@ export default function MajorCompetency() {
             이러한 강점을 살려 관련 직무에 도전하거나, 개선이 필요한 영역을 보완하여 
             더욱 경쟁력 있는 인재로 성장할 수 있습니다.
           </p>
-          <div className="bg-white rounded-lg p-4 border border-[#1e3a8a]">
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
             <p className="text-sm text-gray-600 font-medium mb-2">다음 단계:</p>
             <ul className="text-sm text-gray-700 space-y-1">
               <li>• 진로-학습 분석에서 적성과 전공능력 연계 확인</li>
@@ -286,7 +286,7 @@ export default function MajorCompetency() {
         <button className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition">
           PDF 다운로드
         </button>
-        <button className="px-6 py-2 bg-[#1e3a8a] hover:bg-[#3b82f6] text-white font-medium rounded-lg transition shadow-md">
+        <button className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition shadow-md">
           상담 신청하기
         </button>
       </div>
