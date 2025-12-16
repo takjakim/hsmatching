@@ -7,6 +7,8 @@ import {
   MIS_RECOMMENDED_CAREERS,
   getMISCurriculum,
   getCoursesByGradeUpTo,
+  ROLE_MODELS,
+  compareWithRoleModel,
   CareerRoadmap
 } from "../data/dummyData";
 import CurriculumPlanner from "../components/CurriculumPlanner";
@@ -20,7 +22,7 @@ interface CareerRoadmapPageProps {
 export default function CareerRoadmapPage({ onNavigate, riasecResult }: CareerRoadmapPageProps) {
   const [selectedYear, setSelectedYear] = useState<number>(CURRENT_STUDENT.grade || 1);
   const [selectedCareer, setSelectedCareer] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'roadmap' | 'curriculum' | 'careers' | 'planner'>('roadmap');
+  const [viewMode, setViewMode] = useState<'roadmap' | 'curriculum' | 'careers' | 'planner' | 'rolemodels'>('roadmap');
   const [showTutorial, setShowTutorial] = useState(false);
 
   // 튜토리얼 단계 정의
@@ -105,6 +107,17 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult }: CareerRo
   const coursesUpToSelectedYear = useMemo(() => {
     return getCoursesByGradeUpTo(selectedYear);
   }, [selectedYear]);
+
+  // 롤 모델 비교 결과
+  const roleModelComparisons = useMemo(() => {
+    return ROLE_MODELS.map(roleModel => {
+      const comparison = compareWithRoleModel(coursesUpToSelectedYear, roleModel);
+      return {
+        ...roleModel,
+        ...comparison
+      };
+    }).sort((a, b) => b.matchPercentage - a.matchPercentage);
+  }, [coursesUpToSelectedYear]);
 
   // 추천 직무 중 RIASEC + 수강 교과목 기반 매칭 점수 계산
   const rankedCareers = useMemo(() => {
@@ -208,7 +221,8 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult }: CareerRo
           { key: 'planner', label: '📐 내 커리큘럼', desc: '4년 계획 설계' },
           { key: 'roadmap', label: '📍 로드맵', desc: '학년별 진로 가이드' },
           { key: 'curriculum', label: '📚 커리큘럼', desc: '교과목 정보' },
-          { key: 'careers', label: '💼 추천 직무', desc: 'RIASEC 기반' }
+          { key: 'careers', label: '💼 추천 직무', desc: 'RIASEC 기반' },
+          { key: 'rolemodels', label: '⭐ 롤모델', desc: '선배와 비교' }
         ].map((tab) => (
           <button
             key={tab.key}
@@ -535,6 +549,149 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult }: CareerRo
                 </AnimatePresence>
               </motion.div>
             ))}
+          </motion.div>
+        )}
+
+        {viewMode === 'rolemodels' && (
+          <motion.div
+            key="rolemodels"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            {/* 안내 메시지 */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xl">⭐</span>
+                <h3 className="font-semibold text-blue-800">
+                  {selectedYear}학년까지의 커리큘럼으로 선배와 비교
+                </h3>
+              </div>
+              <p className="text-sm text-blue-700">
+                경영정보학과 출신 우수 선배들의 커리큘럼과 비교하여 현재 진행도를 확인하세요.
+              </p>
+            </div>
+
+            {/* 롤 모델 카드들 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {roleModelComparisons.map((model, index) => {
+                const getMatchColor = (percentage: number) => {
+                  if (percentage >= 70) return { text: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200', bar: 'bg-green-500' };
+                  if (percentage >= 50) return { text: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200', bar: 'bg-yellow-500' };
+                  return { text: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', bar: 'bg-orange-500' };
+                };
+
+                const matchColor = getMatchColor(model.matchPercentage);
+
+                return (
+                  <motion.div
+                    key={model.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition"
+                  >
+                    {/* 헤더 */}
+                    <div className={`p-6 border-b-4 ${matchColor.border}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-4xl">{model.icon}</div>
+                        <div className="text-right">
+                          <div className={`text-3xl font-bold ${matchColor.text}`}>
+                            {model.matchPercentage}%
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">매칭률</div>
+                        </div>
+                      </div>
+                      <h3 className="text-lg font-bold text-gray-800 mb-1">{model.name} 선배</h3>
+                      <p className="text-sm text-gray-600 mb-1">{model.company}</p>
+                      <p className="text-xs text-gray-500">{model.position}</p>
+                    </div>
+
+                    {/* 상세 정보 */}
+                    <div className="p-6">
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between text-sm mb-2">
+                          <span className="text-gray-600">수강 교과목</span>
+                          <span className="font-medium text-gray-800">
+                            {model.matchedCourses.length} / {model.courses.length}개
+                          </span>
+                        </div>
+                        <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${model.matchPercentage}%` }}
+                            transition={{ duration: 0.8, delay: index * 0.1 }}
+                            className={`h-full ${matchColor.bar}`}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <p className="text-xs font-semibold text-gray-700 mb-2">커리어 경로</p>
+                        <ul className="space-y-1">
+                          {model.careerPath.map((path, idx) => (
+                            <li key={idx} className="text-xs text-gray-600 flex items-start">
+                              <span className="mr-1">•</span>
+                              <span>{path}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="pt-4 border-t border-gray-100">
+                        <p className="text-xs text-gray-500 mb-2">
+                          {model.matchedCourses.length < model.courses.length && (
+                            <>
+                              <span className="font-medium text-orange-600">
+                                {model.missingCourses.length}개 교과목
+                              </span>
+                              {' '}추가 수강 필요
+                            </>
+                          )}
+                          {model.matchedCourses.length === model.courses.length && (
+                            <span className="text-green-600 font-medium">
+                              ✓ 모든 필수 교과목 수강 완료
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* 전체 비교 요약 */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">전체 비교 요약</h3>
+              <div className="space-y-3">
+                {roleModelComparisons.map((model) => {
+                  const matchColor = model.matchPercentage >= 70 ? 'text-green-600' :
+                                   model.matchPercentage >= 50 ? 'text-yellow-600' :
+                                   'text-orange-600';
+                  return (
+                    <div key={model.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{model.icon}</span>
+                        <div>
+                          <p className="font-medium text-gray-800">{model.name} 선배 ({model.company})</p>
+                          <p className="text-xs text-gray-500">{model.companyType} · {model.position}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`text-2xl font-bold ${matchColor}`}>
+                          {model.matchPercentage}%
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {model.matchedCourses.length}/{model.courses.length}개 수강
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

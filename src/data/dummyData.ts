@@ -1552,3 +1552,119 @@ export function getCoursesByGradeUpTo(targetGrade: number): Course[] {
   return courses;
 }
 
+// 롤 모델 선배 인터페이스
+export interface RoleModel {
+  id: string;
+  name: string;
+  company: string;
+  companyType: '일반기업체' | '금융기관' | 'IT기업';
+  position: string;
+  description: string;
+  icon: string;
+  courses: string[]; // 수강한 교과목 번호 목록
+  careerPath: string[];
+}
+
+// 롤 모델 선배 데이터
+export const ROLE_MODELS: RoleModel[] = [
+  {
+    id: 'corp_manager',
+    name: '김경영',
+    company: '삼성전자',
+    companyType: '일반기업체',
+    position: '정보관리자',
+    description: '대기업 정보시스템 관리 및 운영 담당',
+    icon: '🏢',
+    courses: [
+      // 1학년
+      'GEN101-A01', 'GEN102-A01', 'GEN103-A01', 'MIS101-A01', 'MIS102-A01',
+      // 2학년
+      'MIS5864', 'MIS6244', '경과104', '경과106', '경과120', '경과135', '경과141', '경과143', '경과145', '경과147', '경정262',
+      // 3학년
+      'MIS5867', '경과113', '경과119', '경과122', 'MIS5865', '경과144', '경정332', '경정341',
+      // 4학년
+      'MIS5868', 'MIS5869', 'MIS5870', 'MIS5871', 'MIS5872'
+    ],
+    careerPath: [
+      '경영학 기초 + 정보시스템 관리 역량 강화',
+      'ERP 시스템 운영 및 관리 경험',
+      '비즈니스 프로세스 이해도 향상',
+      '데이터베이스 및 시스템 분석 능력'
+    ]
+  },
+  {
+    id: 'finance_specialist',
+    name: '이금융',
+    company: 'KB금융그룹',
+    companyType: '금융기관',
+    position: '시스템 운영요원',
+    description: '금융기관 핵심 시스템 운영 및 관리',
+    icon: '🏦',
+    courses: [
+      // 1학년
+      'GEN101-A01', 'GEN102-A01', 'GEN103-A01', 'MIS101-A01', 'MIS102-A01',
+      // 2학년
+      'MIS6244', '경과104', '경과106', '경과120', '경과135', '경과141', '경과143', '경과145', '경과147', '경정262',
+      // 3학년
+      'MIS5867', '경과113', '경과119', '경과122', 'MIS5865', '경과144', '경정332', '경정341',
+      // 4학년
+      'MIS5868', 'MIS5869', 'MIS5870', 'MIS5871', 'MIS5872'
+    ],
+    careerPath: [
+      '회계 및 재무관리 역량 강화',
+      '금융 시스템 이해 및 운영 경험',
+      '데이터 분석 및 리스크 관리',
+      'ERP 경영시뮬레이션 게임 참여'
+    ]
+  },
+  {
+    id: 'it_developer',
+    name: '박개발',
+    company: '네이버',
+    companyType: 'IT기업',
+    position: '소프트웨어 개발자',
+    description: '웹 서비스 및 클라우드 애플리케이션 개발',
+    icon: '💻',
+    courses: [
+      // 1학년
+      'GEN101-A01', 'GEN102-A01', 'GEN103-A01', 'MIS101-A01', 'MIS102-A01',
+      // 2학년
+      'MIS5864', 'MIS6244', '경과120', '경과135', '경과141', '경과145', '경정262',
+      // 3학년
+      'MIS5866', 'MIS5865', '경정332', '경정341',
+      // 4학년
+      'MIS5870', 'MIS5871', 'MIS5873', 'MIS5874'
+    ],
+    careerPath: [
+      '프로그래밍 기초부터 고급까지 체계적 학습',
+      '데이터 분석 및 머신러닝 역량 강화',
+      '클라우드 프로그래밍 및 모바일 앱 개발',
+      'AI 융합 소프트웨어 마이크로 디그리 취득'
+    ]
+  }
+];
+
+// 현재 학생의 커리큘럼과 롤 모델 비교 함수
+export function compareWithRoleModel(
+  studentCourses: Course[],
+  roleModel: RoleModel
+): { matchPercentage: number; matchedCourses: string[]; missingCourses: string[] } {
+  const studentCourseNumbers = studentCourses.map(c => c.courseNumber);
+  const matchedCourses = roleModel.courses.filter(courseNum => 
+    studentCourseNumbers.includes(courseNum)
+  );
+  const missingCourses = roleModel.courses.filter(courseNum => 
+    !studentCourseNumbers.includes(courseNum)
+  );
+  
+  const matchPercentage = roleModel.courses.length > 0
+    ? (matchedCourses.length / roleModel.courses.length) * 100
+    : 0;
+  
+  return {
+    matchPercentage: Math.round(matchPercentage * 10) / 10,
+    matchedCourses,
+    missingCourses
+  };
+}
+
