@@ -46,19 +46,19 @@ export default function MajorCompetency() {
   return (
     <div className="space-y-6">
       {/* 페이지 헤더 */}
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <h2 className="text-xl font-bold text-gray-800 flex items-center">
-          <span className="mr-2">📋</span>
-          전공능력진단검사
-        </h2>
-        <p className="text-sm text-gray-600 mt-1">
+      <div className="bg-gradient-to-r from-[#d4b896] to-[#3b82f6] text-white rounded-xl shadow-lg p-6">
+        <div className="flex items-center space-x-3 mb-2">
+          <span className="text-3xl">📋</span>
+          <h2 className="text-2xl font-bold">전공능력진단검사</h2>
+        </div>
+        <p className="text-white/90">
           {competencyResult.department} 전공능력 및 핵심역량 진단 결과
         </p>
       </div>
 
       {/* 종합 점수 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-blue-600 text-white rounded-xl shadow-md p-6">
+        <div className="bg-gradient-to-r from-[#1e3a8a] to-[#3b82f6] text-white rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-2 opacity-90">종합 점수</h3>
           <div className="flex items-end space-x-2">
             <span className="text-5xl font-bold">{competencyResult.overallScore}</span>
@@ -69,7 +69,7 @@ export default function MajorCompetency() {
           </p>
         </div>
 
-        <div className="bg-blue-600 text-white rounded-xl shadow-md p-6">
+        <div className="bg-gradient-to-r from-[#60a5fa] to-[#3b82f6] text-white rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-2 opacity-90">백분위 순위</h3>
           <div className="flex items-end space-x-2">
             <span className="text-5xl font-bold">{competencyResult.overallPercentile}</span>
@@ -283,10 +283,10 @@ export default function MajorCompetency() {
 
       {/* 다운로드 및 공유 */}
       <div className="flex justify-end space-x-3">
-        <button className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg text-sm transition">
+        <button className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition">
           PDF 다운로드
         </button>
-        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition">
+        <button className="px-6 py-2 bg-[#1e3a8a] hover:bg-[#3b82f6] text-white font-medium rounded-lg transition shadow-md">
           상담 신청하기
         </button>
       </div>

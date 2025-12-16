@@ -7,6 +7,7 @@ import GradesInfo from "./pages/GradesInfo";
 import CoursesInfo from "./pages/CoursesInfo";
 import MajorCompetency from "./pages/MajorCompetency";
 import CareerInsight from "./pages/CareerInsight";
+import CareerRoadmapPage from "./pages/CareerRoadmapPage";
 import HSMatchingPrototype from "./HSMatchingPrototype";
 import ResultViewer from "./pages/ResultViewer";
 import PublicLanding from "./pages/PublicLanding";
@@ -199,6 +200,12 @@ export default function App() {
           return null;
         }
         return <CareerInsight riasecResult={riasecResult} onStartTest={() => setCurrentPage("riasec")} />;
+      case "roadmap":
+        if (isAdmin) {
+          setCurrentPage("admin-logs");
+          return null;
+        }
+        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} />;
       case "riasec":
         return <HSMatchingPrototype onComplete={handleRiasecComplete} />;
       case "result-viewer":

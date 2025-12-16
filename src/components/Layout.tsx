@@ -22,6 +22,7 @@ export default function Layout({ children, currentPage, onPageChange, onLogout, 
     { id: "courses", label: "수강현황", icon: "📚" },
     { id: "competency", label: "전공능력진단", icon: "📋" },
     { id: "insight", label: "진로-학습 분석", icon: "💡" },
+    { id: "roadmap", label: "전주기 로드맵", icon: "🎓" },
     { id: "riasec", label: "진로매칭", icon: "🎯" },
   ];
 

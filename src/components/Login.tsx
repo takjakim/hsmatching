@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { DUMMY_STUDENT, FRESHMAN_STUDENT, ADMIN_ACCOUNT, setCurrentStudent } from "../data/dummyData";
+import { DUMMY_STUDENT, FRESHMAN_STUDENT, MIS_STUDENT, ADMIN_ACCOUNT, setCurrentStudent } from "../data/dummyData";
 
 interface LoginProps {
   onLogin: (studentId: string, isAdmin?: boolean) => void;
@@ -20,24 +20,30 @@ export default function Login({ onLogin }: LoginProps) {
     if (studentId === ADMIN_ACCOUNT.studentId && password === ADMIN_ACCOUNT.password) {
       onLogin(ADMIN_ACCOUNT.studentId, true);
     } 
-    // 두 학생 계정 모두 체크
+    // 학생 계정 체크 (경영학과, 무전공 신입생, 경영정보학과)
     else if (studentId === DUMMY_STUDENT.studentId && password === DUMMY_STUDENT.password) {
       setCurrentStudent(DUMMY_STUDENT.studentId);
       onLogin(DUMMY_STUDENT.studentId, false);
     } else if (studentId === FRESHMAN_STUDENT.studentId && password === FRESHMAN_STUDENT.password) {
       setCurrentStudent(FRESHMAN_STUDENT.studentId);
       onLogin(FRESHMAN_STUDENT.studentId, false);
+    } else if (studentId === MIS_STUDENT.studentId && password === MIS_STUDENT.password) {
+      setCurrentStudent(MIS_STUDENT.studentId);
+      onLogin(MIS_STUDENT.studentId, false);
     } else {
       setError("학번 또는 비밀번호가 일치하지 않습니다.");
     }
   };
 
-  const quickLogin = (studentType: 'senior' | 'freshman' | 'admin') => {
+  const quickLogin = (studentType: 'senior' | 'freshman' | 'mis' | 'admin') => {
     if (studentType === 'admin') {
       onLogin(ADMIN_ACCOUNT.studentId, true);
     } else if (studentType === 'senior') {
       setCurrentStudent(DUMMY_STUDENT.studentId);
       onLogin(DUMMY_STUDENT.studentId, false);
+    } else if (studentType === 'mis') {
+      setCurrentStudent(MIS_STUDENT.studentId);
+      onLogin(MIS_STUDENT.studentId, false);
     } else {
       setCurrentStudent(FRESHMAN_STUDENT.studentId);
       onLogin(FRESHMAN_STUDENT.studentId, false);
@@ -187,6 +193,31 @@ export default function Login({ onLogin }: LoginProps) {
                   </p>
                   <p className="text-xs text-gray-500 mt-2">
                     ✓ RIASEC 검사만으로 진로 탐색 체험
+                  </p>
+                </div>
+
+                {/* 경영정보학과 학생 (전주기 시뮬레이션) */}
+                <div className="p-4 bg-amber-50 border border-amber-300 rounded-lg text-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-semibold text-gray-700">🎓 경영정보학과 2학년 (전주기 가이드)</p>
+                    <button
+                      onClick={() => quickLogin('mis')}
+                      className="text-xs bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded"
+                    >
+                      빠른 로그인
+                    </button>
+                  </div>
+                  <p className="text-gray-600">
+                    <span className="font-medium">학번:</span> {MIS_STUDENT.studentId}
+                  </p>
+                  <p className="text-gray-600">
+                    <span className="font-medium">비밀번호:</span> {MIS_STUDENT.password}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    ✓ 무전공 입학 → 경영정보학과 선택 시나리오
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    ✓ 1~4학년 전주기 커리큘럼 및 진로 로드맵 체험
                   </p>
                 </div>
 

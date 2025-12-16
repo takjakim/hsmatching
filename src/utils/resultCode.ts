@@ -107,3 +107,9 @@ export function getCodeList(): Array<{ code: string; createdAt: string }> {
 export function isValidCode(code: string): boolean {
   return /^[A-Z0-9]{6,}$/.test(code);
 }
+
+
+
+
+
+

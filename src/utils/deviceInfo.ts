@@ -125,3 +125,9 @@ export function formatDeviceInfo(info: DeviceInfo): {
   
   return { browser, os, device, screen, other };
 }
+
+
+
+
+
+
