@@ -511,20 +511,6 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 text-slate-800">
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <header className="mb-8 flex items-center justify-between bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center space-x-4">
-            <img 
-              src="https://myicap.mju.ac.kr/files/web1/images/common/logo.png" 
-              alt="MYiCap 로고" 
-              className="h-12 w-auto object-contain"
-            />
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-gray-800">MJU e-Advisor</h1>
-              <p className="text-sm text-gray-500">진로 적성검사 시스템</p>
-            </div>
-          </div>
-          <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">v0.5</span>
-        </header>
 
         {/* 점진적 진척도 (씨앗→싹→꽃→열매) */}
         {(inMain || inAdaptive) && (

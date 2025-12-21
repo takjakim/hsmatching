@@ -168,7 +168,7 @@ export default function App() {
           setCurrentPage("admin-logs");
           return null;
         }
-        return <Dashboard onNavigate={setCurrentPage} riasecCompleted={!!riasecResult} />;
+        return <Dashboard onNavigate={setCurrentPage} riasecCompleted={!!riasecResult} riasecResult={riasecResult} />;
       case "personal":
         // 관리자는 일반 학생 페이지 접근 불가
         if (isAdmin) {
@@ -205,7 +205,43 @@ export default function App() {
           setCurrentPage("admin-logs");
           return null;
         }
+        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} initialViewMode="roadmap" />;
+      case "roadmap-fullcycle":
+        if (isAdmin) {
+          setCurrentPage("admin-logs");
+          return null;
+        }
         return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} />;
+      case "roadmap-planner":
+        if (isAdmin) {
+          setCurrentPage("admin-logs");
+          return null;
+        }
+        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} initialViewMode="planner" />;
+      case "roadmap-guide":
+        if (isAdmin) {
+          setCurrentPage("admin-logs");
+          return null;
+        }
+        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} initialViewMode="roadmap" />;
+      case "roadmap-extracurricular":
+        if (isAdmin) {
+          setCurrentPage("admin-logs");
+          return null;
+        }
+        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} initialViewMode="extracurricular" />;
+      case "roadmap-careers":
+        if (isAdmin) {
+          setCurrentPage("admin-logs");
+          return null;
+        }
+        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} initialViewMode="careers" />;
+      case "roadmap-rolemodels":
+        if (isAdmin) {
+          setCurrentPage("admin-logs");
+          return null;
+        }
+        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} initialViewMode="rolemodels" />;
       case "riasec":
         return <HSMatchingPrototype onComplete={handleRiasecComplete} />;
       case "result-viewer":
@@ -219,7 +255,7 @@ export default function App() {
         return <AdminLogs />;
       default:
         if (isLoggedIn) {
-          return <Dashboard onNavigate={setCurrentPage} riasecCompleted={!!riasecResult} />;
+          return <Dashboard onNavigate={setCurrentPage} riasecCompleted={!!riasecResult} riasecResult={riasecResult} />;
         } else {
           return <Login onLogin={handleLogin} onNavigateToLanding={() => setCurrentPage("landing")} />;
         }
@@ -227,8 +263,9 @@ export default function App() {
   };
 
   // 공개 페이지 (로그인 불필요)
-  const publicPages = ["landing", "riasec", "result-viewer", "login"];
-  const isPublicPage = publicPages.includes(currentPage);
+  const publicPages = ["landing", "result-viewer", "login"];
+  // riasec은 로그인 여부에 따라 다르게 처리
+  const isPublicPage = publicPages.includes(currentPage) || (currentPage === "riasec" && !isLoggedIn);
 
   // 공개 페이지는 Layout 없이 표시
   if (isPublicPage) {

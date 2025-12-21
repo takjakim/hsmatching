@@ -9,7 +9,8 @@ import {
   getCourseGrade,
   getModuleForCourse,
   getModuleProgress,
-  getMicroDegreeProgress
+  getMicroDegreeProgress,
+  getCoursesByGradeUpTo
 } from "../data/dummyData";
 import { Course } from "../types/student";
 
@@ -27,6 +28,7 @@ interface SemesterSlot {
 interface PlannedCourse extends Course {
   plannedId: string;
   targetGrade?: number; // 이수예정 학년
+  isCompleted?: boolean; // 이미 수강 완료한 과목인지
 }
 
 // 저장 데이터 타입
@@ -62,14 +64,42 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [selectedCareerTrack, setSelectedCareerTrack] = useState<string | null>(null);
 
-  // 교과목 풀 초기화 (학년 정보 포함)
+  // 교과목 풀 초기화 (학년 정보 포함) + 이미 수강한 과목 자동 배치
   useEffect(() => {
-    const coursesWithId: PlannedCourse[] = MIS_ALL_COURSES.map((course, idx) => ({
+    // 이미 수강한 과목들 (현재 학년까지)
+    const completedCourses = getCoursesByGradeUpTo(CURRENT_STUDENT.grade);
+    const completedCourseNumbers = new Set(completedCourses.map(c => c.courseNumber));
+
+    // 모든 과목에 ID 부여
+    const allCoursesWithId: PlannedCourse[] = MIS_ALL_COURSES.map((course, idx) => ({
       ...course,
       plannedId: `course-${idx}-${course.courseNumber}`,
-      targetGrade: getCourseGrade(course.courseNumber)
+      targetGrade: getCourseGrade(course.courseNumber),
+      isCompleted: completedCourseNumbers.has(course.courseNumber)
     }));
-    setAvailableCourses(coursesWithId);
+
+    // 이미 수강한 과목들은 해당 학기에 자동 배치
+    const newSemesters = initialSemesters.map(sem => ({ ...sem, courses: [] as PlannedCourse[] }));
+    const placedIds = new Set<string>();
+
+    allCoursesWithId.forEach(course => {
+      if (course.isCompleted) {
+        const targetYear = course.targetGrade || getCourseGrade(course.courseNumber) || 1;
+        const courseSemester = course.semester || 1;
+        const semIdx = (targetYear - 1) * 2 + (courseSemester - 1);
+
+        if (semIdx >= 0 && semIdx < 8) {
+          newSemesters[semIdx].courses.push(course);
+          placedIds.add(course.plannedId);
+        }
+      }
+    });
+
+    // 미수강 과목들만 교과목 풀에 표시
+    const remaining = allCoursesWithId.filter(c => !placedIds.has(c.plannedId));
+
+    setSemesters(newSemesters);
+    setAvailableCourses(remaining);
 
     const saved = localStorage.getItem('curriculumPlans');
     if (saved) {
@@ -215,16 +245,42 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
     setShowLoadModal(false);
   };
 
-  // 계획 초기화
+  // 계획 초기화 (이수 완료 과목은 유지)
   const resetPlan = () => {
-    if (confirm('현재 계획을 초기화하시겠습니까?')) {
-      setSemesters(initialSemesters);
-      const coursesWithId: PlannedCourse[] = MIS_ALL_COURSES.map((course, idx) => ({
+    if (confirm('현재 계획을 초기화하시겠습니까? (이미 수강한 과목은 유지됩니다)')) {
+      // 이미 수강한 과목들 (현재 학년까지)
+      const completedCourses = getCoursesByGradeUpTo(CURRENT_STUDENT.grade);
+      const completedCourseNumbers = new Set(completedCourses.map(c => c.courseNumber));
+
+      const allCoursesWithId: PlannedCourse[] = MIS_ALL_COURSES.map((course, idx) => ({
         ...course,
         plannedId: `course-${idx}-${course.courseNumber}`,
-        targetGrade: getCourseGrade(course.courseNumber)
+        targetGrade: getCourseGrade(course.courseNumber),
+        isCompleted: completedCourseNumbers.has(course.courseNumber)
       }));
-      setAvailableCourses(coursesWithId);
+
+      // 이미 수강한 과목들은 해당 학기에 자동 배치
+      const newSemesters = initialSemesters.map(sem => ({ ...sem, courses: [] as PlannedCourse[] }));
+      const placedIds = new Set<string>();
+
+      allCoursesWithId.forEach(course => {
+        if (course.isCompleted) {
+          const targetYear = course.targetGrade || getCourseGrade(course.courseNumber) || 1;
+          const courseSemester = course.semester || 1;
+          const semIdx = (targetYear - 1) * 2 + (courseSemester - 1);
+
+          if (semIdx >= 0 && semIdx < 8) {
+            newSemesters[semIdx].courses.push(course);
+            placedIds.add(course.plannedId);
+          }
+        }
+      });
+
+      // 미수강 과목들만 교과목 풀에 표시
+      const remaining = allCoursesWithId.filter(c => !placedIds.has(c.plannedId));
+
+      setSemesters(newSemesters);
+      setAvailableCourses(remaining);
       setSelectedCareerTrack(null);
     }
   };
@@ -350,10 +406,50 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
           <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
             <span>📊</span> 학점 현황
           </h3>
-          <div className="text-center mb-4">
-            <div className="text-4xl font-bold text-blue-600">{totalCredits}</div>
-            <div className="text-gray-500">총 학점</div>
+          
+          {/* 120학점 기준 이수율 원형 차트 */}
+          <div className="flex items-center justify-center mb-4">
+            <div className="relative w-28 h-28">
+              <svg className="w-28 h-28 transform -rotate-90">
+                <circle
+                  cx="56"
+                  cy="56"
+                  r="48"
+                  stroke="#e5e7eb"
+                  strokeWidth="10"
+                  fill="none"
+                />
+                <motion.circle
+                  cx="56"
+                  cy="56"
+                  r="48"
+                  stroke="#3b82f6"
+                  strokeWidth="10"
+                  fill="none"
+                  strokeDasharray={`${2 * Math.PI * 48}`}
+                  strokeDashoffset={2 * Math.PI * 48 * (1 - Math.min(totalCredits / 120, 1))}
+                  strokeLinecap="round"
+                  initial={{ strokeDashoffset: 2 * Math.PI * 48 }}
+                  animate={{ strokeDashoffset: 2 * Math.PI * 48 * (1 - Math.min(totalCredits / 120, 1)) }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-xl font-bold text-blue-600">{Math.round((totalCredits / 120) * 100)}%</p>
+                  <p className="text-[10px] text-gray-500">이수율</p>
+                </div>
+              </div>
+            </div>
           </div>
+          
+          {/* 총 학점 / 졸업 학점 */}
+          <div className="text-center mb-4 py-2 bg-blue-50 rounded-lg">
+            <span className="text-2xl font-bold text-blue-600">{totalCredits}</span>
+            <span className="text-gray-500 text-sm"> / 120 학점</span>
+          </div>
+
+          {/* 학년별 학점 */}
           <div className="grid grid-cols-4 gap-2">
             {[1, 2, 3, 4].map(year => (
               <div key={year} className="text-center">
@@ -551,8 +647,15 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                   </span>
                   {semester.label}
                 </h4>
-                <div className="text-sm text-gray-500">
-                  {semesterCredits[semIdx]}학점
+                <div className="flex items-center gap-2">
+                  {semester.courses.some(c => c.isCompleted) && (
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                      ✓ {semester.courses.filter(c => c.isCompleted).length}개 이수
+                    </span>
+                  )}
+                  <span className="text-sm text-gray-500">
+                    {semesterCredits[semIdx]}학점
+                  </span>
                 </div>
               </div>
 
@@ -568,18 +671,26 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.8 }}
-                        draggable
-                        onDragStart={() => handleDragStart(course)}
+                        draggable={!course.isCompleted}
+                        onDragStart={() => !course.isCompleted && handleDragStart(course)}
                         onDragEnd={handleDragEnd}
-                        className={`p-2 rounded-lg cursor-grab active:cursor-grabbing border transition-all ${
-                          draggedCourse?.plannedId === course.plannedId
-                            ? 'border-blue-500 bg-blue-50 shadow-lg'
-                            : `${getGradeBgColor(grade)} hover:border-blue-300`
+                        className={`p-2 rounded-lg border transition-all ${
+                          course.isCompleted 
+                            ? 'bg-green-50 border-green-300 cursor-default'
+                            : draggedCourse?.plannedId === course.plannedId
+                              ? 'border-blue-500 bg-blue-50 shadow-lg cursor-grab active:cursor-grabbing'
+                              : `${getGradeBgColor(grade)} hover:border-blue-300 cursor-grab active:cursor-grabbing`
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1 flex-wrap">
+                              {/* 수강 완료 표시 */}
+                              {course.isCompleted && (
+                                <span className="px-1 py-0.5 rounded text-xs font-bold bg-green-500 text-white">
+                                  ✓
+                                </span>
+                              )}
                               {/* 학년 배지 */}
                               <span className={`px-1 py-0.5 rounded text-xs font-bold text-white ${getGradeColor(grade)}`}>
                                 {grade}
@@ -598,21 +709,26 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                                   title={module.name}
                                 />
                               )}
-                              <span className="font-medium text-gray-800 text-sm truncate">
+                              <span className={`font-medium text-sm truncate ${course.isCompleted ? 'text-green-700' : 'text-gray-800'}`}>
                                 {course.courseName}
                               </span>
                             </div>
                           </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleReturnToPool(course);
-                            }}
-                            className="text-gray-400 hover:text-red-500 p-1 transition"
-                            title="교과목 풀로 되돌리기"
-                          >
-                            ✕
-                          </button>
+                          {!course.isCompleted && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleReturnToPool(course);
+                              }}
+                              className="text-gray-400 hover:text-red-500 p-1 transition"
+                              title="교과목 풀로 되돌리기"
+                            >
+                              ✕
+                            </button>
+                          )}
+                          {course.isCompleted && (
+                            <span className="text-green-500 text-xs font-medium px-1">이수완료</span>
+                          )}
                         </div>
                       </motion.div>
                     );

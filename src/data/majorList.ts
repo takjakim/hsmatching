@@ -114,14 +114,14 @@ function parseCSV(csvText: string): Array<{ college: string; department: string;
   return result;
 }
 
-// 학과명 생성 (전공이 있으면 전공명, 없으면 학부명)
+// 학과명 생성 (완전한 전공명 표시)
 function generateMajorName(department: string, major: string): string {
   if (major) {
-    // 전공명이 있으면 전공명만 표시 (예: "중어중문학전공" -> "중어중문학")
-    return major.replace(/전공$/, '');
+    // 전공명이 있으면 전공명 그대로 표시 (예: "중어중문학전공" -> "중어중문학전공")
+    return major;
   }
-  // 전공이 없으면 학부명 (예: "문예창작학과" -> "문예창작")
-  return department.replace(/학부$|학과$/, '');
+  // 전공이 없으면 학부명 그대로 표시 (예: "문예창작학과" -> "문예창작학과")
+  return department;
 }
 
 // 학과 키 생성 (한글 포함 고유 키)
@@ -241,11 +241,6 @@ function getRIASECProfile(college: string, department: string, major: string): P
     '회계세무학': { C: 0.95, I: 0.75, E: 0.6, S: 0.4, A: 0.2 },
     '계약학과': { C: 0.9, E: 0.75, I: 0.65, S: 0.6, A: 0.3 },
     '계약학': { C: 0.9, E: 0.75, I: 0.65, S: 0.6, A: 0.3 },
-    '아너칼리지(전공자유대학)': { I: 0.75, E: 0.75, A: 0.7, S: 0.7, C: 0.65 },
-    '아너칼리지': { I: 0.75, E: 0.75, A: 0.7, S: 0.7, C: 0.65 },
-    '자율전공학부(인문)': { I: 0.8, A: 0.75, S: 0.7, C: 0.65, E: 0.6 },
-    '자율전공학부(자연)': { I: 0.85, R: 0.75, C: 0.7, E: 0.6, A: 0.4 },
-    '자율전공학부': { I: 0.8, R: 0.7, C: 0.7, E: 0.65, A: 0.6 },
     
     // 화학·생명과학대학
     '화학나노학전공': { I: 0.9, R: 0.8, C: 0.75, E: 0.4, A: 0.2 },

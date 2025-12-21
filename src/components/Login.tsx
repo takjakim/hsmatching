@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { DUMMY_STUDENT, FRESHMAN_STUDENT, MIS_STUDENT, ADMIN_ACCOUNT, setCurrentStudent } from "../data/dummyData";
+import logLogo from "../img/log_logo.png";
 
 interface LoginProps {
   onLogin: (studentId: string, isAdmin?: boolean) => void;
@@ -10,6 +11,7 @@ interface LoginProps {
 export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
   const [studentId, setStudentId] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [showHint, setShowHint] = useState(false);
 
@@ -52,99 +54,165 @@ export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1e3a8a] via-[#3b82f6] to-[#1e3a8a] flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          {/* 로고 영역 */}
-          <div className="text-center mb-8">
-            <div className="inline-block bg-[#1e3a8a] text-white rounded-full p-4 mb-4">
-              <svg
-                className="w-12 h-12"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                />
-              </svg>
-            </div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">
-              학생 정보 시스템
-            </h1>
-            <p className="text-gray-600">Student Information System</p>
+    <div className="min-h-screen flex flex-col">
+      {/* 상단 파란색 배너 영역 */}
+      <div className="relative bg-gradient-to-br from-blue-600 via-blue-500 to-blue-700 h-[280px] overflow-hidden">
+        {/* 3D 배경 요소들 */}
+        <div className="absolute inset-0">
+          {/* 흰색 큐브 블록들 */}
+          <div className="absolute bottom-0 left-1/4 w-16 h-16 bg-white/30 transform rotate-12 translate-y-8"></div>
+          <div className="absolute bottom-0 left-1/3 w-12 h-12 bg-white/20 transform -rotate-12 translate-y-4"></div>
+          <div className="absolute bottom-0 right-1/4 w-20 h-20 bg-white/25 transform rotate-45 translate-y-12"></div>
+          <div className="absolute bottom-0 right-1/3 w-14 h-14 bg-white/30 transform -rotate-45 translate-y-6"></div>
+          
+          {/* 투명 구슬 오브젝트 */}
+          <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-blue-400/20 rounded-full blur-xl"></div>
+          <div className="absolute top-1/3 right-1/4 w-40 h-40 bg-cyan-300/15 rounded-full blur-2xl"></div>
+          <div className="absolute bottom-1/4 left-1/2 w-24 h-24 bg-white/10 rounded-full blur-lg"></div>
+        </div>
+
+        {/* 브랜딩 컨텐츠 */}
+        <div className="relative z-10 h-full flex flex-col justify-between p-8">
+          {/* 로고 */}
+          <div className="flex items-center">
+            <img 
+              src={logLogo} 
+              alt="명지대학교 로고" 
+              className="h-8 w-auto object-contain"
+            />
           </div>
 
+          {/* 시스템 제목 */}
+          <div className="mb-8">
+            <h1 className="text-5xl font-bold text-white mb-2">MYiCap</h1>
+            <p className="text-white/90 text-sm mb-1">MYONGJI CAPABILITY PLUS</p>
+            <p className="text-white text-lg font-medium">명지역량통합관리시스템</p>
+          </div>
+        </div>
+
+        {/* 3D 아이콘들 */}
+        <div className="absolute bottom-8 right-16 flex gap-4 items-end">
+          <div className="w-12 h-12 bg-cyan-400/40 rounded-lg transform rotate-12"></div>
+          <div className="w-10 h-10 bg-blue-300/50 rounded-full"></div>
+          <div className="w-14 h-14 bg-white/30 rounded transform -rotate-12"></div>
+        </div>
+      </div>
+
+      {/* 하단 로그인 폼 영역 */}
+      <div className="flex-1 bg-gray-100 flex items-start justify-center pt-12 pb-12 px-6">
+        <div className="w-full max-w-4xl">
           {/* 로그인 폼 */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label
-                htmlFor="studentId"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                학번
-              </label>
-              <input
-                type="text"
-                id="studentId"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                placeholder="학번을 입력하세요"
-                required
-              />
+          <div className="bg-white rounded-lg shadow-sm p-8 mb-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-6">학생 로그인</h2>
+            
+            <form onSubmit={handleSubmit}>
+              <div className="flex gap-4 items-start">
+                {/* 입력 필드 영역 */}
+                <div className="flex-1 space-y-4">
+                  {/* 아이디 */}
+                  <div className="flex items-center gap-4">
+                    <label htmlFor="studentId" className="text-sm font-medium text-gray-700 w-20 flex-shrink-0">
+                      아이디
+                    </label>
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        id="studentId"
+                        value={studentId}
+                        onChange={(e) => setStudentId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-sm"
+                        placeholder="아이디를 입력하세요"
+                        required
+                      />
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 비밀번호 */}
+                  <div className="flex items-center gap-4">
+                    <label htmlFor="password" className="text-sm font-medium text-gray-700 w-20 flex-shrink-0">
+                      비밀번호
+                    </label>
+                    <div className="flex-1 relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-sm pr-10"
+                        placeholder="비밀번호를 입력하세요"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-600"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          {showPassword ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          ) : (
+                            <>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                            </>
+                          )}
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md text-sm ml-24"
+                    >
+                      {error}
+                    </motion.div>
+                  )}
+                </div>
+
+                {/* 로그인 버튼 */}
+                <div className="flex-shrink-0">
+                  <button
+                    type="submit"
+                    className="bg-gray-700 hover:bg-gray-800 text-white font-semibold py-8 px-6 rounded-md transition duration-150 min-w-[100px] h-full"
+                  >
+                    로그인
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {/* 안내 문구 */}
+            <div className="mt-6 space-y-1 text-[13px] text-gray-600 ml-24">
+              <p>■ Myicap+시스템을 이용하기 위해서는 명지대학교 통합 아이디가 필요합니다.</p>
+              <p>
+                ■ 아이디/비밀번호 찾기는 명지대학교 포털 홈페이지(
+                <a
+                  href="https://portal.mju.ac.kr/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  https://portal.mju.ac.kr/
+                </a>
+                )를 이용해 주시기 바랍니다.
+              </p>
             </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                비밀번호
-              </label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                placeholder="비밀번호를 입력하세요"
-                required
-              />
-            </div>
-
-            {error && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm"
-              >
-                {error}
-              </motion.div>
-            )}
-
-            <button
-              type="submit"
-              className="w-full bg-[#1e3a8a] hover:bg-[#3b82f6] text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-lg hover:shadow-xl"
-            >
-              로그인
-            </button>
-          </form>
+          </div>
 
           {/* 외부사용자 버튼 */}
           {onNavigateToLanding && (
-            <div className="mt-4">
+            <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
               <button
                 type="button"
                 onClick={onNavigateToLanding}
-                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 px-4 rounded-lg transition duration-200 border border-gray-300"
+                className="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium py-3 px-4 rounded-md transition duration-200 border border-gray-200"
               >
                 외부사용자
               </button>
@@ -155,7 +223,7 @@ export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
           )}
 
           {/* 테스트 계정 안내 */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
+          <div className="bg-white rounded-lg shadow-sm p-6">
             <button
               onClick={() => setShowHint(!showHint)}
               className="text-sm text-blue-600 hover:text-blue-700 font-medium mb-3 block"
@@ -263,15 +331,7 @@ export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
             )}
           </div>
         </div>
-
-        {/* 하단 정보 */}
-        <div className="text-center mt-6 text-white text-sm">
-          <p className="opacity-90">
-            © 2025 University Information System. All rights reserved.
-          </p>
-        </div>
-      </motion.div>
+      </div>
     </div>
   );
 }
-

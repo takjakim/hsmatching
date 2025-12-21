@@ -13,17 +13,23 @@ interface LayoutProps {
 export default function Layout({ children, currentPage, onPageChange, onLogout, isAdmin = false }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const [showRoadmapSubmenu, setShowRoadmapSubmenu] = useState(false);
+
+  // 전주기 로드맵 서브메뉴
+  const roadmapSubMenuItems = [
+    { id: "roadmap-planner", label: "📐 내 커리큘럼", desc: "4년 계획 설계" },
+    { id: "roadmap-guide", label: "📍 로드맵·교과목", desc: "학년별 가이드" },
+    { id: "roadmap-extracurricular", label: "🏆 비교과 활동", desc: "활동 이력 관리" },
+    { id: "roadmap-careers", label: "💼 추천 직무", desc: "RIASEC 기반" },
+    { id: "roadmap-rolemodels", label: "⭐ 롤모델", desc: "선배와 비교" },
+  ];
 
   // 일반 학생 메뉴
   const studentMenuItems = [
     { id: "dashboard", label: "대시보드", icon: "🏠" },
     { id: "personal", label: "개인신상", icon: "👤" },
-    { id: "grades", label: "학점이수", icon: "📊" },
-    { id: "courses", label: "수강현황", icon: "📚" },
-    { id: "competency", label: "전공능력진단", icon: "📋" },
-    { id: "insight", label: "진로-학습 분석", icon: "💡" },
-    { id: "roadmap", label: "전주기 로드맵", icon: "🎓" },
-    { id: "riasec", label: "진로매칭", icon: "🎯" },
+    { id: "riasec", label: "전공직무선택", icon: "🎯" },
+    { id: "roadmap-fullcycle", label: "전주기 로드맵", icon: "🎓", hasSubmenu: true },
   ];
 
   // 관리자 메뉴
@@ -104,14 +110,14 @@ export default function Layout({ children, currentPage, onPageChange, onLogout, 
               <div className="flex items-center space-x-3">
                 <img 
                   src="https://myicap.mju.ac.kr/files/web1/images/common/logo.png" 
-                  alt="MYiCap 로고" 
+                  alt="e-Advisor 로고" 
                   className="h-12 w-auto object-contain"
                 />
                 <div>
-                  <h1 className="text-xl font-bold text-gray-800">MYiCap</h1>
-                  <p className="text-xs text-gray-600">MYONGJI CAPABILITY PLUS</p>
+                  <h1 className="text-xl font-bold text-gray-800">e-Advisor</h1>
+                  <p className="text-xs text-gray-600">MYiCap+ 데이터 기반 학생역량지원체계</p>
                   <p className="text-xs text-gray-600">
-                    {isAdmin ? "관리자 시스템" : "명지역량통합관리시스템"}
+                    {isAdmin ? "관리자 시스템" : "진로·학습 통합 분석 시스템"}
                   </p>
                 </div>
               </div>
@@ -140,17 +146,67 @@ export default function Layout({ children, currentPage, onPageChange, onLogout, 
           {/* 가로 네비게이션 바 */}
           <nav className="hidden md:flex items-center space-x-1 bg-blue-50 rounded-lg p-1">
             {menuItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleMenuClick(item.id)}
-                className={`px-4 py-2 rounded-md transition font-medium text-sm ${
-                  currentPage === item.id
-                    ? "bg-blue-600 text-white shadow-md"
-                    : "text-gray-700 hover:bg-blue-100"
-                }`}
-              >
-                {item.label}
-              </button>
+              item.hasSubmenu ? (
+                <div 
+                  key={item.id}
+                  className="relative"
+                  onMouseEnter={() => setShowRoadmapSubmenu(true)}
+                  onMouseLeave={() => setShowRoadmapSubmenu(false)}
+                >
+                  <button
+                    className={`px-4 py-2 rounded-md transition font-medium text-sm flex items-center gap-1 ${
+                      currentPage.startsWith("roadmap")
+                        ? "bg-blue-600 text-white shadow-md"
+                        : "text-gray-700 hover:bg-blue-100"
+                    }`}
+                  >
+                    {item.label}
+                    <svg className={`w-4 h-4 transition-transform ${showRoadmapSubmenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {/* 서브메뉴 드롭다운 */}
+                  <AnimatePresence>
+                    {showRoadmapSubmenu && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute top-full left-0 mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50"
+                      >
+                        {roadmapSubMenuItems.map((subItem) => (
+                          <button
+                            key={subItem.id}
+                            onClick={() => {
+                              handleMenuClick(subItem.id);
+                              setShowRoadmapSubmenu(false);
+                            }}
+                            className={`w-full px-4 py-3 text-left hover:bg-blue-50 transition flex flex-col ${
+                              currentPage === subItem.id ? 'bg-blue-50' : ''
+                            }`}
+                          >
+                            <span className="font-medium text-gray-800">{subItem.label}</span>
+                            <span className="text-xs text-gray-500">{subItem.desc}</span>
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <button
+                  key={item.id}
+                  onClick={() => handleMenuClick(item.id)}
+                  className={`px-4 py-2 rounded-md transition font-medium text-sm ${
+                    currentPage === item.id
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "text-gray-700 hover:bg-blue-100"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              )
             ))}
           </nav>
         </div>

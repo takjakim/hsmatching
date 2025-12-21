@@ -17,12 +17,39 @@ import TutorialOverlay from "../components/TutorialOverlay";
 interface CareerRoadmapPageProps {
   onNavigate?: (page: string) => void;
   riasecResult?: Record<'R' | 'I' | 'A' | 'S' | 'E' | 'C', number> | null;
+  initialViewMode?: 'roadmap' | 'careers' | 'planner' | 'rolemodels' | 'extracurricular';
 }
 
-export default function CareerRoadmapPage({ onNavigate, riasecResult }: CareerRoadmapPageProps) {
+// 비교과 활동 더미 데이터
+const EXTRACURRICULAR_CATEGORIES = [
+  { id: 'certificate', name: '자격증', icon: '📜', color: 'bg-blue-100 text-blue-700' },
+  { id: 'contest', name: '공모전/대회', icon: '🏆', color: 'bg-yellow-100 text-yellow-700' },
+  { id: 'internship', name: '인턴십/현장실습', icon: '💼', color: 'bg-green-100 text-green-700' },
+  { id: 'volunteer', name: '봉사활동', icon: '🤝', color: 'bg-pink-100 text-pink-700' },
+  { id: 'club', name: '동아리/학회', icon: '👥', color: 'bg-purple-100 text-purple-700' },
+  { id: 'seminar', name: '특강/세미나', icon: '🎤', color: 'bg-orange-100 text-orange-700' },
+];
+
+const DUMMY_EXTRACURRICULAR_ACTIVITIES = [
+  { id: 1, category: 'certificate', name: 'SQLD', date: '2024-03', status: 'completed', description: 'SQL 개발자 자격증' },
+  { id: 2, category: 'certificate', name: '정보처리기사', date: '2024-06', status: 'in-progress', description: '필기 합격, 실기 준비 중' },
+  { id: 3, category: 'contest', name: 'MJU 창업경진대회', date: '2024-05', status: 'completed', description: '우수상 수상' },
+  { id: 4, category: 'internship', name: 'IT 기업 하계 인턴', date: '2024-07', status: 'planned', description: '7월 시작 예정' },
+  { id: 5, category: 'club', name: 'IT 학술동아리', date: '2023-03', status: 'completed', description: '2학기 활동' },
+  { id: 6, category: 'volunteer', name: 'IT 교육 봉사', date: '2024-01', status: 'completed', description: '20시간 이수' },
+];
+
+const RECOMMENDED_ACTIVITIES = [
+  { category: 'certificate', name: 'ADsP', description: '데이터분석 준전문가', difficulty: '중', recommendFor: '데이터 분석 관심자' },
+  { category: 'certificate', name: 'AWS Cloud Practitioner', description: '클라우드 기초 자격증', difficulty: '하', recommendFor: '클라우드 관심자' },
+  { category: 'contest', name: '빅데이터 분석 경진대회', description: 'DACON, Kaggle 등', difficulty: '상', recommendFor: '데이터 사이언스 취업 희망자' },
+  { category: 'internship', name: '현장실습 학기제', description: '학점 인정 인턴십', difficulty: '중', recommendFor: '실무 경험 필요자' },
+];
+
+export default function CareerRoadmapPage({ onNavigate, riasecResult, initialViewMode = 'planner' }: CareerRoadmapPageProps) {
   const [selectedYear, setSelectedYear] = useState<number>(CURRENT_STUDENT.grade || 1);
   const [selectedCareer, setSelectedCareer] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'roadmap' | 'curriculum' | 'careers' | 'planner' | 'rolemodels'>('roadmap');
+  const [viewMode, setViewMode] = useState<'roadmap' | 'careers' | 'planner' | 'rolemodels' | 'extracurricular'>(initialViewMode);
   const [showTutorial, setShowTutorial] = useState(false);
 
   // 튜토리얼 단계 정의
@@ -215,34 +242,9 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult }: CareerRo
         </button>
       </div>
 
-      {/* 뷰 모드 선택 탭 */}
-      <div className="bg-white rounded-xl shadow-md p-2 flex gap-2 flex-wrap" data-tutorial="viewmode-tabs">
-        {[
-          { key: 'planner', label: '📐 내 커리큘럼', desc: '4년 계획 설계' },
-          { key: 'roadmap', label: '📍 로드맵', desc: '학년별 진로 가이드' },
-          { key: 'curriculum', label: '📚 커리큘럼', desc: '교과목 정보' },
-          { key: 'careers', label: '💼 추천 직무', desc: 'RIASEC 기반' },
-          { key: 'rolemodels', label: '⭐ 롤모델', desc: '선배와 비교' }
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setViewMode(tab.key as any)}
-            className={`flex-1 min-w-[120px] py-3 px-4 rounded-lg transition-all ${
-              viewMode === tab.key
-                ? 'bg-blue-600 text-white shadow-md' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <div className="font-semibold">{tab.label}</div>
-            <div className={`text-xs ${viewMode === tab.key ? 'text-blue-100' : 'text-gray-500'}`}>
-              {tab.desc}
-            </div>
-          </button>
-        ))}
-      </div>
 
-      {/* 학년 선택 (플래너 모드가 아닐 때만 표시) */}
-      {viewMode !== 'planner' && (
+      {/* 학년 선택 (플래너, 비교과 모드가 아닐 때만 표시) */}
+      {viewMode !== 'planner' && viewMode !== 'extracurricular' && (
       <div className="bg-white rounded-xl shadow-md p-6" data-tutorial="year-select">
         <h2 className="text-lg font-bold text-gray-800 mb-4">학년 선택</h2>
         <div className="flex gap-3">
@@ -304,66 +306,58 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult }: CareerRo
                 해당 학년의 로드맵 정보가 없습니다.
               </div>
             )}
-          </motion.div>
-        )}
 
-        {viewMode === 'curriculum' && (
-          <motion.div
-            key="curriculum"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="bg-white rounded-xl shadow-md overflow-hidden"
-          >
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 text-white">
-              <h3 className="text-lg font-bold">{selectedYear}학년 교과목 목록</h3>
-              <p className="text-blue-100 text-sm">총 {currentCurriculum.length}개 과목</p>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {currentCurriculum.map((course, index) => (
-                <motion.div
-                  key={course.courseNumber}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="p-4 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          course.completionType === '전공필수' ? 'bg-red-100 text-red-700' :
-                          course.completionType === '전공' ? 'bg-blue-100 text-blue-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {course.completionType}
-                        </span>
-                        <span className="text-xs text-gray-500">{course.courseNumber}</span>
+            {/* 교과목 목록 (통합) */}
+            <div className="bg-white rounded-xl shadow-md overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 text-white">
+                <h3 className="text-lg font-bold">📚 {selectedYear}학년 교과목 목록</h3>
+                <p className="text-blue-100 text-sm">총 {currentCurriculum.length}개 과목</p>
+              </div>
+              <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
+                {currentCurriculum.map((course, index) => (
+                  <motion.div
+                    key={course.courseNumber}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.03 }}
+                    className="p-4 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            course.completionType === '전공필수' ? 'bg-red-100 text-red-700' :
+                            course.completionType === '전공' ? 'bg-blue-100 text-blue-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {course.completionType}
+                          </span>
+                          <span className="text-xs text-gray-500">{course.courseNumber}</span>
+                        </div>
+                        <h4 className="font-semibold text-gray-800">{course.courseName}</h4>
+                        <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                          <span>👨‍🏫 {course.professor}</span>
+                          <span>📊 {course.credits}학점</span>
+                        </div>
                       </div>
-                      <h4 className="font-semibold text-gray-800">{course.courseName}</h4>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                        <span>👨‍🏫 {course.professor}</span>
-                        <span>📍 {course.timeAndRoom}</span>
-                        <span>📊 {course.credits}학점</span>
-                      </div>
+                      {course.riasecProfile && (
+                        <div className="flex flex-wrap gap-1 max-w-[150px] justify-end">
+                          {Object.entries(course.riasecProfile).map(([key, value]) => (
+                            value && value > 0.5 && (
+                              <span
+                                key={key}
+                                className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-medium"
+                              >
+                                {key}: {Math.round(value * 100)}%
+                              </span>
+                            )
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {course.riasecProfile && (
-                      <div className="flex flex-wrap gap-1 max-w-[150px] justify-end">
-                        {Object.entries(course.riasecProfile).map(([key, value]) => (
-                          value && value > 0.5 && (
-                            <span
-                              key={key}
-                              className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-medium"
-                            >
-                              {key}: {Math.round(value * 100)}%
-                            </span>
-                          )
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))}
+              </div>
             </div>
           </motion.div>
         )}
@@ -690,6 +684,144 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult }: CareerRo
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* 비교과 활동 뷰 */}
+        {viewMode === 'extracurricular' && (
+          <motion.div
+            key="extracurricular"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            {/* 비교과 활동 헤더 */}
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-6 text-white">
+              <h2 className="text-2xl font-bold mb-2">🏆 비교과 활동 관리</h2>
+              <p className="text-purple-100">교과 외 활동 이력을 관리하고 경력 개발에 활용하세요</p>
+            </div>
+
+            {/* 활동 카테고리 요약 */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              {EXTRACURRICULAR_CATEGORIES.map((cat) => {
+                const count = DUMMY_EXTRACURRICULAR_ACTIVITIES.filter(a => a.category === cat.id).length;
+                return (
+                  <div key={cat.id} className={`${cat.color} rounded-xl p-4 text-center`}>
+                    <div className="text-3xl mb-2">{cat.icon}</div>
+                    <div className="font-bold">{cat.name}</div>
+                    <div className="text-sm opacity-80">{count}건</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 내 비교과 활동 */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-800">📋 내 비교과 활동 이력</h3>
+                <button className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition">
+                  + 활동 추가
+                </button>
+              </div>
+              
+              <div className="space-y-3">
+                {DUMMY_EXTRACURRICULAR_ACTIVITIES.map((activity) => {
+                  const category = EXTRACURRICULAR_CATEGORIES.find(c => c.id === activity.category);
+                  const statusStyle = activity.status === 'completed' 
+                    ? 'bg-green-100 text-green-700' 
+                    : activity.status === 'in-progress'
+                    ? 'bg-yellow-100 text-yellow-700'
+                    : 'bg-gray-100 text-gray-600';
+                  const statusLabel = activity.status === 'completed' ? '완료' 
+                    : activity.status === 'in-progress' ? '진행중' : '예정';
+                  
+                  return (
+                    <div 
+                      key={activity.id}
+                      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                    >
+                      <div className="flex items-center gap-4">
+                        <span className="text-2xl">{category?.icon}</span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-gray-800">{activity.name}</span>
+                            <span className={`px-2 py-0.5 rounded text-xs ${category?.color}`}>
+                              {category?.name}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500">{activity.description}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyle}`}>
+                          {statusLabel}
+                        </span>
+                        <p className="text-xs text-gray-400 mt-1">{activity.date}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 추천 비교과 활동 */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">💡 추천 비교과 활동</h3>
+              <p className="text-sm text-gray-500 mb-4">경영정보학과 학생에게 추천하는 비교과 활동입니다</p>
+              
+              <div className="grid md:grid-cols-2 gap-4">
+                {RECOMMENDED_ACTIVITIES.map((rec, idx) => {
+                  const category = EXTRACURRICULAR_CATEGORIES.find(c => c.id === rec.category);
+                  return (
+                    <div 
+                      key={idx}
+                      className="p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50/30 transition cursor-pointer"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="text-2xl">{category?.icon}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold text-gray-800">{rec.name}</span>
+                            <span className={`px-2 py-0.5 text-xs rounded ${
+                              rec.difficulty === '상' ? 'bg-red-100 text-red-600' :
+                              rec.difficulty === '중' ? 'bg-yellow-100 text-yellow-600' :
+                              'bg-green-100 text-green-600'
+                            }`}>
+                              난이도 {rec.difficulty}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-2">{rec.description}</p>
+                          <p className="text-xs text-purple-600">👤 {rec.recommendFor}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 비교과 활동 통계 */}
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-xl shadow-md p-6 text-center">
+                <div className="text-4xl font-bold text-purple-600 mb-2">
+                  {DUMMY_EXTRACURRICULAR_ACTIVITIES.filter(a => a.status === 'completed').length}
+                </div>
+                <div className="text-gray-600">완료된 활동</div>
+              </div>
+              <div className="bg-white rounded-xl shadow-md p-6 text-center">
+                <div className="text-4xl font-bold text-yellow-600 mb-2">
+                  {DUMMY_EXTRACURRICULAR_ACTIVITIES.filter(a => a.status === 'in-progress').length}
+                </div>
+                <div className="text-gray-600">진행중 활동</div>
+              </div>
+              <div className="bg-white rounded-xl shadow-md p-6 text-center">
+                <div className="text-4xl font-bold text-blue-600 mb-2">
+                  {new Set(DUMMY_EXTRACURRICULAR_ACTIVITIES.map(a => a.category)).size}
+                </div>
+                <div className="text-gray-600">참여 분야</div>
               </div>
             </div>
           </motion.div>

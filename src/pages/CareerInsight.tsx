@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from "react";
+import React, { useMemo } from "react";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from "recharts";
 import { motion } from "framer-motion";
 import { getCurrentCourses, AVAILABLE_COURSES, CURRENT_STUDENT, getCurrentCompetency } from "../data/dummyData";
@@ -6,42 +6,26 @@ import { calculateLearningProfile, compareProfiles, recommendCourses } from "../
 import { recommendRoles, getRoleDescription } from "../utils/roleRecommendation";
 import { recommendMajors } from "../utils/recommendMajors";
 
-type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C';
+type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C' | 'V';
 type RiasecResult = Record<Dim, number>;
 
 interface CareerInsightProps {
-  riasecResult: Record<Dim, number> | null;
+  riasecResult: RiasecResult | null;
   onStartTest: () => void;
 }
 
 export default function CareerInsight({ riasecResult, onStartTest }: CareerInsightProps) {
-  // URL 해시 처리 (페이지 로드 시 해당 섹션으로 스크롤)
-  useEffect(() => {
-    const hash = window.location.hash.replace('#', '');
-    if (hash && riasecResult) {
-      // 페이지 렌더링 후 스크롤
-      setTimeout(() => {
-        const element = document.getElementById(hash);
-        if (element) {
-          const yOffset = -120;
-          const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-          window.scrollTo({ top: y, behavior: 'smooth' });
-        }
-      }, 300);
-    }
-  }, [riasecResult]);
-
   // 검사를 완료하지 않은 경우
   if (!riasecResult) {
     return (
       <div className="space-y-6">
         {/* 페이지 헤더 */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center">
-            <span className="mr-2">🎯</span>
-            진로-학습 통합 분석
-          </h2>
-          <p className="text-sm text-gray-600 mt-1">
+        <div className="bg-gradient-to-r from-[#1e3a8a] to-[#3b82f6] text-white rounded-xl shadow-lg p-6">
+          <div className="flex items-center space-x-3 mb-2">
+            <span className="text-3xl">🎯</span>
+            <h2 className="text-2xl font-bold">진로-학습 통합 분석</h2>
+          </div>
+          <p className="text-indigo-100">
             RIASEC 진로 적성과 수강 과목 패턴을 비교 분석합니다.
           </p>
         </div>
@@ -86,12 +70,16 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
                 <span className="text-indigo-600 mt-1">✓</span>
                 <span>개인화된 학습 경로 가이드 및 추천사항</span>
               </li>
+              <li className="flex items-start space-x-2">
+                <span className="text-indigo-600 mt-1">✓</span>
+                <span>V(가치/공공성) 차원 특별 분석</span>
+              </li>
             </ul>
           </div>
 
           <button
             onClick={onStartTest}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition"
+            className="px-8 py-4 bg-gradient-to-r from-[#1e3a8a] to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#60a5fa] text-white font-bold text-lg rounded-xl shadow-lg transition transform hover:scale-105"
           >
             🎯 RIASEC 검사 시작하기
           </button>
@@ -170,152 +158,25 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
     A: "A(예술형)",
     S: "S(사회형)",
     E: "E(진취형)",
-    C: "C(사무형)"
+    C: "C(사무형)",
+    V: "V(가치)"
   };
 
   return (
     <div className="space-y-6">
       {/* 페이지 헤더 */}
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <h2 className="text-xl font-bold text-gray-800 flex items-center">
-          <span className="mr-2">🎯</span>
-          진로-학습 통합 분석
-        </h2>
-        <p className="text-sm text-gray-600 mt-1">
+      <div className="bg-gradient-to-r from-[#1e3a8a] to-[#60a5fa] text-white rounded-xl shadow-lg p-6">
+        <div className="flex items-center space-x-3 mb-2">
+          <span className="text-3xl">🎯</span>
+          <h2 className="text-2xl font-bold">진로-학습 통합 분석</h2>
+        </div>
+        <p className="text-indigo-100">
           RIASEC 진로 적성과 수강 과목 패턴을 비교 분석합니다.
         </p>
       </div>
 
-      {/* 인덱스 네비게이션 */}
-      <div className="bg-white rounded-xl shadow-md p-4">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">목차</h3>
-        <div className="flex flex-wrap gap-2">
-          <button 
-            onClick={() => {
-              const element = document.getElementById('recommended-majors');
-              if (element) {
-                const yOffset = -120;
-                const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                window.scrollTo({ top: y, behavior: 'smooth' });
-              }
-            }}
-            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition"
-          >
-            🎓 추천 학과
-          </button>
-          {isFreshman && (
-            <button 
-              onClick={() => {
-                const element = document.getElementById('recommended-roles');
-                if (element) {
-                  const yOffset = -120;
-                  const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                  window.scrollTo({ top: y, behavior: 'smooth' });
-                }
-              }}
-              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition"
-            >
-              💼 추천 직무
-            </button>
-          )}
-          <button 
-            onClick={() => {
-              const element = document.getElementById('profile-comparison');
-              if (element) {
-                const yOffset = -120;
-                const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                window.scrollTo({ top: y, behavior: 'smooth' });
-              }
-            }}
-            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition"
-          >
-            📊 프로파일 비교
-          </button>
-          <button 
-            onClick={() => {
-              const element = document.getElementById('gap-analysis');
-              if (element) {
-                const yOffset = -120;
-                const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                window.scrollTo({ top: y, behavior: 'smooth' });
-              }
-            }}
-            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition"
-          >
-            📈 영역별 차이 분석
-          </button>
-          <button 
-            onClick={() => {
-              const element = document.getElementById('strengths-recommendations');
-              if (element) {
-                const yOffset = -120;
-                const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                window.scrollTo({ top: y, behavior: 'smooth' });
-              }
-            }}
-            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition"
-          >
-            ✅ 강점 및 추천사항
-          </button>
-          <button 
-            onClick={() => {
-              const element = document.getElementById('recommended-courses');
-              if (element) {
-                const yOffset = -120;
-                const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                window.scrollTo({ top: y, behavior: 'smooth' });
-              }
-            }}
-            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition"
-          >
-            📚 추천 과목
-          </button>
-          {!isFreshman && (
-            <button 
-              onClick={() => {
-                const element = document.getElementById('recommended-roles');
-                if (element) {
-                  const yOffset = -120;
-                  const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                  window.scrollTo({ top: y, behavior: 'smooth' });
-                }
-              }}
-              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition"
-            >
-              💼 추천 직무
-            </button>
-          )}
-          <button 
-            onClick={() => {
-              const element = document.getElementById('competency-analysis');
-              if (element) {
-                const yOffset = -120;
-                const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                window.scrollTo({ top: y, behavior: 'smooth' });
-              }
-            }}
-            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition"
-          >
-            📋 전공능력 연계
-          </button>
-          <button 
-            onClick={() => {
-              const element = document.getElementById('alignment-score');
-              if (element) {
-                const yOffset = -120;
-                const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                window.scrollTo({ top: y, behavior: 'smooth' });
-              }
-            }}
-            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition"
-          >
-            🎯 일치도
-          </button>
-        </div>
-      </div>
-
       {/* 추천 학과 - 모든 학생에게 표시 */}
-      <div id="recommended-majors" className="bg-white rounded-xl shadow-md p-6 scroll-mt-32">
+      <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-bold text-gray-800 mb-4">
           🎓 적성에 맞는 추천 학과 Top 5
         </h3>
@@ -324,11 +185,11 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
             RIASEC 검사를 완료하면 개인화된 학과 추천을 확인할 수 있습니다.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
             {recommendedMajors.map((major, index) => (
               <div 
                 key={major.key}
-                className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl hover:shadow-md transition"
+                className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
@@ -338,31 +199,29 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
                       </span>
                       <h4 className="font-bold text-gray-800">{major.name}</h4>
                     </div>
-                    <p className="text-xs text-gray-500 mb-2">
-                      적성 시그니처: {major.signature.replace('>', ' → ')}
-                    </p>
+                    {major.reasons?.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {major.reasons.slice(0, 3).map((reason, idx) => (
+                          <span 
+                            key={idx}
+                            className="text-xs bg-white text-purple-700 px-2 py-1 rounded-full border border-purple-200"
+                          >
+                            {reason}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="ml-4 text-center">
+                  <div className="ml-4 text-right">
                     <div className="text-2xl font-bold text-[#1e3a8a]">
                       {major.matchScore}
                     </div>
                     <div className="text-xs text-gray-600">매칭도</div>
                   </div>
                 </div>
-                {major.reasons?.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-purple-200">
-                    <div className="flex flex-wrap gap-2">
-                      {major.reasons.slice(0, 3).map((reason, idx) => (
-                        <span 
-                          key={idx}
-                          className="text-xs bg-white text-purple-700 px-2 py-1 rounded-full border border-purple-200"
-                        >
-                          {reason}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <div className="text-xs text-gray-500">
+                  적성 시그니처: {major.signature.replace('>', ' → ')}
+                </div>
               </div>
             ))}
           </div>
@@ -373,7 +232,7 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
       {isFreshman && (
         <>
           {/* 추천 직무 */}
-          <div id="recommended-roles" className="bg-white rounded-xl shadow-md p-6 scroll-mt-32">
+          <div className="bg-white rounded-xl shadow-md p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4">
               💼 적성에 맞는 추천 직무 Top 8
             </h3>
@@ -429,7 +288,7 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
       )}
 
       {/* 레이더 차트 비교 */}
-      <div id="profile-comparison" className="grid grid-cols-1 lg:grid-cols-2 gap-6 scroll-mt-32">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 차트 */}
         <div className="bg-white rounded-xl shadow-md p-6">
           <h3 className="text-lg font-bold text-gray-800 mb-4">
@@ -529,7 +388,7 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
       </div>
 
       {/* 차이(Gap) 분석 */}
-      <div id="gap-analysis" className="bg-white rounded-xl shadow-md p-6 scroll-mt-32">
+      <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-bold text-gray-800 mb-4">
           📊 영역별 차이 분석
         </h3>
@@ -573,7 +432,7 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
       </div>
 
       {/* 강점 및 추천사항 */}
-      <div id="strengths-recommendations" className="grid grid-cols-1 md:grid-cols-2 gap-6 scroll-mt-32">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* 강점 */}
         {comparison.strengths.length > 0 && (
           <div className="bg-white rounded-xl shadow-md p-6">
@@ -608,15 +467,15 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
       </div>
 
       {/* 추천 과목 */}
-      <div id="recommended-courses" className="bg-white rounded-xl shadow-md p-6 scroll-mt-32">
+      <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-bold text-gray-800 mb-4">
           🎓 적성에 맞는 추천 과목 Top 5
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-3">
           {recommendedCourses.map((course, index) => (
             <div 
               key={course.courseNumber}
-              className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl hover:shadow-md transition"
+              className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl"
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1">
@@ -633,11 +492,12 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
                       {course.completionType}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-600 mb-2">
-                    {course.courseNumber} · {course.credits}학점 · {course.professor}
-                  </p>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p>강좌번호: {course.courseNumber} | 학점: {course.credits} | 교수: {course.professor}</p>
+                    <p>시간/강의실: {course.timeAndRoom}</p>
+                  </div>
                 </div>
-                <div className="ml-4 text-center">
+                <div className="ml-4 text-right">
                   <div className="text-2xl font-bold text-[#1e3a8a]">
                     {Math.round(course.matchScore * 100)}
                   </div>
@@ -647,7 +507,7 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
               {course.matchReasons.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-purple-200">
                   <div className="flex flex-wrap gap-2">
-                    {course.matchReasons.slice(0, 3).map((reason, idx) => (
+                    {course.matchReasons.map((reason, idx) => (
                       <span 
                         key={idx}
                         className="text-xs bg-white text-purple-700 px-2 py-1 rounded-full border border-purple-200"
@@ -665,7 +525,7 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
 
       {/* 전공 학생: 추천 직무 */}
       {!isFreshman && (
-        <div id="recommended-roles" className="bg-white rounded-xl shadow-md p-6 scroll-mt-32">
+        <div className="bg-white rounded-xl shadow-md p-6">
           <h3 className="text-lg font-bold text-gray-800 mb-4">
             💼 적성에 맞는 추천 직무 Top 8
           </h3>
@@ -720,7 +580,7 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
       )}
 
       {/* 전공능력 연계 분석 */}
-      <div id="competency-analysis" className="bg-white rounded-xl shadow-md p-6 scroll-mt-32">
+      <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-bold text-gray-800 mb-4">
           📋 전공능력진단과의 연계 분석
         </h3>
@@ -785,8 +645,47 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
         </div>
       </div>
 
+      {/* V(가치) 차원 특별 분석 */}
+      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl shadow-md p-6">
+        <h3 className="text-lg font-bold text-amber-800 mb-3 flex items-center">
+          <span className="mr-2">⭐</span> V(가치/공공성) 특별 분석
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm text-gray-700 mb-2">
+              <span className="font-semibold">진로 적성:</span> {Math.round(careerTestResult.V * 100)}점
+            </p>
+            <div className="w-full h-3 bg-white rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-amber-600"
+                style={{ width: `${careerTestResult.V * 100}%` }}
+              />
+            </div>
+          </div>
+          <div>
+            <p className="text-sm text-gray-700 mb-2">
+              <span className="font-semibold">학습 경험:</span> {Math.round(learningProfile.normalized.V * 100)}점
+            </p>
+            <div className="w-full h-3 bg-white rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-green-600"
+                style={{ width: `${learningProfile.normalized.V * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 text-sm text-gray-700">
+          {careerTestResult.V > 0.6 && learningProfile.normalized.V > 0.6
+            ? "사회적 가치와 공공성에 대한 관심과 학습이 모두 높습니다. 사회적기업, NGO, 공공기관 등의 진로가 적합합니다."
+            : careerTestResult.V > 0.6
+            ? "사회적 가치에 관심이 높지만 관련 과목 수강이 부족합니다. 사회적기업경영, 윤리경영 등의 과목을 고려해보세요."
+            : "다양한 영역을 탐색 중입니다. 가치 지향적 과목도 수강해보면 새로운 관심사를 발견할 수 있습니다."
+          }
+        </p>
+      </div>
+
       {/* 진로-학습 일치도 (최종) */}
-      <div id="alignment-score" className={`rounded-xl shadow-md p-6 border-2 scroll-mt-32 ${getAlignmentColor(comparison.alignment)}`}>
+      <div className={`rounded-xl shadow-md p-6 border-2 ${getAlignmentColor(comparison.alignment)}`}>
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-bold mb-1">진로-학습 일치도</h3>
