@@ -626,7 +626,17 @@ export default function HSMatchingPrototype({ onComplete, onNavigate }: HSMatchi
         riasecData: riasecData,
         explanation: generateExplanation(result.norm, result.majors, result.roles)
       };
-      saveResultWithCode(fullResult, code);
+      
+      // 비동기 저장 함수
+      const saveResult = async () => {
+        try {
+          await saveResultWithCode(fullResult, code);
+        } catch (error) {
+          console.error('Failed to save result:', error);
+        }
+      };
+      
+      saveResult();
       
       // onComplete 콜백 호출 (기존 로직 유지)
       if (onComplete) {

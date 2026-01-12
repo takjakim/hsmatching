@@ -21,26 +21,55 @@ export default function AdminLogs() {
     loadLogs();
   }, []);
 
-  const loadLogs = () => {
+  const loadLogs = async () => {
     setLoading(true);
-    const codeList = getCodeList();
-    const allLogs: ResultLog[] = [];
-
-    codeList.forEach(({ code, createdAt }) => {
-      // 전체 데이터 가져오기 (기기 정보 포함)
-      const fullData = getFullResultByCode(code);
-      if (fullData && fullData.result) {
-        allLogs.push({
-          code,
-          createdAt,
-          result: fullData.result,
-          deviceInfo: fullData.deviceInfo
-        });
+    
+    try {
+      // 데이터베이스 사용 여부 확인
+      const useDatabase = import.meta.env.VITE_USE_DATABASE === 'true';
+      
+      if (useDatabase) {
+        // 데이터베이스에서 로드
+        const response = await fetch('/api/admin/logs?limit=1000');
+        if (response.ok) {
+          const data = await response.json();
+          const allLogs: ResultLog[] = data.data.map((item: any) => ({
+            code: item.code,
+            createdAt: item.createdAt,
+            result: item.result,
+            deviceInfo: item.deviceInfo
+          }));
+          setLogs(allLogs);
+          setLoading(false);
+          return;
+        } else {
+          console.error('Failed to load from database, falling back to localStorage');
+        }
       }
-    });
+      
+      // localStorage에서 로드 (폴백)
+      const codeList = await getCodeList();
+      const allLogs: ResultLog[] = [];
 
-    setLogs(allLogs);
-    setLoading(false);
+      for (const { code, createdAt } of codeList) {
+        // 전체 데이터 가져오기 (기기 정보 포함)
+        const fullData = await getFullResultByCode(code);
+        if (fullData && fullData.result) {
+          allLogs.push({
+            code,
+            createdAt,
+            result: fullData.result,
+            deviceInfo: fullData.deviceInfo
+          });
+        }
+      }
+
+      setLogs(allLogs);
+    } catch (error) {
+      console.error('Error loading logs:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredAndSortedLogs = useMemo(() => {

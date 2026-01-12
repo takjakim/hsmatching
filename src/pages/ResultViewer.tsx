@@ -309,7 +309,7 @@ export default function ResultViewer() {
     }
   }, []);
 
-  const handleSearchWithCode = (searchCode: string) => {
+  const handleSearchWithCode = async (searchCode: string) => {
     setError("");
     setLoading(true);
 
@@ -319,17 +319,23 @@ export default function ResultViewer() {
       return;
     }
 
-    const foundResult = getResultByCode(searchCode.toUpperCase());
-    
-    if (!foundResult) {
-      setError("결과를 찾을 수 없습니다. 코드를 확인해주세요.");
-      setLoading(false);
-      return;
-    }
+    try {
+      const foundResult = await getResultByCode(searchCode.toUpperCase());
+      
+      if (!foundResult) {
+        setError("결과를 찾을 수 없습니다. 코드를 확인해주세요.");
+        setLoading(false);
+        return;
+      }
 
-    setResult(foundResult);
-    setCode(searchCode.toUpperCase());
-    setLoading(false);
+      setResult(foundResult);
+      setCode(searchCode.toUpperCase());
+    } catch (error) {
+      console.error('Error fetching result:', error);
+      setError("결과를 불러오는 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSearch = () => {
