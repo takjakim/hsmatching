@@ -8,6 +8,7 @@ import CoursesInfo from "./pages/CoursesInfo";
 import MajorCompetency from "./pages/MajorCompetency";
 import CareerInsight from "./pages/CareerInsight";
 import CareerRoadmapPage from "./pages/CareerRoadmapPage";
+import MajorExplorer from "./pages/MajorExplorer";
 import HSMatchingPrototype from "./HSMatchingPrototype";
 import ResultViewer from "./pages/ResultViewer";
 import PublicLanding from "./pages/PublicLanding";
@@ -199,51 +200,38 @@ export default function App() {
           setCurrentPage("admin-logs");
           return null;
         }
-        return <CareerInsight riasecResult={riasecResult} onStartTest={() => setCurrentPage("riasec")} />;
+        return <CareerInsight riasecResult={riasecResult} onStartTest={() => setCurrentPage("riasec")} onNavigate={setCurrentPage} />;
       case "roadmap":
-        if (isAdmin) {
-          setCurrentPage("admin-logs");
-          return null;
-        }
-        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} initialViewMode="roadmap" />;
-      case "roadmap-fullcycle":
-        if (isAdmin) {
-          setCurrentPage("admin-logs");
-          return null;
-        }
-        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} />;
-      case "roadmap-planner":
-        if (isAdmin) {
-          setCurrentPage("admin-logs");
-          return null;
-        }
-        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} initialViewMode="planner" />;
       case "roadmap-guide":
-        if (isAdmin) {
-          setCurrentPage("admin-logs");
-          return null;
-        }
-        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} initialViewMode="roadmap" />;
+      case "roadmap-fullcycle":
+      case "roadmap-planner":
       case "roadmap-extracurricular":
-        if (isAdmin) {
-          setCurrentPage("admin-logs");
-          return null;
-        }
-        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} initialViewMode="extracurricular" />;
       case "roadmap-careers":
+      case "roadmap-rolemodels": {
         if (isAdmin) {
           setCurrentPage("admin-logs");
           return null;
         }
-        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} initialViewMode="careers" />;
-      case "roadmap-rolemodels":
+        // 페이지별 initialViewMode 매핑
+        const viewModeMap: Record<string, 'roadmap' | 'careers' | 'planner' | 'rolemodels' | 'extracurricular'> = {
+          "roadmap": "roadmap",
+          "roadmap-guide": "roadmap",
+          "roadmap-fullcycle": "planner",
+          "roadmap-planner": "planner",
+          "roadmap-extracurricular": "extracurricular",
+          "roadmap-careers": "careers",
+          "roadmap-rolemodels": "rolemodels"
+        };
+        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} initialViewMode={viewModeMap[currentPage] || "planner"} />;
+      }
+      case "roadmap-explorer":
         if (isAdmin) {
           setCurrentPage("admin-logs");
           return null;
         }
-        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} initialViewMode="rolemodels" />;
+        return <MajorExplorer onNavigate={setCurrentPage} riasecResult={riasecResult} />;
       case "riasec":
-        return <HSMatchingPrototype onComplete={handleRiasecComplete} />;
+        return <HSMatchingPrototype onComplete={handleRiasecComplete} onNavigate={setCurrentPage} />;
       case "result-viewer":
         return <ResultViewer />;
       case "admin-logs":

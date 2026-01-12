@@ -5,6 +5,7 @@ import { getCurrentCourses, AVAILABLE_COURSES, CURRENT_STUDENT, getCurrentCompet
 import { calculateLearningProfile, compareProfiles, recommendCourses } from "../utils/profileAnalysis";
 import { recommendRoles, getRoleDescription } from "../utils/roleRecommendation";
 import { recommendMajors } from "../utils/recommendMajors";
+import { getWorkpediaJobUrl, getWorkpediaJobCode } from "../data/workpediaJobMap";
 
 type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C' | 'V';
 type RiasecResult = Record<Dim, number>;
@@ -12,9 +13,10 @@ type RiasecResult = Record<Dim, number>;
 interface CareerInsightProps {
   riasecResult: RiasecResult | null;
   onStartTest: () => void;
+  onNavigate?: (page: string) => void;
 }
 
-export default function CareerInsight({ riasecResult, onStartTest }: CareerInsightProps) {
+export default function CareerInsight({ riasecResult, onStartTest, onNavigate }: CareerInsightProps) {
   // 검사를 완료하지 않은 경우
   if (!riasecResult) {
     return (
@@ -69,10 +71,6 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
               <li className="flex items-start space-x-2">
                 <span className="text-indigo-600 mt-1">✓</span>
                 <span>개인화된 학습 경로 가이드 및 추천사항</span>
-              </li>
-              <li className="flex items-start space-x-2">
-                <span className="text-indigo-600 mt-1">✓</span>
-                <span>V(가치/공공성) 차원 특별 분석</span>
               </li>
             </ul>
           </div>
@@ -189,7 +187,16 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
             {recommendedMajors.map((major, index) => (
               <div 
                 key={major.key}
-                className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl"
+                onClick={() => {
+                  if (major.url) {
+                    window.open(major.url, '_blank', 'noopener,noreferrer');
+                  }
+                }}
+                className={`p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl transition-all ${
+                  major.url 
+                    ? 'cursor-pointer hover:shadow-md hover:border-purple-400 hover:from-purple-100 hover:to-indigo-100' 
+                    : ''
+                }`}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
@@ -197,7 +204,12 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
                       <span className="inline-block px-2 py-1 bg-[#1e3a8a] text-white text-xs font-bold rounded">
                         #{index + 1}
                       </span>
-                      <h4 className="font-bold text-gray-800">{major.name}</h4>
+                      <h4 className="font-bold text-gray-800 flex items-center">
+                        {major.name}
+                        {major.url && (
+                          <span className="ml-2 text-purple-500 text-sm">🔗</span>
+                        )}
+                      </h4>
                     </div>
                     {major.reasons?.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-1">
@@ -226,6 +238,17 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
             ))}
           </div>
         )}
+        
+        {/* 전공능력 자가진단 버튼 */}
+        {recommendedMajors.length > 0 && onNavigate && (
+          <button
+            onClick={() => onNavigate("roadmap-explorer")}
+            className="mt-4 w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center space-x-2"
+          >
+            <span>📂</span>
+            <span>추천 전공 상세 탐색 및 전공능력 자가진단</span>
+          </button>
+        )}
       </div>
 
       {/* 무전공 학생: 추천 직무 우선 표시 */}
@@ -233,8 +256,9 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
         <>
           {/* 추천 직무 */}
           <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">
+            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
               💼 적성에 맞는 추천 직무 Top 8
+              <span className="ml-2 text-xs text-gray-400 font-normal">(워크피디아 연동)</span>
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {recommendedRoles.map((role, index) => (
@@ -249,6 +273,22 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
                           #{index + 1}
                         </span>
                         <h4 className="font-bold text-gray-800">{role.name}</h4>
+                        {/* 🆕 워크피디아 직업정보 연동 버튼 (직접 링크) */}
+                        <button
+                          onClick={() => {
+                            const workpediaUrl = getWorkpediaJobUrl(role.name);
+                            window.open(workpediaUrl, '_blank', 'noopener,noreferrer');
+                          }}
+                          className={`px-2 py-0.5 rounded text-xs font-medium transition-all flex items-center space-x-1 ${
+                            getWorkpediaJobCode(role.name) 
+                              ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700' 
+                              : 'bg-amber-100 hover:bg-amber-200 text-amber-700'
+                          }`}
+                          title={`${role.name} 직업정보 보기 (워크피디아${getWorkpediaJobCode(role.name) ? ' - 직접 링크' : ''})`}
+                        >
+                          <span>{getWorkpediaJobCode(role.name) ? '📋' : '🔍'}</span>
+                          <span className="hidden sm:inline">직무정보</span>
+                        </button>
                       </div>
                       <p className="text-sm text-gray-600 mb-2">
                         {getRoleDescription(role.key)}
@@ -283,6 +323,10 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
                 </div>
               ))}
             </div>
+            {/* 워크피디아 안내 */}
+            <p className="mt-4 text-xs text-gray-500 text-center">
+              🔗 <a href="https://www.wagework.go.kr" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">워크피디아</a>에서 직업별 상세 정보, 평균 연봉, 미래 전망을 확인하세요
+            </p>
           </div>
         </>
       )}
@@ -387,7 +431,7 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
         </div>
       </div>
 
-      {/* 차이(Gap) 분석 */}
+      {/* 차이(Gap) 분석 - 현재 비활성화
       <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-bold text-gray-800 mb-4">
           📊 영역별 차이 분석
@@ -430,6 +474,7 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
           })}
         </div>
       </div>
+      */}
 
       {/* 강점 및 추천사항 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -450,7 +495,7 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
           </div>
         )}
 
-        {/* 추천사항 */}
+        {/* 추천사항 - 현재 비활성화
         <div className="bg-white rounded-xl shadow-md p-6">
           <h3 className="text-lg font-bold text-blue-700 mb-4 flex items-center">
             <span className="mr-2">💡</span> 추천사항
@@ -464,6 +509,7 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
             ))}
           </ul>
         </div>
+        */}
       </div>
 
       {/* 추천 과목 */}
@@ -526,8 +572,9 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
       {/* 전공 학생: 추천 직무 */}
       {!isFreshman && (
         <div className="bg-white rounded-xl shadow-md p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
             💼 적성에 맞는 추천 직무 Top 8
+            <span className="ml-2 text-xs text-gray-400 font-normal">(워크피디아 연동)</span>
           </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {recommendedRoles.map((role, index) => (
@@ -542,6 +589,22 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
                       #{index + 1}
                     </span>
                     <h4 className="font-bold text-gray-800">{role.name}</h4>
+                    {/* 🆕 워크피디아 직업정보 연동 버튼 (직접 링크) */}
+                    <button
+                      onClick={() => {
+                        const workpediaUrl = getWorkpediaJobUrl(role.name);
+                        window.open(workpediaUrl, '_blank', 'noopener,noreferrer');
+                      }}
+                      className={`px-2 py-0.5 rounded text-xs font-medium transition-all flex items-center space-x-1 ${
+                        getWorkpediaJobCode(role.name) 
+                          ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700' 
+                          : 'bg-amber-100 hover:bg-amber-200 text-amber-700'
+                      }`}
+                      title={`${role.name} 직업정보 보기 (워크피디아${getWorkpediaJobCode(role.name) ? ' - 직접 링크' : ''})`}
+                    >
+                      <span>{getWorkpediaJobCode(role.name) ? '📋' : '🔍'}</span>
+                      <span className="hidden sm:inline">직무정보</span>
+                    </button>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">
                     {getRoleDescription(role.key)}
@@ -576,6 +639,10 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
             </div>
           ))}
         </div>
+        {/* 워크피디아 안내 */}
+        <p className="mt-4 text-xs text-gray-500 text-center">
+          🔗 <a href="https://www.wagework.go.kr" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">워크피디아</a>에서 직업별 상세 정보, 평균 연봉, 미래 전망을 확인하세요
+        </p>
         </div>
       )}
 
@@ -645,7 +712,7 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
         </div>
       </div>
 
-      {/* V(가치) 차원 특별 분석 */}
+      {/* V(가치) 차원 특별 분석 - 현재 비활성화
       <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl shadow-md p-6">
         <h3 className="text-lg font-bold text-amber-800 mb-3 flex items-center">
           <span className="mr-2">⭐</span> V(가치/공공성) 특별 분석
@@ -683,8 +750,9 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
           }
         </p>
       </div>
+      */}
 
-      {/* 진로-학습 일치도 (최종) */}
+      {/* 진로-학습 일치도 (최종) - 현재 비활성화
       <div className={`rounded-xl shadow-md p-6 border-2 ${getAlignmentColor(comparison.alignment)}`}>
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -703,13 +771,14 @@ export default function CareerInsight({ riasecResult, onStartTest }: CareerInsig
         </div>
         
         {/* 진행바 */}
-        <div className="w-full h-4 bg-white/50 rounded-full overflow-hidden">
+        {/* <div className="w-full h-4 bg-white/50 rounded-full overflow-hidden">
           <div 
             className={`h-full ${getAlignmentBgColor(comparison.alignment)} transition-all duration-500`}
             style={{ width: `${comparison.alignment}%` }}
           />
         </div>
       </div>
+      */}
     </div>
   );
 }

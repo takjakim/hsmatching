@@ -17,6 +17,7 @@ export default function Layout({ children, currentPage, onPageChange, onLogout, 
 
   // 전주기 로드맵 서브메뉴
   const roadmapSubMenuItems = [
+    { id: "roadmap-explorer", label: "📂 전공 탐색", desc: "추천 전공 알아보기" },
     { id: "roadmap-planner", label: "📐 내 커리큘럼", desc: "4년 계획 설계" },
     { id: "roadmap-guide", label: "📍 로드맵·교과목", desc: "학년별 가이드" },
     { id: "roadmap-extracurricular", label: "🏆 비교과 활동", desc: "활동 이력 관리" },

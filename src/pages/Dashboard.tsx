@@ -443,8 +443,9 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
       </AnimatePresence>
 
       {/* 빠른 액션 버튼들 */}
-      <div className="grid md:grid-cols-4 gap-4">
+      <div className="grid md:grid-cols-5 gap-4">
         {[
+          { icon: "📂", label: "전공 탐색", desc: "추천 전공 자가진단", action: () => onNavigate("roadmap-explorer"), iconBg: "bg-indigo-100", iconColor: "text-indigo-600", borderColor: "border-indigo-200" },
           { icon: "📐", label: "커리큘럼 플래너", desc: "4년 계획 설계", action: () => onNavigate("roadmap-fullcycle"), iconBg: "bg-blue-100", iconColor: "text-blue-600", borderColor: "border-blue-200" },
           { icon: "⭐", label: "롤모델 탐색", desc: "선배 커리어 분석", action: () => onNavigate("roadmap-fullcycle"), iconBg: "bg-amber-100", iconColor: "text-amber-600", borderColor: "border-amber-200" },
           { icon: "📊", label: "성적 현황", desc: "학점 및 이수 현황", action: () => onNavigate("grades"), iconBg: "bg-green-100", iconColor: "text-green-600", borderColor: "border-green-200" },

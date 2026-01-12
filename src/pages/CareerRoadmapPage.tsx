@@ -105,17 +105,6 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
     return baseSteps;
   }, [viewMode, selectedYear]);
 
-  // 튜토리얼은 기본적으로 숨김 (사용자가 버튼을 클릭할 때만 표시)
-  // 첫 방문 시 자동 표시를 원하면 아래 주석을 해제하세요
-  // useEffect(() => {
-  //   const hasSeenTutorial = localStorage.getItem('roadmap-tutorial-completed');
-  //   if (!hasSeenTutorial) {
-  //     const timer = setTimeout(() => {
-  //       setShowTutorial(true);
-  //     }, 1000);
-  //     return () => clearTimeout(timer);
-  //   }
-  // }, []);
 
   // 경영정보학과 학생인지 확인
   const isMISStudent = CURRENT_STUDENT.studentId === MIS_STUDENT.studentId;

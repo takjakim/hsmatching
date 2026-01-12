@@ -861,8 +861,7 @@ export const DUMMY_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "화5,6,7 (경영관 405)",
     retake: false,
-    professor: "이마케팅",
-    // riasecProfile: { E: 0.9, A: 0.7, S: 0.6 } // 설득, 창의, 소비자 이해
+    professor: "이마케팅"
   },
   {
     year: 2025,
@@ -873,8 +872,7 @@ export const DUMMY_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "수3,4,5 (경영관 201)",
     retake: false,
-    professor: "최재무",
-    // riasecProfile: { I: 0.9, C: 0.8 } // 분석, 체계적 계산
+    professor: "최재무"
   },
   {
     year: 2025,
@@ -885,8 +883,7 @@ export const DUMMY_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "목2,3,4 (경영관 302)",
     retake: false,
-    professor: "정조직",
-    // riasecProfile: { S: 0.9, I: 0.6, E: 0.5 } // 사람 이해, 분석, 관리
+    professor: "정조직"
   },
   {
     year: 2025,
@@ -897,8 +894,7 @@ export const DUMMY_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "금1,2,3 (정보관 501)",
     retake: false,
-    professor: "김정보",
-    // riasecProfile: { I: 0.8, C: 0.7, R: 0.4 } // 분석, 시스템 설계, 실무
+    professor: "김정보"
   },
   {
     year: 2025,
@@ -909,8 +905,7 @@ export const DUMMY_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "온1,2,3",
     retake: false,
-    professor: "안데이터",
-    // riasecProfile: { I: 0.9, C: 0.6 } // 데이터 분석, 논리적 사고
+    professor: "안데이터"
   },
   
   // 2025년 1학기
@@ -923,8 +918,7 @@ export const DUMMY_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "월3,4,5 (경영관 303)",
     retake: false,
-    professor: "홍인사",
-    // riasecProfile: { S: 0.8, C: 0.7, E: 0.5 } // 사람 관리, 체계, 조정
+    professor: "홍인사"
   },
   {
     year: 2025,
@@ -935,8 +929,7 @@ export const DUMMY_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "화2,3,4 (경영관 401)",
     retake: false,
-    professor: "윤생산",
-    // riasecProfile: { C: 0.8, I: 0.7, R: 0.6 } // 프로세스 관리, 분석, 실무
+    professor: "윤생산"
   },
   {
     year: 2025,
@@ -947,8 +940,7 @@ export const DUMMY_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "수6,7,8 (경영관 202)",
     retake: false,
-    professor: "강소비자",
-    // riasecProfile: { S: 0.8, I: 0.7, A: 0.5 } // 소비자 이해, 분석, 창의적 접근
+    professor: "강소비자"
   },
   {
     year: 2025,
@@ -959,8 +951,7 @@ export const DUMMY_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "목5,6,7 (경영관 304)",
     retake: false,
-    professor: "서국제",
-    // riasecProfile: { E: 0.7, I: 0.6, S: 0.6 } // 글로벌 커뮤니케이션, 분석, 문화 이해
+    professor: "서국제"
   },
   {
     year: 2025,
@@ -971,8 +962,7 @@ export const DUMMY_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "금3,4,5 (경영관 501)",
     retake: false,
-    professor: "조통계",
-    // riasecProfile: { I: 0.9, C: 0.7 } // 데이터 분석, 정량적 사고
+    professor: "조통계"
   },
   {
     year: 2025,
@@ -983,8 +973,7 @@ export const DUMMY_COURSES: Course[] = [
     credits: 2,
     timeAndRoom: "온1,2",
     retake: false,
-    professor: "한혁신",
-    // riasecProfile: { E: 0.8, A: 0.7, V: 0.6 } // 창업가 정신, 혁신, 가치 창출
+    professor: "한혁신"
   },
 
   // 2024년 2학기
@@ -997,8 +986,7 @@ export const DUMMY_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "월1,2,3 (경영관 101)",
     retake: false,
-    professor: "김원론",
-    // riasecProfile: { E: 0.6, I: 0.6, C: 0.5 } // 전반적 경영 이해
+    professor: "김원론"
   },
   {
     year: 2024,
@@ -1009,8 +997,7 @@ export const DUMMY_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "화4,5,6 (경영관 102)",
     retake: false,
-    professor: "이회계",
-    // riasecProfile: { C: 0.9, I: 0.7 } // 체계적 기록, 분석
+    professor: "이회계"
   },
   {
     year: 2024,
@@ -1021,8 +1008,7 @@ export const DUMMY_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "수1,2,3 (경영관 201)",
     retake: false,
-    professor: "박경제",
-    // riasecProfile: { I: 0.9, C: 0.6 } // 경제 분석, 이론적 사고
+    professor: "박경제"
   }
 ];
 
@@ -1037,8 +1023,7 @@ export const AVAILABLE_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "화3,4,5 (경영관 303)",
     retake: false,
-    professor: "김창업",
-    // riasecProfile: { E: 0.9, A: 0.7, R: 0.5, V: 0.4 }
+    professor: "김창업"
   },
   {
     year: 2025,
@@ -1049,8 +1034,7 @@ export const AVAILABLE_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "목6,7,8 (경영관 404)",
     retake: false,
-    professor: "박소셜",
-    // riasecProfile: { A: 0.9, E: 0.8, S: 0.6 }
+    professor: "박소셜"
   },
   {
     year: 2025,
@@ -1061,8 +1045,7 @@ export const AVAILABLE_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "수1,2,3 (정보관 502)",
     retake: false,
-    professor: "최빅데이터",
-    // riasecProfile: { I: 0.9, C: 0.7, R: 0.4 }
+    professor: "최빅데이터"
   },
   {
     year: 2025,
@@ -1073,8 +1056,7 @@ export const AVAILABLE_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "금4,5,6 (경영관 305)",
     retake: false,
-    professor: "이글로벌",
-    // riasecProfile: { E: 0.8, S: 0.8, A: 0.5 }
+    professor: "이글로벌"
   },
   {
     year: 2025,
@@ -1085,8 +1067,7 @@ export const AVAILABLE_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "월6,7,8 (경영관 306)",
     retake: false,
-    professor: "정사회적",
-    // riasecProfile: { V: 0.9, S: 0.7, E: 0.6 }
+    professor: "정사회적"
   },
   {
     year: 2025,
@@ -1097,8 +1078,7 @@ export const AVAILABLE_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "화1,2,3 (정보관 503)",
     retake: false,
-    professor: "한시뮬",
-    // riasecProfile: { I: 0.8, R: 0.7, C: 0.6 }
+    professor: "한시뮬"
   },
   {
     year: 2025,
@@ -1109,8 +1089,7 @@ export const AVAILABLE_COURSES: Course[] = [
     credits: 3,
     timeAndRoom: "온2,3,4",
     retake: false,
-    professor: "임디자인",
-    // riasecProfile: { A: 0.9, S: 0.6, E: 0.5 }
+    professor: "임디자인"
   },
   {
     year: 2025,
@@ -1121,8 +1100,7 @@ export const AVAILABLE_COURSES: Course[] = [
     credits: 2,
     timeAndRoom: "온1,2",
     retake: false,
-    professor: "오AI",
-    // riasecProfile: { I: 0.8, C: 0.5, R: 0.4 }
+    professor: "오AI"
   }
 ];
 

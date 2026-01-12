@@ -1,4 +1,5 @@
 import { MAJORS } from "../data/majorList";
+import type { ClusterType } from "../data/questionPool";
 
 type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C' | 'V';
 type RiasecResult = Partial<Record<Dim, number>>;
@@ -7,12 +8,16 @@ interface MajorProfile {
   key: string;
   name: string;
   vec: Partial<Record<Dim, number>>;
+  cluster?: ClusterType;
+  college?: string;
+  url?: string; // 전공 홈페이지 URL
 }
 
 export interface RecommendedMajor extends MajorProfile {
   matchScore: number;
   signature: string;
   reasons: string[];
+  clusterBonus?: number; // 계열 일치 보너스
 }
 
 const DIMS: Dim[] = ['R', 'I', 'A', 'S', 'E', 'C', 'V'];
@@ -92,13 +97,26 @@ function buildReasons(topDims: Dim[], majorVec: Record<Dim, number>) {
 
 interface RecommendOptions {
   limit?: number;
+  clusterScores?: Partial<Record<ClusterType, number>>; // 🆕 계열 점수
 }
+
+// 🆕 인접 계열 매핑 (유사한 계열 간 부분 보너스)
+const ADJACENT_CLUSTERS: Record<ClusterType, ClusterType[]> = {
+  "인문": ["사회", "예체능"],
+  "사회": ["인문", "경상"],
+  "경상": ["사회", "융합"],
+  "공학": ["자연", "융합"],
+  "자연": ["공학", "융합"],
+  "예체능": ["인문", "융합"],
+  "융합": ["공학", "자연", "경상"]
+};
 
 export function recommendMajors(
   careerTestResult: RiasecResult | null | undefined,
   options: RecommendOptions = {}
 ): RecommendedMajor[] {
   const limit = Math.max(1, options.limit ?? 5);
+  const clusterScores = options.clusterScores;
 
   if (!careerTestResult) {
     return [];
@@ -156,7 +174,35 @@ export function recommendMajors(
     const diversityBonus =
       majorVector.vector[primaryDim] >= 0.6 ? 0.02 * (majorVector.vector[primaryDim] - 0.6) * 10 : 0;
 
-    const rawScore = baseCos * 0.55 + synergy * 0.35 + diversityBonus - (shortagePenalty + overloadPenalty + balancePenalty);
+    // 🆕 계열 일치도 보너스 계산
+    let clusterBonus = 0;
+    if (clusterScores && major.cluster) {
+      const majorCluster = major.cluster as ClusterType;
+      const userClusterScore = clusterScores[majorCluster] || 0;
+      
+      if (userClusterScore >= 0.7) {
+        // 정확히 일치하는 계열에 높은 보너스
+        clusterBonus = 0.15;
+      } else if (userClusterScore >= 0.4) {
+        // 어느 정도 관심 있는 계열에 중간 보너스
+        clusterBonus = 0.08;
+      } else {
+        // 인접 계열 체크
+        const adjacentClusters = ADJACENT_CLUSTERS[majorCluster] || [];
+        const hasAdjacentInterest = adjacentClusters.some(adj => (clusterScores[adj] || 0) >= 0.5);
+        if (hasAdjacentInterest) {
+          clusterBonus = 0.05;
+        }
+      }
+    }
+
+    // 🆕 점수 공식 수정: 계열 일치도 반영 (30%)
+    // 기존: baseCos * 0.55 + synergy * 0.35
+    // 변경: baseCos * 0.45 + synergy * 0.25 + clusterBonus (최대 0.30)
+    const rawScore = clusterScores 
+      ? baseCos * 0.45 + synergy * 0.25 + clusterBonus * 2 + diversityBonus - (shortagePenalty + overloadPenalty + balancePenalty)
+      : baseCos * 0.55 + synergy * 0.35 + diversityBonus - (shortagePenalty + overloadPenalty + balancePenalty);
+    
     const normalizedScore = Math.max(0, Math.min(1, rawScore));
 
     return {
@@ -164,7 +210,8 @@ export function recommendMajors(
       matchScore: Math.round(normalizedScore * 100),
       rawScore: normalizedScore,
       signature: getSignature(majorVector.vector),
-      reasons: buildReasons(topDims, majorVector.vector)
+      reasons: buildReasons(topDims, majorVector.vector),
+      clusterBonus: clusterBonus
     };
   })
     .filter((major): major is RecommendedMajor & { rawScore: number } => Boolean(major))

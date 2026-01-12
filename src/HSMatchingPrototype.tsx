@@ -2,11 +2,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
 import { MAJORS } from "./data/majorList";
-import { QUESTION_POOL, Dim, Choice, Question as Q } from "./data/questionPool";
+import { QUESTION_POOL, Dim, Choice, Question as Q, CLUSTER_QUESTIONS, ClusterType, ClusterQuestion } from "./data/questionPool";
 import { OCC_ROLES } from "./data/occMatching";
 import { generateResultCode, saveResultWithCode } from "./utils/resultCode";
 import { recommendRoles } from "./utils/roleRecommendation";
 import { recommendMajors } from "./utils/recommendMajors";
+import { getWorkpediaJobUrl, getWorkpediaJobCode } from "./data/workpediaJobMap";
 
 // 이미지 경로 매핑 함수 (public 폴더 사용)
 function getImagePath(questionId: number, key: 'a' | 'b'): string | null {
@@ -121,7 +122,6 @@ const KEY_QUESTIONS: KeyQuestion[] = [
 ];
 
 // ----- 전공 및 직무 프로파일 -----
-// MAJORS는 major_list.csv 파일에서 자동으로 생성됩니다 (data/majorList.ts 참조)
 export { MAJORS };
 
 const ROLES = OCC_ROLES;
@@ -152,72 +152,201 @@ function shuffleArray<T>(array: T[]): T[] {
 
 interface HSMatchingPrototypeProps {
   onComplete?: (result: Record<Dim, number>) => void;
+  onNavigate?: (page: string) => void;
 }
 
-export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeProps = {}) {
+export default function HSMatchingPrototype({ onComplete, onNavigate }: HSMatchingPrototypeProps = {}) {
   // 문항을 랜덤으로 섞어서 저장 (컴포넌트 마운트 시 초기화, 다시 하기 버튼으로 재섞기 가능)
   const [shuffledQuestions, setShuffledQuestions] = useState<Q[]>(() => shuffleArray(QUESTIONS));
+  
+  // 🆕 A/B 순서 랜덤화: true면 해당 문항에서 A↔B를 뒤집어 표시
+  const [riasecFlipOrder, setRiasecFlipOrder] = useState<boolean[]>(() => 
+    QUESTIONS.map(() => Math.random() < 0.5)
+  );
+  const [clusterFlipOrder, setClusterFlipOrder] = useState<boolean[]>(() => 
+    CLUSTER_QUESTIONS.map(() => Math.random() < 0.5)
+  );
 
   const [step, setStep] = useState(0);
   const [scores, setScores] = useState<Partial<Record<Dim, number>>>({ R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 });
   const [losers, setLosers] = useState<Choice[]>([]);
   const [adaptiveQs, setAdaptiveQs] = useState<Q[]>([]);
-  // 디버그 패널 토글 상태
-  const [showDebug, setShowDebug] = useState(false);
   const [resultSaved, setResultSaved] = useState(false);
-  // 블록 완료 축하 메시지 표시
-  const [showBlockComplete, setShowBlockComplete] = useState(false);
-  // 마지막 블록 완료 시점 추적
-  const [lastCompletedBlock, setLastCompletedBlock] = useState(0);
   // 결과 코드
   const [resultCode, setResultCode] = useState<string | null>(null);
   // 제외된 전공/직무 목록
   const [excludedMajors, setExcludedMajors] = useState<Set<string>>(new Set());
   const [excludedRoles, setExcludedRoles] = useState<Set<string>>(new Set());
   
+  // 🆕 계열 탐색 관련 상태
+  const [clusterScores, setClusterScores] = useState<Partial<Record<ClusterType, number>>>({
+    "인문": 0, "사회": 0, "경상": 0, "공학": 0, "자연": 0, "예체능": 0, "융합": 0
+  });
+  const clusterTotal = CLUSTER_QUESTIONS.length; // 계열 탐색 문항 수 (8개)
+  
+  // 🔧 디버깅 모드 상태
+  const [showDebug, setShowDebug] = useState(false);
+  
+  // 🆕 답변 이력 (이전 문항으로 돌아가기용)
+  type AnswerHistoryItem = {
+    phase: "cluster" | "riasec" | "adaptive";
+    step: number;
+    choice: "A" | "B";
+    clusterWeights?: Array<[ClusterType, number]>;
+    riasecWeights?: Array<[Dim, number]>;
+    loserChoice?: Choice;
+  };
+  const [answerHistory, setAnswerHistory] = useState<AnswerHistoryItem[]>([]);
+  
   // 다시 하기 함수 (문항도 다시 섞기)
   const handleReset = () => {
     setScores({ R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 });
+    setClusterScores({ "인문": 0, "사회": 0, "경상": 0, "공학": 0, "자연": 0, "예체능": 0, "융합": 0 });
     setStep(0);
     setLosers([]);
     setAdaptiveQs([]);
     setResultSaved(false);
-    setShowBlockComplete(false);
-    setLastCompletedBlock(0);
     setShuffledQuestions(shuffleArray(QUESTIONS)); // 문항 다시 섞기
+    setRiasecFlipOrder(QUESTIONS.map(() => Math.random() < 0.5)); // A/B 순서도 다시 섞기
+    setClusterFlipOrder(CLUSTER_QUESTIONS.map(() => Math.random() < 0.5)); // 계열 탐색도 다시 섞기
     setExcludedMajors(new Set());
     setExcludedRoles(new Set());
+    setAnswerHistory([]); // 답변 이력 초기화
   };
-
-  const mainTotal = shuffledQuestions.length;
-  const totalAll = mainTotal + adaptiveQs.length;
   
-  // 블록 단위 설정 (5문항씩)
-  const BLOCK_SIZE = 5;
-  const totalBlocks = Math.ceil(mainTotal / BLOCK_SIZE);
-  const currentBlock = step > 0 ? Math.ceil(step / BLOCK_SIZE) : 0;
-  const currentBlockStart = step > 0 ? (currentBlock - 1) * BLOCK_SIZE + 1 : 0;
-  const currentBlockEnd = step > 0 ? Math.min(currentBlock * BLOCK_SIZE, mainTotal) : 0;
+  // 🆕 문항 단계 계산 (계열 탐색 → RIASEC → 적응형)
+  const mainTotal = shuffledQuestions.length;
+  const totalAll = clusterTotal + mainTotal + adaptiveQs.length;
+  
+  // 🆕 이전 문항으로 돌아가기 함수
+  const handlePrevious = () => {
+    if (answerHistory.length === 0 || step <= 1) return; // 이력이 없거나 첫 문항이면 무시
+    
+    const lastAnswer = answerHistory[answerHistory.length - 1];
+    const newHistory = answerHistory.slice(0, -1);
+    
+    // 점수 되돌리기
+    if (lastAnswer.phase === "cluster" && lastAnswer.clusterWeights) {
+      // 계열 점수 되돌리기
+      setClusterScores(prev => {
+        const current = { ...prev };
+        for (const [cluster, weight] of lastAnswer.clusterWeights!) {
+          current[cluster] = (current[cluster] || 0) - weight;
+          if (current[cluster] < 0) current[cluster] = 0;
+        }
+        return current;
+      });
+    } else if ((lastAnswer.phase === "riasec" || lastAnswer.phase === "adaptive") && lastAnswer.riasecWeights) {
+      // RIASEC 점수 되돌리기
+      setScores(prev => {
+        const current = { ...prev };
+        for (const [dim, weight] of lastAnswer.riasecWeights!) {
+          current[dim] = (current[dim] || 0) - weight;
+          if (current[dim] < 0) current[dim] = 0;
+        }
+        return current;
+      });
+      
+      // losers 배열에서 마지막 항목 제거
+      if (lastAnswer.loserChoice) {
+        setLosers(prev => prev.slice(0, -1));
+      }
+      
+      // 적응형 문항이 생성된 경우 제거 (RIASEC 마지막 문항이었다면)
+      const riasecStep = lastAnswer.step - clusterTotal;
+      const currentMainTotal = shuffledQuestions.length;
+      if (riasecStep === currentMainTotal && adaptiveQs.length > 0) {
+        setAdaptiveQs([]);
+      }
+    }
+    
+    // step 감소 및 이력 업데이트
+    setStep(lastAnswer.step);
+    setAnswerHistory(newHistory);
+  };
+  
+  // 현재 어느 단계인지 계산
+  const isInClusterPhase = step >= 1 && step <= clusterTotal;
+  const isInRiasecPhase = step > clusterTotal && step <= clusterTotal + mainTotal;
+  const isInAdaptivePhase = step > clusterTotal + mainTotal && step <= totalAll;
 
   // 성장 단계 계산 (씨앗→싹→꽃→열매)
   const growthStage = useMemo(() => {
-    const progressRatio = step / (totalAll || mainTotal);
+    const progressRatio = step / (totalAll || 1);
     if (progressRatio < 0.25) return { emoji: '🌱', name: '씨앗', color: '#10b981' }; // 초록
     if (progressRatio < 0.5) return { emoji: '🌿', name: '싹', color: '#22c55e' }; // 밝은 초록
     if (progressRatio < 0.75) return { emoji: '🌺', name: '꽃', color: '#f59e0b' }; // 주황
     if (progressRatio < 1) return { emoji: '🌻', name: '만개', color: '#eab308' }; // 노랑
     return { emoji: '🍎', name: '열매', color: '#ef4444' }; // 빨강
-  }, [step, mainTotal, totalAll]);
+  }, [step, totalAll]);
 
   const progress = useMemo(() => {
-    const denom = totalAll || mainTotal;
+    const denom = totalAll || 1;
     const current = Math.min(Math.max(step, 0), denom);
     return Math.round((current / denom) * 100);
-  }, [step, mainTotal, totalAll]);
+  }, [step, totalAll]);
+  
+  // 🆕 현재 단계 표시 (계열탐색/RIASEC/적응형)
+  const phaseLabel = useMemo(() => {
+    if (isInClusterPhase) return "계열 탐색";
+    if (isInRiasecPhase) return "적성 검사";
+    if (isInAdaptivePhase) return "심층 탐색";
+    return "";
+  }, [isInClusterPhase, isInRiasecPhase, isInAdaptivePhase]);
+  
+  // 🔧 디버그 데이터 (실시간 점수 및 추천 현황)
+  const debugData = useMemo(() => {
+    // RIASEC 점수 정규화
+    const riasecValues = DIMS.map((d) => scores[d] || 0);
+    const riasecMax = Math.max(1, ...riasecValues);
+    const normalizedRiasec: Record<Dim, number> = {} as Record<Dim, number>;
+    DIMS.forEach((d) => {
+      normalizedRiasec[d] = (scores[d] || 0) / riasecMax;
+    });
+    
+    // 계열 점수 정규화
+    const clusters: ClusterType[] = ["인문", "사회", "경상", "공학", "자연", "예체능", "융합"];
+    const clusterValues = clusters.map(c => clusterScores[c] || 0);
+    const clusterMax = Math.max(1, ...clusterValues);
+    const normalizedClusters: Partial<Record<ClusterType, number>> = {};
+    clusters.forEach(c => {
+      normalizedClusters[c] = (clusterScores[c] || 0) / clusterMax;
+    });
+    
+    // 상위 계열 및 RIASEC 차원
+    const topClusters = clusters
+      .map(c => ({ cluster: c, score: normalizedClusters[c] || 0 }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+    
+    const topDims = DIMS
+      .map(d => ({ dim: d, score: normalizedRiasec[d] || 0 }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+    
+    // 현재 추천 전공/직무 (10개씩)
+    const majors = step > clusterTotal ? recommendMajors(normalizedRiasec, { limit: 10, clusterScores: normalizedClusters }) : [];
+    const topMajor = majors[0];
+    const roles = step > clusterTotal ? recommendRoles(normalizedRiasec, 10, topMajor?.key, topMajor?.cluster) : [];
+    
+    return {
+      rawScores: scores,
+      normalizedRiasec,
+      rawClusterScores: clusterScores,
+      normalizedClusters,
+      topClusters,
+      topDims,
+      majors,
+      roles,
+      step,
+      phase: phaseLabel
+    };
+  }, [scores, clusterScores, step, clusterTotal, phaseLabel]);
 
-  // 진행 중 추천 (60문항 이상일 때)
+  // 진행 중 추천 (계열 탐색 완료 후 60문항 이상일 때)
   const liveRecommendations = useMemo(() => {
-    if (step < 60) return null;
+    // 계열 탐색(8) + RIASEC 60문항 이상 = 68문항 이상
+    if (step < clusterTotal + 60) return null;
     
     // 현재 점수를 정규화
     const values = DIMS.map((d) => scores[d] || 0);
@@ -231,15 +360,15 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
     const allRoles = recommendRoles(normalized, 10);
     const topRoles = allRoles.filter(role => !excludedRoles.has(role.key)).slice(0, 3);
     
-    // 전공 추천 (상위 3개, 제외된 항목 필터링)
-    const allMajors = recommendMajors(normalized, { limit: 10 });
+    // 전공 추천 (상위 3개, 제외된 항목 필터링, 계열 점수 반영)
+    const allMajors = recommendMajors(normalized, { limit: 10, clusterScores });
     const topMajors = allMajors.filter(major => !excludedMajors.has(major.key)).slice(0, 3);
 
     return {
       roles: topRoles,
       majors: topMajors
     };
-  }, [step, scores, excludedMajors, excludedRoles]);
+  }, [step, scores, excludedMajors, excludedRoles, clusterScores, clusterTotal]);
 
   function applyWeights(next: Partial<Record<Dim, number>>, weights: Array<[Dim, number]>) {
     const copy = { ...next };
@@ -250,22 +379,88 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
     }
     return copy;
   }
+  
+  // 🆕 계열 점수 가중치 적용 함수
+  function applyClusterWeights(next: Partial<Record<ClusterType, number>>, weights: Array<[ClusterType, number]>) {
+    const copy = { ...next };
+    for (let i = 0; i < weights.length; i++) {
+      const cluster = weights[i][0];
+      const value = weights[i][1];
+      copy[cluster] = (copy[cluster] || 0) + value;
+    }
+    return copy;
+  }
+  
+  // 🆕 계열 탐색 스킵 함수 (둘 다 관심 없어요)
+  function handleClusterSkip() {
+    if (!isInClusterPhase) return;
+    // 아무 점수도 주지 않고 다음 문항으로 넘어감 (이력에 저장하지 않음)
+    setStep((prev) => prev + 1);
+  }
 
   function handlePick(choice: "A" | "B") {
-    const q = step <= mainTotal ? shuffledQuestions[step - 1] : adaptiveQs[step - mainTotal - 1];
+    // 🆕 계열 탐색 문항 처리
+    if (isInClusterPhase) {
+      const clusterIdx = step - 1;
+      const clusterQ = CLUSTER_QUESTIONS[clusterIdx];
+      if (!clusterQ) return;
+      
+      // 🆕 뒤집기 적용: 화면에서 선택한 것을 실제 선택으로 변환
+      const isFlipped = clusterFlipOrder[clusterIdx] ?? false;
+      const actualChoice = isFlipped ? (choice === "A" ? "B" : "A") : choice;
+      
+      const selected = actualChoice === "A" ? clusterQ.A : clusterQ.B;
+      const nextClusterScores = applyClusterWeights(clusterScores, selected.clusters);
+      
+      // 답변 이력 저장
+      setAnswerHistory(prev => [...prev, {
+        phase: "cluster",
+        step: step,
+        choice: actualChoice,
+        clusterWeights: selected.clusters
+      }]);
+      
+      setClusterScores(nextClusterScores);
+      setStep((prev) => prev + 1);
+      return;
+    }
+    
+    // RIASEC 문항 처리
+    const riasecStep = step - clusterTotal; // 계열 탐색 문항 수를 빼서 실제 RIASEC 문항 인덱스 계산
+    const questionIdx = riasecStep - 1; // 0-based index
+    const isMainPhase = riasecStep <= mainTotal;
+    
+    const q = isMainPhase 
+      ? shuffledQuestions[questionIdx] 
+      : adaptiveQs[riasecStep - mainTotal - 1];
     if (!q) return;
+
+    // 🆕 뒤집기 적용: 화면에서 선택한 것을 실제 선택으로 변환
+    const isFlipped = isMainPhase ? (riasecFlipOrder[questionIdx] ?? false) : false;
+    const actualChoice = isFlipped ? (choice === "A" ? "B" : "A") : choice;
 
     let nextScores = scores;
     let nextLosers = losers;
 
-    const selected = choice === "A" ? q.A : q.B;
-    const other = choice === "A" ? q.B : q.A;
+    const selected = actualChoice === "A" ? q.A : q.B;
+    const other = actualChoice === "A" ? q.B : q.A;
     nextScores = applyWeights(scores, selected.weights);
     nextLosers = losers.concat([other]);
+    
+    // 답변 이력 저장
+    setAnswerHistory(prev => [...prev, {
+      phase: isMainPhase ? "riasec" : "adaptive",
+      step: step,
+      choice: actualChoice,
+      riasecWeights: selected.weights,
+      loserChoice: other
+    }]);
+    
     setScores(nextScores);
     setLosers(nextLosers);
 
-    if (step === mainTotal) {
+    // RIASEC 문항이 끝나면 적응형 문항 생성
+    if (riasecStep === mainTotal) {
       const generated = buildAdaptiveQuestions(nextScores, nextLosers, 4);
       setAdaptiveQs(generated);
     }
@@ -282,16 +477,17 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
       }
 
       // 검사 진행 중일 때만 작동 (인트로나 결과 화면에서는 작동 안 함)
-      const inMain = step >= 1 && step <= mainTotal;
-      const inAdaptive = step > mainTotal && step <= totalAll;
-      
-      if (inMain || inAdaptive) {
+      if (isInClusterPhase || isInRiasecPhase || isInAdaptivePhase) {
         if (e.key === '1') {
           e.preventDefault();
           handlePick('A');
         } else if (e.key === '2') {
           e.preventDefault();
           handlePick('B');
+        } else if (e.key === '0' && isInClusterPhase) {
+          // 계열 탐색에서만 0키로 스킵 가능
+          e.preventDefault();
+          handleClusterSkip();
         }
       }
     };
@@ -300,7 +496,7 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
     };
-  }, [step, mainTotal, totalAll, shuffledQuestions, adaptiveQs, scores, losers]);
+  }, [step, isInClusterPhase, isInRiasecPhase, isInAdaptivePhase, shuffledQuestions, adaptiveQs, scores, losers, clusterScores]);
 
   function selectKeyQuestions(norm: Partial<Record<Dim, number>>, limit: number): Q[] {
     if (limit <= 0) return [];
@@ -358,6 +554,18 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
     return [...keyQs, ...reinforcementQs].slice(0, maxQ);
   }
 
+  // 🆕 정규화된 계열 점수 계산
+  const normalizedClusterScores = useMemo(() => {
+    const clusters: ClusterType[] = ["인문", "사회", "경상", "공학", "자연", "예체능", "융합"];
+    const values = clusters.map(c => clusterScores[c] || 0);
+    const maxVal = Math.max(1, ...values);
+    const normalized: Partial<Record<ClusterType, number>> = {};
+    clusters.forEach(c => {
+      normalized[c] = (clusterScores[c] || 0) / maxVal;
+    });
+    return normalized;
+  }, [clusterScores]);
+  
   const result = useMemo(() => {
     if (step <= totalAll) return null;
     const maxVal = Math.max(1, ...DIMS.map((d) => scores[d] || 0));
@@ -366,19 +574,24 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
       return acc;
     }, {} as Record<Dim, number>);
 
-    // 제외된 항목을 필터링하여 추천
-    const allMajors = MAJORS.map((m) => ({ ...m, score: cosineSim(normObj, m.vec) }))
+    // 🆕 전공 추천 - 계열 점수 반영하여 recommendMajors 사용
+    // 제외된 전공을 고려하여 충분히 많은 후보에서 선택
+    const candidateMajors = recommendMajors(normObj, { limit: 20, clusterScores: normalizedClusterScores });
+    const allMajors = candidateMajors
       .filter(m => !excludedMajors.has(m.key))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
+      .slice(0, 5)
+      .map(m => ({ ...m, score: m.matchScore / 100 })); // matchScore를 0~1 범위로 변환
     
-    const allRoles = ROLES.map((r) => ({ ...r, score: cosineSim(normObj, r.vec) }))
+    // 🆕 직무 추천 - 추천된 1순위 전공 기반으로 추천
+    const topMajor = allMajors[0];
+    const candidateRoles = recommendRoles(normObj, 20, topMajor?.key, topMajor?.cluster);
+    const allRoles = candidateRoles
       .filter(r => !excludedRoles.has(r.key))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
+      .slice(0, 5)
+      .map(r => ({ ...r, score: r.matchScore }));
 
-    return { norm: normObj, majors: allMajors, roles: allRoles };
-  }, [step, totalAll, scores, excludedMajors, excludedRoles]);
+    return { norm: normObj, majors: allMajors, roles: allRoles, clusterScores: normalizedClusterScores };
+  }, [step, totalAll, scores, excludedMajors, excludedRoles, normalizedClusterScores]);
 
   // RIASEC 레이더 데이터 (먼저 정의)
   const riasecData = useMemo(() => {
@@ -427,56 +640,92 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
   function generateExplanation(norm: Record<Dim, number>, majors: any[], roles: any[]) {
     const order = Object.keys(norm).map((k) => [k, norm[k as Dim]] as [string, number]).sort((a, b) => b[1] - a[1]);
     const top = order.slice(0, 3);
-    const key2ko: Record<string, string> = { R: "R(현장형)", E: "E(진취형)", I: "I(탐구형)", S: "S(사회형)", C: "C(사무형)", A: "A(예술형)" };
+    const key2ko: Record<string, string> = { R: "현장형", E: "진취형", I: "탐구형", S: "사회형", C: "사무형", A: "예술형" };
 
-    const topMajors = majors.map((m: any) => m.name).join(", ");
+    const topMajors = majors.slice(0, 5).map((m: any) => m.name).join(", ");
     const topRoles = roles.map((r: any) => r.name).slice(0, 3).join(", ");
 
     const lead = "당신은 " + key2ko[top[0][0]] + " 성향이 두드러지고, " + key2ko[top[1][0]] + "와 " + key2ko[top[2][0]] + " 경향도 강합니다.";
     const majorLine = "이 조합은 " + topMajors + " 전공에 잘 맞는 프로파일입니다.";
 
+    // 전공/직무 기반 동적 bullets 생성
     const bullets: string[] = [];
-    if ((norm.E || 0) > 0.6 && (norm.A || 0) > 0.5) bullets.push("커뮤니케이션과 브랜드, 콘텐츠 기획 적합");
-    if ((norm.I || 0) > 0.6 && (norm.C || 0) > 0.5) bullets.push("정책과 리서치, 운영전략 등 분석 중심 업무 강점");
-    if ((norm.S || 0) > 0.6 && (norm.C || 0) > 0.5) bullets.push("HR와 조직관리 등 규정 기반 업무 적합");
-    if ((norm.R || 0) > 0.6) bullets.push("현장 실행과 프로젝트 운영에서 몰입도 높음");
+    const topDims = top.map(([dim]) => dim);
+    const topMajorNames = majors.slice(0, 3).map((m: any) => m.name);
+    const topRoleNames = roles.slice(0, 3).map((r: any) => r.name);
 
-    const roleLine = roles.length ? "추천 직무로는 " + topRoles + " 등이 있습니다." : "";
-    return { lead, majorLine, roleLine, bullets };
-  }
-
-  // 디버그 데이터: 현재 점수 정규화, 낮은 차원, 교차 후보 샘플 등
-  const debugData = useMemo(() => {
-    const values = DIMS.map((d) => scores[d] || 0);
-    const maxVal = Math.max(1, ...values);
-    const norm: Record<Dim, number> = { R:0,I:0,A:0,S:0,E:0,C:0 } as Record<Dim, number>;
-    DIMS.forEach((d) => { norm[d] = (scores[d] || 0) / maxVal; });
-    const lowDims = DIMS.slice().sort((a,b) => (norm[a]||0) - (norm[b]||0)).slice(0,2);
-    const loserSample = losers.slice(0, 5).map((c) => c.text);
-    const adaptiveSample = adaptiveQs.slice(0, 3).map((q) => ({ id:q.id, A:q.A.text, B:q.B.text }));
-
-    // currentQuestionId 을 계산할 때 currentQ 나 inIntro 같은 아직 초기화되지 않은 상수를 참조하지 않도록 직접 계산
-    let currentQuestionId: number | null = null;
-    if (step >= 1 && step <= mainTotal) {
-      currentQuestionId = shuffledQuestions[step - 1]?.id ?? null;
-    } else if (step > mainTotal && step <= totalAll) {
-      currentQuestionId = adaptiveQs[step - mainTotal - 1]?.id ?? null;
+    // 상위 차원 기반 bullets
+    if (topDims.includes('I') && topDims.includes('E')) {
+      bullets.push("분석적 사고와 전략적 기획 능력이 뛰어나 연구 및 경영 분야에서 강점을 보입니다");
+    } else if (topDims.includes('I') && topDims.includes('C')) {
+      bullets.push("체계적인 데이터 분석과 정책 연구에 적합한 프로파일입니다");
+    } else if (topDims.includes('I')) {
+      bullets.push("논리적 분석과 탐구 활동에서 높은 역량을 발휘할 수 있습니다");
     }
 
-    return {
-      step,
-      progress,
-      mainTotal,
-      adaptiveTotal: adaptiveQs.length,
-      losersCount: losers.length,
-      currentQuestionId,
-      norm,
-      lowDims,
-      loserSample,
-      adaptiveSample,
-      riasecPreview: riasecData.slice(0,6)
+    if (topDims.includes('E') && topDims.includes('A')) {
+      bullets.push("창의적 아이디어를 비즈니스로 전환하는 능력이 뛰어납니다");
+    } else if (topDims.includes('E') && topDims.includes('S')) {
+      bullets.push("팀 리더십과 조직 관리 분야에서 강점을 보입니다");
+    } else if (topDims.includes('E')) {
+      bullets.push("목표 지향적 업무와 경영 관리 분야에 적합합니다");
+    }
+
+    if (topDims.includes('S') && topDims.includes('A')) {
+      bullets.push("창의적 교육과 상담 분야에서 뛰어난 역량을 발휘할 수 있습니다");
+    } else if (topDims.includes('S')) {
+      bullets.push("사람 중심의 서비스와 교육 분야에서 강점을 보입니다");
+    }
+
+    if (topDims.includes('A')) {
+      bullets.push("창의적 표현과 예술 분야에서 높은 잠재력을 가지고 있습니다");
+    }
+
+    if (topDims.includes('R')) {
+      bullets.push("실무 중심의 프로젝트 실행과 현장 업무에 적합합니다");
+    }
+
+    if (topDims.includes('C')) {
+      bullets.push("체계적인 업무 처리와 정밀한 관리 업무에 강점이 있습니다");
+    }
+
+    // 전공 기반 추가 설명 (상위 3개 전공의 공통 특성)
+    const majorKeywords: Record<string, string[]> = {
+      '공학': ['기술 개발', '문제 해결', '실무 프로젝트'],
+      '경영': ['경영 전략', '비즈니스 분석', '조직 관리'],
+      '인문': ['문헌 연구', '글쓰기', '비판적 사고'],
+      '사회': ['정책 분석', '사회 문제 해결', '연구 조사'],
+      '예술': ['창의적 표현', '디자인', '콘텐츠 제작'],
+      '교육': ['교육 프로그램', '학생 지도', '교육 연구']
     };
-  }, [step, progress, mainTotal, totalAll, adaptiveQs, losers, scores, riasecData]);
+
+    // 추천 전공들의 특징 키워드 추출 (간단한 매핑)
+    if (topMajorNames.length > 0) {
+      const majorTypes = new Set<string>();
+      topMajorNames.forEach((name: string) => {
+        if (name.includes('공학') || name.includes('기술')) majorTypes.add('공학');
+        if (name.includes('경영') || name.includes('경제') || name.includes('회계')) majorTypes.add('경영');
+        if (name.includes('문학') || name.includes('언어') || name.includes('역사')) majorTypes.add('인문');
+        if (name.includes('사회') || name.includes('정치') || name.includes('행정')) majorTypes.add('사회');
+        if (name.includes('디자인') || name.includes('미술') || name.includes('음악')) majorTypes.add('예술');
+        if (name.includes('교육')) majorTypes.add('교육');
+      });
+
+      if (majorTypes.size > 0 && bullets.length < 4) {
+        const types = Array.from(majorTypes);
+        if (types.includes('공학')) bullets.push("기술 기반 문제 해결과 실무 프로젝트 실행에 강점이 있습니다");
+        if (types.includes('경영') && bullets.length < 4) bullets.push("비즈니스 전략 수립과 조직 운영에 적합합니다");
+        if (types.includes('인문') && bullets.length < 4) bullets.push("문헌 분석과 비판적 사고 능력이 뛰어납니다");
+      }
+    }
+
+    // 최대 3개까지만 bullets 표시
+    const finalBullets = bullets.slice(0, 3);
+
+    const roleLine = roles.length ? "추천 직무로는 " + topRoles + " 등이 있습니다." : "";
+    return { lead, majorLine, roleLine, bullets: finalBullets };
+  }
+
 
   // 간단 런타임 테스트(개발자용)
   useEffect(() => {
@@ -490,30 +739,42 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
   }, [shuffledQuestions]);
 
   const inIntro = step === 0;
-  const inMain = step >= 1 && step <= mainTotal;
-  const inAdaptive = step > mainTotal && step <= totalAll;
-  const currentQ: Q | null = inMain ? shuffledQuestions[step - 1] : inAdaptive ? adaptiveQs[step - mainTotal - 1] : null;
+  // 🆕 단계별 상태 변수 업데이트
+  const inCluster = isInClusterPhase;
+  const inMain = isInRiasecPhase;
+  const inAdaptive = isInAdaptivePhase;
   
-  // 블록 진행도 계산 (inMain 선언 이후)
-  const currentBlockProgress = inMain && step > 0 ? step - currentBlockStart + 1 : 0;
-  const isBlockComplete = inMain && step > 0 && step % BLOCK_SIZE === 0 && step <= mainTotal;
+  // 🆕 현재 문항 계산
+  const currentClusterQ: ClusterQuestion | null = inCluster ? CLUSTER_QUESTIONS[step - 1] : null;
+  const riasecStep = step - clusterTotal;
+  const currentQ: Q | null = inMain 
+    ? shuffledQuestions[riasecStep - 1] 
+    : inAdaptive 
+      ? adaptiveQs[riasecStep - mainTotal - 1] 
+      : null;
   
-  // 블록 완료 축하 메시지 표시 (비활성화)
-  // useEffect(() => {
-  //   if (isBlockComplete && currentBlock > lastCompletedBlock) {
-  //     setShowBlockComplete(true);
-  //     setLastCompletedBlock(currentBlock);
-  //     const timer = setTimeout(() => setShowBlockComplete(false), 3000);
-  //     return () => clearTimeout(timer);
-  //   }
-  // }, [isBlockComplete, currentBlock, lastCompletedBlock]);
+  // 🆕 현재 문항의 A/B 뒤집기 상태 계산
+  const isCurrentFlipped = useMemo(() => {
+    if (inCluster) {
+      return clusterFlipOrder[step - 1] ?? false;
+    }
+    if (inMain) {
+      return riasecFlipOrder[riasecStep - 1] ?? false;
+    }
+    // 적응형 문항은 뒤집지 않음
+    return false;
+  }, [inCluster, inMain, step, riasecStep, clusterFlipOrder, riasecFlipOrder]);
+  
+  // 🆕 화면에 표시할 순서 결정 (뒤집혀 있으면 B→A 순서로 표시)
+  const displayOrder: ("A" | "B")[] = isCurrentFlipped ? ["B", "A"] : ["A", "B"];
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 text-slate-800">
       <div className="max-w-5xl mx-auto px-4 py-8">
 
         {/* 점진적 진척도 (씨앗→싹→꽃→열매) */}
-        {(inMain || inAdaptive) && (
+        {(inCluster || inMain || inAdaptive) && (
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -532,6 +793,11 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                 </motion.div>
                 <div>
                   <span className="font-bold text-lg text-gray-800">{growthStage.name} 단계</span>
+                  {phaseLabel && (
+                    <span className="ml-2 text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">
+                      {phaseLabel}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="text-right">
@@ -674,11 +940,12 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                   <p className="text-gray-600">나에게 맞는 전공과 직무를 찾아보세요</p>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-4 mb-8">
+                <div className="grid md:grid-cols-4 gap-4 mb-8">
                   {[
-                    { icon: "📝", title: "80문항", desc: "강제선택형 문항으로 구성" },
-                    { icon: "⚡", title: "적응형", desc: "1차 후 교차 문항 진행" },
-                    { icon: "📊", title: "RIASEC", desc: "6차원 기반 분석" }
+                    { icon: "🎯", title: "계열 탐색", desc: "10문항으로 관심 계열 파악" },
+                    { icon: "📝", title: "적성 검사", desc: "80문항 RIASEC 분석" },
+                    { icon: "⚡", title: "심층 탐색", desc: "적응형 교차 문항" },
+                    { icon: "📊", title: "맞춤 추천", desc: "전공·직무 연계 추천" }
                   ].map((item, index) => (
                     <motion.div
                       key={index}
@@ -701,19 +968,19 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                   <ul className="space-y-2 text-gray-700">
                     <li className="flex items-start">
                       <span className="mr-2 text-blue-600 font-bold">1.</span>
-                      <span>각 문항에서 더 본인에게 맞는 활동을 <strong>A</strong> 또는 <strong>B</strong> 중 하나로 선택합니다.</span>
+                      <span><strong>계열 탐색</strong>(10문항): 관심 계열(인문/사회/경상/공학/자연/예체능/융합)을 파악합니다.</span>
                     </li>
                     <li className="flex items-start">
                       <span className="mr-2 text-blue-600 font-bold">2.</span>
-                      <span>1차 문항(80개) 종료 후 낮게 나온 차원을 중심으로 교차 문항이 진행됩니다.</span>
+                      <span><strong>적성 검사</strong>(80문항): RIASEC 6차원 기반 적성을 분석합니다.</span>
                     </li>
                     <li className="flex items-start">
                       <span className="mr-2 text-blue-600 font-bold">3.</span>
-                      <span>선택은 <strong>R(현장형), I(탐구형), A(예술형), S(사회형), E(진취형), C(사무형)</strong> 점수로 환산됩니다.</span>
+                      <span><strong>심층 탐색</strong>: 낮게 나온 차원을 중심으로 교차 문항이 진행됩니다.</span>
                     </li>
                     <li className="flex items-start">
                       <span className="mr-2 text-blue-600 font-bold">4.</span>
-                      <span>마지막에 전공 Top 3와 직무 Top 5, 개인화된 설명을 제공합니다.</span>
+                      <span><strong>맞춤 추천</strong>: 계열 선호도 + RIASEC 결과를 결합하여 전공과 연관 직무를 추천합니다.</span>
                     </li>
                   </ul>
                 </div>
@@ -728,8 +995,113 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                     검사 시작하기 →
                   </motion.button>
                   <p className="mt-3 text-sm text-gray-500">
-                    예상 소요 시간: 약 10-15분
+                    예상 소요 시간: 약 12-18분 (계열 탐색 10문항 + 적성 검사 80문항 + 심층 탐색)
                   </p>
+                </div>
+              </motion.section>
+            )}
+
+            {/* 🆕 계열 탐색 문항 UI */}
+            {inCluster && currentClusterQ && (
+              <motion.section 
+                key={`cluster-${step}`} 
+                initial={{ opacity: 0, y: 8 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -8 }} 
+                className="bg-white rounded-2xl shadow-lg p-8"
+              >
+                {/* 계열 탐색 문항 헤더 */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
+                      계열 탐색 {step}/{clusterTotal}
+                    </span>
+                  </div>
+                  <h2 className="text-2xl md:text-3xl font-bold text-gray-800 leading-tight mb-3">
+                    {currentClusterQ.prompt}
+                  </h2>
+                  <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500">
+                    <span className="bg-gray-100 px-2 py-1 rounded">1</span>
+                    <span>또는</span>
+                    <span className="bg-gray-100 px-2 py-1 rounded">2</span>
+                    <span>키로 빠르게 선택할 수 있습니다</span>
+                  </div>
+                </div>
+
+                {/* 계열 탐색 선택지 - 랜덤 순서로 표시 */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  {displayOrder.map((originalKey, index) => {
+                    // 화면에 표시되는 레이블 (항상 A, B 순서로 보이지만 실제 내용은 뒤집힐 수 있음)
+                    const displayLabel = index === 0 ? "A" : "B";
+                    const colorThemes = [
+                      { 
+                        bg: 'from-purple-50 to-indigo-50', 
+                        border: 'border-purple-300', 
+                        hover: 'hover:from-purple-100 hover:to-indigo-100',
+                        accent: 'bg-purple-600',
+                        text: 'text-purple-700'
+                      },
+                      { 
+                        bg: 'from-orange-50 to-amber-50', 
+                        border: 'border-orange-300', 
+                        hover: 'hover:from-orange-100 hover:to-amber-100',
+                        accent: 'bg-orange-600',
+                        text: 'text-orange-700'
+                      }
+                    ];
+                    const theme = colorThemes[index];
+                    const choice = currentClusterQ[originalKey]; // 실제 선택지 데이터
+                    
+                    return (
+                      <motion.button
+                        key={`cluster-${index}`}
+                        whileHover={{ scale: 1.02, y: -4 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handlePick(displayLabel as "A" | "B")}
+                        className={`
+                          group relative overflow-hidden
+                          bg-gradient-to-br ${theme.bg} ${theme.hover}
+                          border-2 ${theme.border}
+                          rounded-2xl p-6 text-left
+                          transition-all duration-300
+                          hover:shadow-lg hover:border-opacity-100
+                          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500
+                        `}
+                      >
+                        {/* 선택지 레이블 - 화면에는 항상 A, B 순서로 표시 */}
+                        <div className={`
+                          inline-flex items-center justify-center
+                          w-10 h-10 rounded-full ${theme.accent} text-white font-bold text-lg
+                          mb-4 shadow-md
+                        `}>
+                          {displayLabel}
+                        </div>
+                        
+                        {/* 선택지 텍스트 */}
+                        <p className="text-lg font-medium text-gray-800 leading-relaxed">
+                          {choice.text}
+                        </p>
+                        
+                        {/* 키보드 힌트 */}
+                        <div className="hidden md:block absolute bottom-3 right-3">
+                          <span className={`text-xs ${theme.text} bg-white/80 px-2 py-1 rounded shadow-sm`}>
+                            {index + 1}
+                          </span>
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+                
+                {/* 둘 다 관심 없어요 버튼 */}
+                <div className="mt-4 text-center">
+                  <button
+                    onClick={() => handleClusterSkip()}
+                    className="text-sm text-gray-400 hover:text-gray-600 transition-colors px-4 py-2 rounded-lg hover:bg-gray-100"
+                  >
+                    둘 다 관심 없어요 →
+                    <span className="hidden md:inline ml-2 text-xs text-gray-300">(0키)</span>
+                  </button>
                 </div>
               </motion.section>
             )}
@@ -744,6 +1116,15 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
               >
                 {/* 문항 헤더 */}
                 <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      inAdaptive 
+                        ? 'bg-amber-100 text-amber-700' 
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {inAdaptive ? '심층 탐색' : '적성 검사'} {riasecStep}/{inAdaptive ? mainTotal + adaptiveQs.length : mainTotal}
+                    </span>
+                  </div>
                   <h2 className="text-2xl md:text-3xl font-bold text-gray-800 leading-tight mb-3">
                     {currentQ.prompt}
                   </h2>
@@ -756,12 +1137,15 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                   </div>
                 </div>
 
-                {/* 선택지 - 2개 균형잡힌 레이아웃 */}
+                {/* 선택지 - 2개 균형잡힌 레이아웃 (랜덤 순서로 표시) */}
                 <div className="grid md:grid-cols-2 gap-6">
-                  {(["A", "B"] as const).map((key, index) => {
+                  {displayOrder.map((originalKey, index) => {
+                    // 화면에 표시되는 레이블 (항상 A, B 순서로 보이지만 실제 내용은 뒤집힐 수 있음)
+                    const displayLabel = index === 0 ? "A" : "B";
                     const questionId = currentQ.id;
                     const hasImage = questionId >= 1 && questionId <= 6;
-                    const imagePath = hasImage ? getImagePath(questionId, key.toLowerCase() as 'a' | 'b') : null;
+                    // 이미지는 원본 키에 맞게 표시
+                    const imagePath = hasImage ? getImagePath(questionId, originalKey.toLowerCase() as 'a' | 'b') : null;
                     
                     // 선택지별 색상 테마
                     const colorThemes = [
@@ -784,7 +1168,7 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                     
                     return (
                       <motion.button
-                        key={key}
+                        key={`riasec-${index}`}
                         whileHover={{ 
                           scale: 1.02,
                           y: -4,
@@ -793,7 +1177,7 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                         whileTap={{ 
                           scale: 0.98
                         }}
-                        onClick={() => handlePick(key)}
+                        onClick={() => handlePick(displayLabel as "A" | "B")}
                         className={`relative text-left bg-gradient-to-br ${theme.bg} border-2 ${theme.border} ${theme.hover} rounded-2xl p-6 shadow-md transition-all duration-300 min-h-[280px] flex flex-col`}
                       >
                         {/* 이미지 영역 */}
@@ -805,7 +1189,7 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                           >
                             <img 
                               src={imagePath} 
-                              alt={`문항 ${questionId} ${key} 선택지`}
+                              alt={`문항 ${questionId} ${displayLabel} 선택지`}
                               className="w-full h-48 object-contain rounded-xl bg-white shadow-sm"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display = 'none';
@@ -817,7 +1201,7 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                         {/* 텍스트 영역 */}
                         <div className="flex-1 flex items-center">
                           <p className={`text-lg font-semibold ${theme.text} leading-relaxed`}>
-                            {currentQ[key].text}
+                            {currentQ[originalKey].text}
                           </p>
                         </div>
 
@@ -993,45 +1377,114 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                   <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl p-6 shadow-md">
                     <h3 className="font-bold text-lg mb-4 text-gray-800 flex items-center">
                       <span className="mr-2">🎓</span> 전공 추천 Top 5
+                      <span className="ml-2 text-xs text-gray-400 font-normal">(클릭하여 전공 홈페이지 방문)</span>
                     </h3>
                     <div className="space-y-3">
-                      {result.majors.map((m, index) => (
+                      {result.majors
+                        .filter(m => !excludedMajors.has(m.key)) // 🆕 결과 화면에서도 제외된 전공 필터링
+                        .map((m, index) => (
                         <motion.div
                           key={m.key}
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.1 }}
-                          className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500"
+                          onClick={() => {
+                            if (m.url) {
+                              window.open(m.url, '_blank', 'noopener,noreferrer');
+                            }
+                          }}
+                          className={`bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500 transition-all group ${
+                            m.url 
+                              ? 'cursor-pointer hover:shadow-md hover:border-l-blue-600 hover:bg-blue-50' 
+                              : ''
+                          }`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
                               <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
                                 {index + 1}
                               </div>
-                              <span className="font-semibold text-gray-800">{m.name}</span>
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-gray-800 flex items-center">
+                                  {m.name}
+                                  {m.url && (
+                                    <span className="ml-2 text-blue-500 text-xs">🔗</span>
+                                  )}
+                                </span>
+                                {m.college && (
+                                  <span className="text-xs text-gray-500">{m.college}</span>
+                                )}
+                              </div>
                             </div>
-                            <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-semibold">
-                              {Math.round(m.score * 100)}%
+                            <div className="flex items-center space-x-2">
+                              <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-semibold">
+                                {Math.round(m.score * 100)}%
+                              </div>
+                              {/* 🆕 전공능력 자가진단 버튼 */}
+                              {onNavigate && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onNavigate("roadmap-explorer", { selectedMajor: m.key });
+                                  }}
+                                  className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-1 rounded text-xs font-medium transition-all flex items-center space-x-1 no-print"
+                                  title={`${m.name} 전공능력 자가진단`}
+                                >
+                                  <span>📋</span>
+                                  <span className="hidden sm:inline">자가진단</span>
+                                </button>
+                              )}
+                              {/* 🆕 결과 화면에서도 제외 버튼 추가 */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExcludedMajors(prev => new Set(prev).add(m.key));
+                                }}
+                                className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all p-1 rounded-full hover:bg-red-50 no-print"
+                                title="이 전공 제외하기"
+                              >
+                                ✕
+                              </button>
                             </div>
                           </div>
                         </motion.div>
                       ))}
                     </div>
+                    {/* 전공 탐색 버튼 */}
+                    {onNavigate && (
+                      <>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => onNavigate("roadmap-explorer")}
+                          className="mt-4 w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center justify-center space-x-2 no-print"
+                        >
+                          <span>📂</span>
+                          <span>추천 전공 상세 탐색하기</span>
+                        </motion.button>
+                        <p className="mt-2 text-xs text-gray-500 text-center no-print">
+                          전공능력 자가진단으로 나에게 맞는 전공을 더 자세히 알아보세요
+                        </p>
+                      </>
+                    )}
                   </div>
 
                   {/* 직무 Top 5 */}
                   <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-xl p-6 shadow-md">
                     <h3 className="font-bold text-lg mb-4 text-gray-800 flex items-center">
                       <span className="mr-2">💼</span> 직무 추천 Top 5
+                      <span className="ml-2 text-xs text-gray-400 font-normal">(워크피디아 연동)</span>
                     </h3>
                     <div className="space-y-3">
-                      {result.roles.map((r, index) => (
+                      {result.roles
+                        .filter(r => !excludedRoles.has(r.key)) // 🆕 결과 화면에서도 제외된 직무 필터링
+                        .map((r, index) => (
                         <motion.div
                           key={r.key}
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.1 }}
-                          className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-emerald-500"
+                          className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-emerald-500 group"
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
@@ -1040,13 +1493,48 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
                               </div>
                               <span className="font-semibold text-gray-800">{r.name}</span>
                             </div>
-                            <div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-sm font-semibold">
-                              {Math.round(r.score * 100)}%
+                            <div className="flex items-center space-x-2">
+                              <div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-sm font-semibold">
+                                {Math.round(r.score * 100)}%
+                              </div>
+                              {/* 🆕 워크피디아 직업정보 연동 버튼 (직접 링크) */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // 워크피디아 직접 링크 또는 통합검색 URL로 이동
+                                  const workpediaUrl = getWorkpediaJobUrl(r.name);
+                                  window.open(workpediaUrl, '_blank', 'noopener,noreferrer');
+                                }}
+                                className={`px-2 py-1 rounded text-xs font-medium transition-all flex items-center space-x-1 no-print ${
+                                  getWorkpediaJobCode(r.name) 
+                                    ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700' 
+                                    : 'bg-amber-100 hover:bg-amber-200 text-amber-700'
+                                }`}
+                                title={`${r.name} 직업정보 보기 (워크피디아${getWorkpediaJobCode(r.name) ? ' - 직접 링크' : ''})`}
+                              >
+                                <span>{getWorkpediaJobCode(r.name) ? '📋' : '🔍'}</span>
+                                <span className="hidden sm:inline">직무정보</span>
+                              </button>
+                              {/* 🆕 결과 화면에서도 제외 버튼 추가 */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExcludedRoles(prev => new Set(prev).add(r.key));
+                                }}
+                                className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all p-1 rounded-full hover:bg-red-50 no-print"
+                                title="이 직무 제외하기"
+                              >
+                                ✕
+                              </button>
                             </div>
                           </div>
                         </motion.div>
                       ))}
                     </div>
+                    {/* 워크피디아 안내 */}
+                    <p className="mt-3 text-xs text-gray-500 text-center no-print">
+                      🔗 <a href="https://www.wagework.go.kr" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">워크피디아</a>에서 직업별 상세 정보, 평균 연봉, 미래 전망을 확인하세요
+                    </p>
                   </div>
                 </div>
 
@@ -1101,50 +1589,193 @@ export default function HSMatchingPrototype({ onComplete }: HSMatchingPrototypeP
             )}
           </AnimatePresence>
 
-          {/* 개발자용 간단 테스트 케이스 */}
-          <details className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-            <summary className="cursor-pointer font-medium">개발자 테스트 케이스</summary>
-            <div className="mt-3 text-sm space-y-2 text-slate-700">
-              <div>TC1: 문항 수 = {QUESTIONS.length} (기대: 80, 현재 섞인 순서로 진행)</div>
-              <div>TC2: 차원 키 유효성 = {QUESTIONS.every((q) => [q.A, q.B].every((c) => c.weights.every((w) => DIMS.includes(w[0] as Dim)))) ? "OK" : "ERROR"}</div>
-              <div>TC3: 결과 계산 안전성 = {(function(){ const s: any = { R:1,I:1,A:1,S:1,E:1,C:1 }; return cosineSim(s, s) === 1 ? "OK" : "WARN"; })()}</div>
-              <div>TC4: 레이더 데이터 축 수 = {(function(){ const dummy = { norm: { R:1,I:1,A:1,S:1,E:1,C:1 } } as any; const arr = ["R","I","A","S","E","C"].map((k)=>({axis:k,score:(dummy.norm[k]||0)*100})); return arr.length; })()} (기대: 6)</div>
+        </div>
+        
+        {/* 🔧 디버그 패널 */}
+        {showDebug && (
+          <motion.div
+            initial={{ opacity: 0, x: 300 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 300 }}
+            className="fixed right-4 top-20 w-96 max-h-[80vh] overflow-y-auto bg-gray-900 text-gray-100 rounded-xl shadow-2xl p-4 z-50 text-xs font-mono"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-yellow-400">🔧 디버그 패널</h3>
+              <button
+                onClick={() => setShowDebug(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
             </div>
-          </details>
-
-          {/* 디버그 패널 (실행 환경에서도 토글 가능) */}
-          <div className="mt-6">
-            <button onClick={() => setShowDebug((v) => !v)} className="px-3 py-1 rounded-lg text-sm border border-slate-300 bg-white hover:bg-slate-50">
-              {showDebug ? "디버그 닫기" : "🔍 디버그 보기"}
-            </button>
-            {showDebug && (
-              <div className="mt-3 p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono overflow-auto">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <div className="font-semibold mb-1">상태 요약</div>
-                    <pre>{JSON.stringify({ step: debugData.step, progress: debugData.progress, mainTotal: debugData.mainTotal, adaptiveTotal: debugData.adaptiveTotal, losersCount: debugData.losersCount, currentQuestionId: debugData.currentQuestionId }, null, 2)}</pre>
+            
+            {/* 현재 단계 정보 */}
+            <div className="mb-4 p-2 bg-gray-800 rounded-lg">
+              <div className="text-yellow-300 mb-1">📍 현재 상태</div>
+              <div>Step: {debugData.step} / {totalAll}</div>
+              <div>Phase: {debugData.phase || '인트로'}</div>
+              <div>계열 탐색: {clusterTotal}문항 | RIASEC: {mainTotal}문항 | 적응형: {adaptiveQs.length}문항</div>
+            </div>
+            
+            {/* 계열 점수 */}
+            <div className="mb-4 p-2 bg-gray-800 rounded-lg">
+              <div className="text-green-300 mb-2">🎯 계열 점수 (정규화)</div>
+              <div className="space-y-1">
+                {debugData.topClusters.map(({ cluster, score }) => (
+                  <div key={cluster} className="flex items-center">
+                    <span className="w-16">{cluster}</span>
+                    <div className="flex-1 bg-gray-700 h-3 rounded-full overflow-hidden mx-2">
+                      <div 
+                        className="h-full bg-green-500 transition-all"
+                        style={{ width: `${score * 100}%` }}
+                      />
+                    </div>
+                    <span className="w-12 text-right">{(score * 100).toFixed(0)}%</span>
                   </div>
-                  <div>
-                    <div className="font-semibold mb-1">정규화 점수(R,I,A,S,E,C) & 낮은 차원</div>
-                    <pre>{JSON.stringify({ norm: debugData.norm, lowDims: debugData.lowDims }, null, 2)}</pre>
-                  </div>
-                  <div>
-                    <div className="font-semibold mb-1">선택받지 못한 옵션 샘플</div>
-                    <pre>{JSON.stringify(debugData.loserSample, null, 2)}</pre>
-                  </div>
-                  <div>
-                    <div className="font-semibold mb-1">어댑티브 문항 샘플</div>
-                    <pre>{JSON.stringify(debugData.adaptiveSample, null, 2)}</pre>
-                  </div>
-                  <div className="md:col-span-2">
-                    <div className="font-semibold mb-1">RIASEC 프리뷰(레이더 데이터)</div>
-                    <pre>{JSON.stringify(debugData.riasecPreview, null, 2)}</pre>
-                  </div>
+                ))}
+              </div>
+              <div className="mt-2 text-gray-400 text-[10px]">
+                Raw: {Object.entries(debugData.rawClusterScores).map(([k, v]) => `${k}:${v?.toFixed(1)}`).join(' | ')}
+              </div>
+            </div>
+            
+            {/* RIASEC 점수 */}
+            <div className="mb-4 p-2 bg-gray-800 rounded-lg">
+              <div className="text-blue-300 mb-2">📊 RIASEC 점수 (정규화)</div>
+              <div className="space-y-1">
+                {DIMS.map(dim => {
+                  const score = debugData.normalizedRiasec[dim] || 0;
+                  return (
+                    <div key={dim} className="flex items-center">
+                      <span className="w-8 font-bold">{dim}</span>
+                      <div className="flex-1 bg-gray-700 h-3 rounded-full overflow-hidden mx-2">
+                        <div 
+                          className="h-full bg-blue-500 transition-all"
+                          style={{ width: `${score * 100}%` }}
+                        />
+                      </div>
+                      <span className="w-12 text-right">{(score * 100).toFixed(0)}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-2 text-gray-400 text-[10px]">
+                Raw: {DIMS.map(d => `${d}:${(debugData.rawScores[d] || 0).toFixed(1)}`).join(' | ')}
+              </div>
+            </div>
+            
+            {/* 추천 전공 Top 5 */}
+            {debugData.majors.length > 0 && (
+              <div className="mb-4 p-2 bg-gray-800 rounded-lg">
+                <div className="text-purple-300 mb-2">🎓 추천 전공 Top 5</div>
+                <div className="space-y-1">
+                  {debugData.majors.slice(0, 5).map((major, idx) => (
+                    <div key={major.key} className="flex items-center justify-between">
+                      <span className="truncate flex-1">
+                        {idx + 1}. {major.name}
+                        {major.clusterBonus && major.clusterBonus > 0 && (
+                          <span className="ml-1 text-green-400">+{(major.clusterBonus * 100).toFixed(0)}%</span>
+                        )}
+                      </span>
+                      <span className="text-purple-400 ml-2">{major.matchScore}%</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
-          </div>
-        </div>
+            
+            {/* 추천 직무 Top 5 */}
+            {debugData.roles.length > 0 && (
+              <div className="mb-4 p-2 bg-gray-800 rounded-lg">
+                <div className="text-orange-300 mb-2">💼 추천 직무 Top 5</div>
+                <div className="space-y-1">
+                  {debugData.roles.slice(0, 5).map((role, idx) => (
+                    <div key={role.key} className="flex items-center justify-between">
+                      <span className="truncate flex-1">
+                        {idx + 1}. {role.name}
+                        {role.isRelatedToMajor && (
+                          <span className="ml-1 text-green-400">⭐</span>
+                        )}
+                      </span>
+                      <span className="text-orange-400 ml-2">{(role.matchScore * 100).toFixed(0)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* 이전 문항 버튼 */}
+            {answerHistory.length > 0 && step > 1 && (
+              <div className="mb-4 p-2 bg-gray-800 rounded-lg">
+                <div className="text-cyan-300 mb-2">⏮️ 문항 이동</div>
+                <button
+                  onClick={handlePrevious}
+                  disabled={answerHistory.length === 0 || step <= 1}
+                  className="w-full px-3 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-xs font-semibold transition-colors"
+                >
+                  ← 이전 문항으로 돌아가기 ({answerHistory.length}개 답변됨)
+                </button>
+              </div>
+            )}
+            
+            {/* 빠른 테스트 */}
+            <div className="p-2 bg-gray-800 rounded-lg">
+              <div className="text-red-300 mb-2">⚡ 빠른 테스트</div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    // 계열 탐색 건너뛰기
+                    setClusterScores({ "인문": 0, "사회": 0, "경상": 2, "공학": 1, "자연": 0, "예체능": 0, "융합": 1 });
+                    setStep(clusterTotal + 1);
+                    setAnswerHistory([]); // 이력 초기화
+                  }}
+                  className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 rounded text-xs"
+                >
+                  계열 스킵 (경상)
+                </button>
+                <button
+                  onClick={() => {
+                    // RIASEC 60문항까지 건너뛰기
+                    setScores({ R: 3, I: 8, A: 2, S: 4, E: 7, C: 6 });
+                    setStep(clusterTotal + 60);
+                    setAnswerHistory([]); // 이력 초기화
+                  }}
+                  className="px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded text-xs"
+                >
+                  60문항 스킵
+                </button>
+                <button
+                  onClick={() => {
+                    // 모든 문항 건너뛰기 (결과 보기)
+                    setClusterScores({ "인문": 0, "사회": 0, "경상": 3, "공학": 2, "자연": 0, "예체능": 0, "융합": 2 });
+                    setScores({ R: 5, I: 12, A: 3, S: 6, E: 10, C: 9 });
+                    setAdaptiveQs([]);
+                    setStep(clusterTotal + mainTotal + 1);
+                    setAnswerHistory([]); // 이력 초기화
+                  }}
+                  className="px-2 py-1 bg-green-600 hover:bg-green-500 rounded text-xs"
+                >
+                  결과 보기
+                </button>
+                <button
+                  onClick={handleReset}
+                  className="px-2 py-1 bg-red-600 hover:bg-red-500 rounded text-xs"
+                >
+                  리셋
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+        
+        {/* 디버그 토글 버튼 */}
+        <button
+          onClick={() => setShowDebug(!showDebug)}
+          className="fixed bottom-4 right-4 w-12 h-12 bg-gray-800 hover:bg-gray-700 text-white rounded-full shadow-lg flex items-center justify-center z-50 transition-colors"
+          title="디버그 패널 토글"
+        >
+          🔧
+        </button>
       </div>
     </div>
   );
