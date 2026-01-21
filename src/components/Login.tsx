@@ -277,7 +277,7 @@ export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
                     <span className="font-medium">비밀번호:</span> {FRESHMAN_STUDENT.password}
                   </p>
                   <p className="text-xs text-gray-500 mt-2">
-                    ✓ RIASEC 검사만으로 진로 탐색 체험
+                    ✓ MJU 전공 진로 적합도 검사만으로 진로 탐색 체험
                   </p>
                 </div>
 

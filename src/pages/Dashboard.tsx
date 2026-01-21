@@ -137,7 +137,7 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
             ) : (
               <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
                 <span>💡</span>
-                <span>RIASEC 검사를 통해 목표 진로를 설정해보세요!</span>
+                <span>MJU 전공 진로 적합도 검사를 통해 목표 진로를 설정해보세요!</span>
               </div>
             )}
           </div>
@@ -289,7 +289,7 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
               <span className="text-2xl">🎯</span>
-              RIASEC 검사
+              MJU 전공 진로 적합도 검사
             </h3>
             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
               riasecCompleted ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
@@ -305,7 +305,7 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
                   <PolarGrid />
                   <PolarAngleAxis dataKey="axis" tick={{ fontSize: 10 }} />
                   <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 8 }} />
-                  <Radar name="RIASEC" dataKey="value" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.4} />
+                  <Radar name="MJU 전공 진로 적합도 검사" dataKey="value" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.4} />
                 </RadarChart>
               </ResponsiveContainer>
             </div>
@@ -477,7 +477,7 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
               >
                 <span className="text-2xl">🎯</span>
                 <div>
-                  <p className="font-medium">RIASEC 검사 완료하기</p>
+                  <p className="font-medium">MJU 전공 진로 적합도 검사 완료하기</p>
                   <p className="text-sm text-white/70">진로 적성을 파악하세요</p>
                 </div>
               </button>

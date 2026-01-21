@@ -214,14 +214,14 @@ export default function MajorCompetency() {
           </h3>
           <p className="text-gray-700 leading-relaxed mb-3">
             신입생으로서 기초 능력을 점검했습니다. 이 결과를 바탕으로 1학년 동안 부족한 역량을 
-            개발하고, RIASEC 진로 적성검사와 함께 자신에게 맞는 전공을 탐색해보세요.
+            개발하고, MJU 전공 진로 적합도 검사와 함께 자신에게 맞는 전공을 탐색해보세요.
           </p>
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
             <p className="text-sm text-gray-600 font-medium mb-2">추천 활동:</p>
             <ul className="text-sm text-gray-700 space-y-1">
               <li>• 다양한 전공 체험 프로그램 참여</li>
               <li>• 교양 과목을 통한 폭넓은 학습</li>
-              <li>• RIASEC 검사로 진로 적성 파악</li>
+              <li>• MJU 전공 진로 적합도 검사로 진로 적성 파악</li>
               <li>• 동아리 활동으로 협업 능력 개발</li>
             </ul>
           </div>

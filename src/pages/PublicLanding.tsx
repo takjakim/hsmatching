@@ -27,7 +27,7 @@ export default function PublicLanding({ onStartTest, onViewResult, onLogin }: Pu
             진로 적성검사
           </h1>
           <p className="text-xl text-gray-600">
-            RIASEC 모델 기반 진로 적성검사로 나에게 맞는 전공과 직무를 찾아보세요
+            MJU 전공 진로 적합도 검사 기반으로 나에게 맞는 전공과 직무를 찾아보세요
           </p>
         </div>
 
@@ -36,7 +36,7 @@ export default function PublicLanding({ onStartTest, onViewResult, onLogin }: Pu
           {[
             { icon: "📝", title: "80문항", desc: "강제선택형 문항으로 구성" },
             { icon: "⚡", title: "적응형", desc: "1차 후 교차 문항 진행" },
-            { icon: "📊", title: "RIASEC", desc: "6차원 기반 분석" }
+            { icon: "📊", title: "MJU 전공 진로 적합도 검사", desc: "6차원 기반 분석" }
           ].map((item, index) => (
             <motion.div
               key={index}

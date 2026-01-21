@@ -28,7 +28,7 @@ export default function CareerInsight({ riasecResult, onStartTest, onNavigate }:
             <h2 className="text-2xl font-bold">진로-학습 통합 분석</h2>
           </div>
           <p className="text-indigo-100">
-            RIASEC 진로 적성과 수강 과목 패턴을 비교 분석합니다.
+            MJU 전공 진로 적합도 검사 결과와 수강 과목 패턴을 비교 분석합니다.
           </p>
         </div>
 
@@ -45,10 +45,10 @@ export default function CareerInsight({ riasecResult, onStartTest, onNavigate }:
               </svg>
             </div>
             <h3 className="text-2xl font-bold text-gray-800 mb-2">
-              RIASEC 진로 적성검사가 필요합니다
+              MJU 전공 진로 적합도 검사가 필요합니다
             </h3>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              진로-학습 통합 분석을 이용하려면 먼저 RIASEC 진로 적성검사를 완료해주세요. 
+              진로-학습 통합 분석을 이용하려면 먼저 MJU 전공 진로 적합도 검사를 완료해주세요.
               검사는 약 10-15분 정도 소요되며, 29개의 기본 문항과 적응형 추가 문항으로 구성되어 있습니다.
             </p>
           </div>
@@ -79,7 +79,7 @@ export default function CareerInsight({ riasecResult, onStartTest, onNavigate }:
             onClick={onStartTest}
             className="px-8 py-4 bg-gradient-to-r from-[#1e3a8a] to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#60a5fa] text-white font-bold text-lg rounded-xl shadow-lg transition transform hover:scale-105"
           >
-            🎯 RIASEC 검사 시작하기
+            🎯 MJU 전공 진로 적합도 검사 시작하기
           </button>
         </motion.div>
       </div>
@@ -169,7 +169,7 @@ export default function CareerInsight({ riasecResult, onStartTest, onNavigate }:
           <h2 className="text-2xl font-bold">진로-학습 통합 분석</h2>
         </div>
         <p className="text-indigo-100">
-          RIASEC 진로 적성과 수강 과목 패턴을 비교 분석합니다.
+          MJU 전공 진로 적합도 검사 결과와 수강 과목 패턴을 비교 분석합니다.
         </p>
       </div>
 
@@ -180,7 +180,7 @@ export default function CareerInsight({ riasecResult, onStartTest, onNavigate }:
         </h3>
         {recommendedMajors.length === 0 ? (
           <div className="text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-300 rounded-xl p-4 text-center">
-            RIASEC 검사를 완료하면 개인화된 학과 추천을 확인할 수 있습니다.
+            MJU 전공 진로 적합도 검사를 완료하면 개인화된 학과 추천을 확인할 수 있습니다.
           </div>
         ) : (
           <div className="space-y-3">
@@ -336,7 +336,7 @@ export default function CareerInsight({ riasecResult, onStartTest, onNavigate }:
         {/* 차트 */}
         <div className="bg-white rounded-xl shadow-md p-6">
           <h3 className="text-lg font-bold text-gray-800 mb-4">
-            RIASEC 프로파일 비교
+            MJU 전공 진로 적합도 검사 프로파일 비교
           </h3>
           <div className="w-full h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -704,7 +704,7 @@ export default function CareerInsight({ riasecResult, onStartTest, onNavigate }:
             <span className="mr-2">💡</span> 통합 인사이트
           </h4>
           <p className="text-sm text-gray-700 leading-relaxed">
-            RIASEC 진로 적성, 수강 과목 패턴, 전공능력진단 결과를 종합하면, 
+            MJU 전공 진로 적합도 검사 결과, 수강 과목 패턴, 전공능력진단 결과를 종합하면,
             당신의 <strong>강점은 {competencyResult.competencies.sort((a, b) => b.score - a.score)[0].competencyName}</strong>이고, 
             <strong> 학습 경험은 {learningProfile.topDimensions[0].label}</strong> 영역이 가장 발달했습니다. 
             이를 바탕으로 추천된 직무를 검토하고, 개선이 필요한 역량은 추천 과목을 통해 보완하세요.

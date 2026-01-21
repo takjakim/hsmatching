@@ -42,7 +42,7 @@ export default function App() {
       try {
         setRiasecResult(JSON.parse(savedResult));
       } catch (e) {
-        console.error("Failed to parse saved RIASEC result", e);
+        console.error("Failed to parse saved MJU 전공 진로 적합도 검사 result", e);
         setRiasecResult(null);
       }
     } else {

@@ -21,7 +21,7 @@ export default function Layout({ children, currentPage, onPageChange, onLogout, 
     { id: "roadmap-planner", label: "📐 내 커리큘럼", desc: "4년 계획 설계" },
     { id: "roadmap-guide", label: "📍 로드맵·교과목", desc: "학년별 가이드" },
     { id: "roadmap-extracurricular", label: "🏆 비교과 활동", desc: "활동 이력 관리" },
-    { id: "roadmap-careers", label: "💼 추천 직무", desc: "RIASEC 기반" },
+    { id: "roadmap-careers", label: "💼 추천 직무", desc: "MJU 전공 진로 적합도 검사 기반" },
     { id: "roadmap-rolemodels", label: "⭐ 롤모델", desc: "선배와 비교" },
   ];
 

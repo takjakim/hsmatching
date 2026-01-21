@@ -953,7 +953,7 @@ export default function HSMatchingPrototype({ onComplete, onNavigate }: HSMatchi
                 <div className="grid md:grid-cols-4 gap-4 mb-8">
                   {[
                     { icon: "🎯", title: "계열 탐색", desc: "10문항으로 관심 계열 파악" },
-                    { icon: "📝", title: "적성 검사", desc: "80문항 RIASEC 분석" },
+                    { icon: "📝", title: "적성 검사", desc: "80문항 MJU 전공 진로 적합도 검사 분석" },
                     { icon: "⚡", title: "심층 탐색", desc: "적응형 교차 문항" },
                     { icon: "📊", title: "맞춤 추천", desc: "전공·직무 연계 추천" }
                   ].map((item, index) => (
@@ -982,7 +982,7 @@ export default function HSMatchingPrototype({ onComplete, onNavigate }: HSMatchi
                     </li>
                     <li className="flex items-start">
                       <span className="mr-2 text-blue-600 font-bold">2.</span>
-                      <span><strong>적성 검사</strong>(80문항): RIASEC 6차원 기반 적성을 분석합니다.</span>
+                      <span><strong>적성 검사</strong>(80문항): MJU 전공 진로 적합도 검사 6차원 기반 적성을 분석합니다.</span>
                     </li>
                     <li className="flex items-start">
                       <span className="mr-2 text-blue-600 font-bold">3.</span>
@@ -990,7 +990,7 @@ export default function HSMatchingPrototype({ onComplete, onNavigate }: HSMatchi
                     </li>
                     <li className="flex items-start">
                       <span className="mr-2 text-blue-600 font-bold">4.</span>
-                      <span><strong>맞춤 추천</strong>: 계열 선호도 + RIASEC 결과를 결합하여 전공과 연관 직무를 추천합니다.</span>
+                      <span><strong>맞춤 추천</strong>: 계열 선호도 + MJU 전공 진로 적합도 검사 결과를 결합하여 전공과 연관 직무를 추천합니다.</span>
                     </li>
                   </ul>
                 </div>
@@ -1300,7 +1300,7 @@ export default function HSMatchingPrototype({ onComplete, onNavigate }: HSMatchi
                 <div className="grid md:grid-cols-2 gap-6 mb-8">
                   <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-6 shadow-md">
                     <h3 className="font-bold text-lg mb-4 text-gray-800 flex items-center">
-                      <span className="mr-2">📊</span> RIASEC 스파이더 차트
+                      <span className="mr-2">📊</span> MJU 전공 진로 적합도 검사 스파이더 차트
                     </h3>
                     <div className="w-full h-64 bg-white rounded-lg p-2">
                       <ResponsiveContainer width="100%" height="100%">
@@ -1624,7 +1624,7 @@ export default function HSMatchingPrototype({ onComplete, onNavigate }: HSMatchi
               <div className="text-yellow-300 mb-1">📍 현재 상태</div>
               <div>Step: {debugData.step} / {totalAll}</div>
               <div>Phase: {debugData.phase || '인트로'}</div>
-              <div>계열 탐색: {clusterTotal}문항 | RIASEC: {mainTotal}문항 | 적응형: {adaptiveQs.length}문항</div>
+              <div>계열 탐색: {clusterTotal}문항 | MJU 전공 진로 적합도 검사: {mainTotal}문항 | 적응형: {adaptiveQs.length}문항</div>
             </div>
             
             {/* 계열 점수 */}
@@ -1651,7 +1651,7 @@ export default function HSMatchingPrototype({ onComplete, onNavigate }: HSMatchi
             
             {/* RIASEC 점수 */}
             <div className="mb-4 p-2 bg-gray-800 rounded-lg">
-              <div className="text-blue-300 mb-2">📊 RIASEC 점수 (정규화)</div>
+              <div className="text-blue-300 mb-2">📊 MJU 전공 진로 적합도 검사 점수 (정규화)</div>
               <div className="space-y-1">
                 {DIMS.map(dim => {
                   const score = debugData.normalizedRiasec[dim] || 0;

@@ -67,7 +67,7 @@ function PDFLayout({ result, dimLabels, riasecData, code }: { result: any; dimLa
         <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '15px' }}>
           {/* RIASEC 레이더 차트 */}
           <div style={{ backgroundColor: '#eff6ff', padding: '12px', borderRadius: '8px', border: '1px solid #93c5fd', minHeight: '160px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#1f2937', textAlign: 'center' }}>RIASEC 스파이더 차트</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#1f2937', textAlign: 'center' }}>MJU 전공 진로 적합도 검사 스파이더 차트</h3>
             <div style={{ width: '100%', height: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart data={riasecData} outerRadius="70%">
@@ -481,7 +481,7 @@ export default function ResultViewer() {
           <div className="grid md:grid-cols-2 gap-6 mb-8">
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-6 shadow-md relative">
               <h3 className="font-bold text-lg mb-4 text-gray-800 flex items-center">
-                <span className="mr-2">📊</span> RIASEC 스파이더 차트
+                <span className="mr-2">📊</span> MJU 전공 진로 적합도 검사 스파이더 차트
               </h3>
               <div className="w-full h-96 bg-white rounded-lg p-4 flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">

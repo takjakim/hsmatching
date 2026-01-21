@@ -61,7 +61,7 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
         {
           id: 'careers-info',
           title: '학년별 추천 직무',
-          description: `${selectedYear}학년까지의 수강 교과목과 RIASEC 검사 결과를 바탕으로 직무를 추천합니다. 학년을 변경하면 추천 결과도 달라집니다.`,
+          description: `${selectedYear}학년까지의 수강 교과목과 MJU 전공 진로 적합도 검사 결과를 바탕으로 직무를 추천합니다. 학년을 변경하면 추천 결과도 달라집니다.`,
           targetSelector: '[data-tutorial="careers-section"]',
           position: 'top' as const
         }
@@ -333,14 +333,14 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
               </div>
               <p className="text-sm text-blue-700">
                 {coursesUpToSelectedYear.length}개 교과목을 수강하셨습니다. 
-                {riasecResult ? ' RIASEC 검사 결과와 함께' : ''} 수강 이력을 바탕으로 직무를 추천합니다.
+                {riasecResult ? ' MJU 전공 진로 적합도 검사 결과와 함께' : ''} 수강 이력을 바탕으로 직무를 추천합니다.
               </p>
               {!riasecResult && (
                 <button
                   onClick={() => onNavigate?.('riasec')}
                   className="text-sm text-blue-600 hover:text-blue-700 underline mt-2"
                 >
-                  RIASEC 검사하기 → (더 정확한 추천을 위해)
+                  MJU 전공 진로 적합도 검사하기 → (더 정확한 추천을 위해)
                 </button>
               )}
             </div>
@@ -451,7 +451,7 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
                           <div className="grid md:grid-cols-2 gap-4">
                             {riasecResult && (
                               <div>
-                                <p className="text-xs text-gray-600 mb-2">RIASEC 매칭</p>
+                                <p className="text-xs text-gray-600 mb-2">MJU 전공 진로 적합도 검사 매칭</p>
                                 <div className="flex gap-2 flex-wrap">
                                   {Object.entries(career.riasecMatch).map(([key, value]) => (
                                     <div key={key} className="flex items-center gap-1">
@@ -466,7 +466,7 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
                                   ))}
                                 </div>
                                 <p className="text-xs text-gray-500 mt-1">
-                                  RIASEC 점수: {Math.round((career.riasecScore || 0) * 100)}%
+                                  MJU 전공 진로 적합도 검사 점수: {Math.round((career.riasecScore || 0) * 100)}%
                                 </p>
                               </div>
                             )}

@@ -91,14 +91,14 @@ export default function MajorExplorer({ onNavigate, riasecResult }: Props) {
           <div className="text-6xl mb-4">🎓</div>
           <h2 className="text-xl font-bold text-gray-800 mb-2">전공 탐색</h2>
           <p className="text-gray-600 mb-6">
-            RIASEC 진로적성검사를 완료하면<br />
+            MJU 전공 진로 적합도 검사를 완료하면<br />
             나에게 맞는 전공을 탐색할 수 있습니다.
           </p>
           <button
             onClick={() => onNavigate?.("riasec")}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
           >
-            RIASEC 검사 시작하기
+            MJU 전공 진로 적합도 검사 시작하기
           </button>
         </div>
       </div>
@@ -114,7 +114,7 @@ export default function MajorExplorer({ onNavigate, riasecResult }: Props) {
           나에게 맞는 전공 탐색
         </h2>
         <p className="text-indigo-100 mt-1">
-          RIASEC 검사 결과 기반 추천 전공 {recommendedMajors.length}개에 대해 전공능력 자가진단을 해보세요
+          MJU 전공 진로 적합도 검사 결과 기반 추천 전공 {recommendedMajors.length}개에 대해 전공능력 자가진단을 해보세요
         </p>
         <p className="text-indigo-200 text-sm mt-2">
           💡 리커트 5점 척도: 1(전혀 그렇지 않다) ~ 5(매우 그렇다)
@@ -225,7 +225,7 @@ export default function MajorExplorer({ onNavigate, riasecResult }: Props) {
                 </div>
                 <div className="text-right">
                   <div className="text-3xl font-bold text-purple-600">{selectedMajor.matchScore}%</div>
-                  <div className="text-xs text-gray-500">RIASEC 매칭도</div>
+                  <div className="text-xs text-gray-500">MJU 전공 진로 적합도 검사 매칭도</div>
                 </div>
               </div>
 
