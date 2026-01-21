@@ -1,18 +1,20 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  MIS_ALL_COURSES, 
-  MIS_RECOMMENDED_CAREERS,
-  MIS_MODULES,
-  MIS_MICRO_DEGREES,
+import {
   CURRENT_STUDENT,
+  MIS_ALL_COURSES,
   getCourseGrade,
   getModuleForCourse,
   getModuleProgress,
   getMicroDegreeProgress,
-  getCoursesByGradeUpTo
+  getCoursesByGradeUpTo,
+  getCurrentGrades
 } from "../data/dummyData";
 import { Course } from "../types/student";
+import { exportToDocx, exportToPdfSimple } from "../utils/exportPlanner";
+import { recommendMajors, type RecommendedMajor } from "../utils/recommendMajors";
+import { getMajorHierarchyEntries, type MajorHierarchyEntry } from "../data/majorList";
+import subjectListCsv from "../../subject_lst.csv?raw";
 
 type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C';
 
@@ -34,6 +36,7 @@ interface PlannedCourse extends Course {
 // 저장 데이터 타입
 interface SavedPlan {
   name: string;
+  majorName: string;
   createdAt: string;
   updatedAt: string;
   semesters: { [key: string]: string[] };
@@ -43,7 +46,197 @@ interface CurriculumPlannerProps {
   riasecResult?: Record<Dim, number> | null;
 }
 
+interface SubjectMajorOption {
+  fullName: string;
+  shortName: string;
+}
+
+interface SelectedMajor {
+  fullName: string;
+  shortName: string;
+  matchScore?: number;
+}
+
+interface SubjectCourseRow {
+  majorName: string;
+  courseName: string;
+}
+
+const MIS_MAJOR_NAME = "경영정보학과";
+
+const SUBJECT_COURSE_ROWS = parseSubjectList(subjectListCsv);
+const SUBJECT_MAJOR_MAP = SUBJECT_COURSE_ROWS.reduce((map, row) => {
+  if (!map.has(row.majorName)) {
+    map.set(row.majorName, []);
+  }
+  map.get(row.majorName)!.push(row.courseName);
+  return map;
+}, new Map<string, string[]>());
+
+const SUBJECT_MAJOR_OPTIONS: SubjectMajorOption[] = Array.from(
+  new Map<string, SubjectMajorOption>(
+    [
+      { fullName: MIS_MAJOR_NAME, shortName: getMajorShortName(MIS_MAJOR_NAME) },
+      ...Array.from(SUBJECT_MAJOR_MAP.keys()).map((fullName) => ({
+        fullName,
+        shortName: getMajorShortName(fullName)
+      }))
+    ].map((option) => [option.fullName, option])
+  ).values()
+).sort((a, b) => a.fullName.localeCompare(b.fullName, "ko"));
+
+const SUBJECT_COURSE_CACHE = new Map<string, Course[]>();
+
+const MAJOR_HIERARCHY_ENTRIES = getMajorHierarchyEntries();
+
+interface MajorHierarchyDepartment {
+  name: string;
+  majors: SelectedMajor[];
+}
+
+interface MajorHierarchyCollege {
+  name: string;
+  departments: MajorHierarchyDepartment[];
+}
+
+function normalizeMajorName(value: string) {
+  return value.replace(/\s+/g, "").replace(/[·]/g, "");
+}
+
+function normalizeKey(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[^0-9A-Za-z가-힣]+/g, "")
+    .slice(0, 24);
+}
+
+function getMajorShortName(fullName: string) {
+  const trimmed = fullName.trim();
+  const parts = trimmed.split(" ");
+  return parts[parts.length - 1] || trimmed;
+}
+
+function getHierarchyMajorFullName(entry: MajorHierarchyEntry) {
+  if (entry.major && entry.major !== entry.department) {
+    return `${entry.department} ${entry.major}`;
+  }
+  return entry.department;
+}
+
+function parseSubjectList(csvText: string): SubjectCourseRow[] {
+  const lines = csvText.trim().split(/\r?\n/);
+  const result: SubjectCourseRow[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i]?.trim();
+    if (!line) continue;
+
+    const [majorName, courseName] = line.split(",");
+    if (!majorName || !courseName) continue;
+
+    result.push({
+      majorName: majorName.trim(),
+      courseName: courseName.trim()
+    });
+  }
+
+  return result;
+}
+
+function buildCourseNumber(majorName: string, index: number) {
+  const majorKey = normalizeKey(majorName) || "MAJOR";
+  return `SUBJ-${majorKey}-${index + 1}`;
+}
+
+function getSubjectCoursesForMajor(majorName: string): Course[] {
+  if (!majorName) return [];
+
+  const normalizedMajor = normalizeMajorName(majorName);
+  if (normalizedMajor === normalizeMajorName(MIS_MAJOR_NAME)) {
+    return MIS_ALL_COURSES;
+  }
+
+  const cached = SUBJECT_COURSE_CACHE.get(majorName);
+  if (cached) return cached;
+
+  const courseNames = SUBJECT_MAJOR_MAP.get(majorName) || [];
+  const courses = courseNames.map((courseName, index) => ({
+    year: new Date().getFullYear(),
+    semester: 1,
+    courseNumber: buildCourseNumber(majorName, index),
+    courseName,
+    completionType: "전공",
+    credits: 3,
+    timeAndRoom: "",
+    retake: false,
+    professor: ""
+  }));
+
+  SUBJECT_COURSE_CACHE.set(majorName, courses);
+  return courses;
+}
+
+function findSubjectMajorByName(name: string): SubjectMajorOption | null {
+  const normalizedTarget = normalizeMajorName(name);
+
+  const exact = SUBJECT_MAJOR_OPTIONS.find(
+    (option) => normalizeMajorName(option.fullName) === normalizedTarget
+  );
+  if (exact) return exact;
+
+  const matches = SUBJECT_MAJOR_OPTIONS.filter((option) =>
+    normalizeMajorName(option.fullName).includes(normalizedTarget)
+  );
+  if (matches.length === 0) return null;
+
+  return matches.sort((a, b) => a.fullName.length - b.fullName.length)[0];
+}
+
 export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerProps) {
+  const plannerRef = useRef<HTMLDivElement>(null);
+
+  const recommendedMajors = useMemo<RecommendedMajor[]>(() => {
+    if (!riasecResult) return [];
+    return recommendMajors(riasecResult, { limit: 3 });
+  }, [riasecResult]);
+
+  const recommendedMajorOptions = useMemo<SelectedMajor[]>(() => {
+    return recommendedMajors.map((major) => {
+      const mapped = findSubjectMajorByName(major.name);
+      if (!mapped) {
+        return {
+          fullName: major.name,
+          shortName: major.name,
+          matchScore: major.matchScore
+        };
+      }
+      return {
+        fullName: mapped.fullName,
+        shortName: mapped.shortName,
+        matchScore: major.matchScore
+      };
+    });
+  }, [recommendedMajors]);
+
+  const [selectedMajors, setSelectedMajors] = useState<SelectedMajor[]>([]);
+  const [activeMajor, setActiveMajor] = useState<string>("");
+  const [majorPlanners, setMajorPlanners] = useState<{ [key: string]: SemesterSlot[] }>({});
+  const [majorQuery, setMajorQuery] = useState("");
+  const [selectedCollege, setSelectedCollege] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const hasInitializedRecommended = useRef(false);
+
+  useEffect(() => {
+    if (hasInitializedRecommended.current) return;
+    if (recommendedMajorOptions.length === 0) return;
+
+    setSelectedMajors(recommendedMajorOptions);
+    if (!activeMajor) {
+      setActiveMajor(recommendedMajorOptions[0].fullName);
+    }
+    hasInitializedRecommended.current = true;
+  }, [recommendedMajorOptions, activeMajor]);
+
   const initialSemesters: SemesterSlot[] = [
     { year: 1, semester: 1, label: "1학년 1학기", courses: [] },
     { year: 1, semester: 2, label: "1학년 2학기", courses: [] },
@@ -62,29 +255,159 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showLoadModal, setShowLoadModal] = useState(false);
-  const [selectedCareerTrack, setSelectedCareerTrack] = useState<string | null>(null);
 
-  // 교과목 풀 초기화 (학년 정보 포함) + 이미 수강한 과목 자동 배치
+  // 학점 비공개 토글
+  const [isGpaHidden, setIsGpaHidden] = useState(false);
+
+  // 내보내기 드롭다운
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+
+  // 학점 정보
+  const gradesData = getCurrentGrades();
+
+  const majorHierarchy = useMemo<MajorHierarchyCollege[]>(() => {
+    const collegeMap = new Map<string, Map<string, Map<string, SelectedMajor>>>();
+
+    MAJOR_HIERARCHY_ENTRIES.forEach((entry) => {
+      const fullName = getHierarchyMajorFullName(entry);
+      if (!collegeMap.has(entry.college)) {
+        collegeMap.set(entry.college, new Map());
+      }
+      const departmentMap = collegeMap.get(entry.college)!;
+      if (!departmentMap.has(entry.department)) {
+        departmentMap.set(entry.department, new Map());
+      }
+      const majorMap = departmentMap.get(entry.department)!;
+      if (!majorMap.has(fullName)) {
+        majorMap.set(fullName, {
+          fullName,
+          shortName: entry.majorName || getMajorShortName(fullName)
+        });
+      }
+    });
+
+    return Array.from(collegeMap.entries())
+      .map(([collegeName, departmentMap]) => ({
+        name: collegeName,
+        departments: Array.from(departmentMap.entries())
+          .map(([departmentName, majorMap]) => ({
+            name: departmentName,
+            majors: Array.from(majorMap.values()).sort((a, b) =>
+              a.fullName.localeCompare(b.fullName, "ko")
+            )
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name, "ko"))
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  }, []);
+
+  const selectedCollegeEntry = useMemo(
+    () => majorHierarchy.find((college) => college.name === selectedCollege) || null,
+    [majorHierarchy, selectedCollege]
+  );
+  const departmentOptions = selectedCollegeEntry?.departments ?? [];
+  const selectedDepartmentEntry = useMemo(
+    () => departmentOptions.find((department) => department.name === selectedDepartment) || null,
+    [departmentOptions, selectedDepartment]
+  );
+
+  const filteredMajorOptions = useMemo(() => {
+    const majors = selectedDepartmentEntry?.majors ?? [];
+    const query = majorQuery.trim();
+    if (!query) return majors;
+
+    const normalizedQuery = normalizeMajorName(query);
+    return majors.filter((major) =>
+      normalizeMajorName(major.fullName).includes(normalizedQuery) ||
+      normalizeMajorName(major.shortName).includes(normalizedQuery)
+    );
+  }, [selectedDepartmentEntry, majorQuery]);
+
+  const majorSearchOptions = useMemo(() => {
+    const query = majorQuery.trim();
+    if (!query) return [] as SelectedMajor[];
+
+    const normalizedQuery = normalizeMajorName(query);
+    const unique = new Map<string, SelectedMajor>();
+
+    majorHierarchy.forEach((college) => {
+      college.departments.forEach((department) => {
+        department.majors.forEach((major) => {
+          if (
+            normalizeMajorName(major.fullName).includes(normalizedQuery) ||
+            normalizeMajorName(major.shortName).includes(normalizedQuery)
+          ) {
+            if (!unique.has(major.fullName)) {
+              unique.set(major.fullName, major);
+            }
+          }
+        });
+      });
+    });
+
+    return Array.from(unique.values());
+  }, [majorHierarchy, majorQuery]);
+
   useEffect(() => {
-    // 이미 수강한 과목들 (현재 학년까지)
-    const completedCourses = getCoursesByGradeUpTo(CURRENT_STUDENT.grade);
-    const completedCourseNumbers = new Set(completedCourses.map(c => c.courseNumber));
+    if (selectedCollege || majorHierarchy.length === 0) return;
+    setSelectedCollege(majorHierarchy[0].name);
+  }, [majorHierarchy, selectedCollege]);
 
-    // 모든 과목에 ID 부여
-    const allCoursesWithId: PlannedCourse[] = MIS_ALL_COURSES.map((course, idx) => ({
+  useEffect(() => {
+    if (!selectedCollege) {
+      if (selectedDepartment) {
+        setSelectedDepartment("");
+      }
+      return;
+    }
+
+    const college = majorHierarchy.find((entry) => entry.name === selectedCollege);
+    const departments = college?.departments ?? [];
+    if (departments.length === 0) {
+      if (selectedDepartment) {
+        setSelectedDepartment("");
+      }
+      return;
+    }
+
+    if (!departments.some((department) => department.name === selectedDepartment)) {
+      setSelectedDepartment(departments[0].name);
+    }
+  }, [majorHierarchy, selectedCollege, selectedDepartment]);
+
+  const activeMajorLabel = useMemo(() => {
+    if (!activeMajor) return "";
+    const selected = selectedMajors.find((major) => major.fullName === activeMajor);
+    return selected?.shortName || getMajorShortName(activeMajor);
+  }, [activeMajor, selectedMajors]);
+
+  const buildPlannedCourses = (majorName: string) => {
+    const completedCourses = getCoursesByGradeUpTo(CURRENT_STUDENT.grade);
+    const completedCourseNumbers = new Set(completedCourses.map((c) => c.courseNumber));
+
+    return getSubjectCoursesForMajor(majorName).map((course, idx) => ({
       ...course,
       plannedId: `course-${idx}-${course.courseNumber}`,
       targetGrade: getCourseGrade(course.courseNumber),
       isCompleted: completedCourseNumbers.has(course.courseNumber)
     }));
+  };
 
-    // 이미 수강한 과목들은 해당 학기에 자동 배치
+  // 교과목 풀 초기화 함수
+  const initializeSemesters = (majorName?: string) => {
     const newSemesters = initialSemesters.map(sem => ({ ...sem, courses: [] as PlannedCourse[] }));
+    if (!majorName) {
+      return { newSemesters, remaining: [] as PlannedCourse[] };
+    }
+
+    const allCoursesWithId = buildPlannedCourses(majorName);
     const placedIds = new Set<string>();
 
+    // 이미 수강한 과목 배치
     allCoursesWithId.forEach(course => {
       if (course.isCompleted) {
-        const targetYear = course.targetGrade || getCourseGrade(course.courseNumber) || 1;
+        const targetYear = course.targetGrade || getCourseGrade(course.courseNumber);
+        if (!targetYear) return;
         const courseSemester = course.semester || 1;
         const semIdx = (targetYear - 1) * 2 + (courseSemester - 1);
 
@@ -95,17 +418,147 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
       }
     });
 
-    // 미수강 과목들만 교과목 풀에 표시
     const remaining = allCoursesWithId.filter(c => !placedIds.has(c.plannedId));
 
-    setSemesters(newSemesters);
-    setAvailableCourses(remaining);
+    return { newSemesters, remaining };
+  };
 
+  useEffect(() => {
     const saved = localStorage.getItem('curriculumPlans');
     if (saved) {
       setSavedPlans(JSON.parse(saved));
     }
   }, []);
+
+  useEffect(() => {
+    if (!activeMajor) {
+      setSemesters(initialSemesters);
+      setAvailableCourses([]);
+      return;
+    }
+
+    if (majorPlanners[activeMajor]) {
+      setSemesters(majorPlanners[activeMajor]);
+
+      const placedIds = new Set<string>();
+      majorPlanners[activeMajor].forEach(sem => {
+        sem.courses.forEach(c => placedIds.add(c.plannedId));
+      });
+
+      const allCoursesWithId = buildPlannedCourses(activeMajor);
+      setAvailableCourses(allCoursesWithId.filter(c => !placedIds.has(c.plannedId)));
+      return;
+    }
+
+    const { newSemesters, remaining } = initializeSemesters(activeMajor);
+    setSemesters(newSemesters);
+    setAvailableCourses(remaining);
+    setMajorPlanners(prev => ({ ...prev, [activeMajor]: newSemesters }));
+  }, [activeMajor, majorPlanners]);
+
+  const handleSelectMajor = (major: SelectedMajor) => {
+    setSelectedMajors(prev => {
+      const exists = prev.some(item => item.fullName === major.fullName);
+      if (exists) {
+        const next = prev.filter(item => item.fullName !== major.fullName);
+        if (activeMajor === major.fullName) {
+          setActiveMajor(next[0]?.fullName || "");
+        }
+        return next;
+      }
+      setActiveMajor(major.fullName);
+      return [...prev, major];
+    });
+  };
+
+  const handleSelectCollege = (collegeName: string) => {
+    if (collegeName === selectedCollege) return;
+    setSelectedCollege(collegeName);
+    const college = majorHierarchy.find((entry) => entry.name === collegeName);
+    setSelectedDepartment(college?.departments[0]?.name || "");
+  };
+
+  const handleSelectDepartment = (departmentName: string) => {
+    setSelectedDepartment(departmentName);
+  };
+
+  const handleRemoveMajor = (majorName: string) => {
+    setSelectedMajors(prev => {
+      const next = prev.filter(item => item.fullName !== majorName);
+      if (activeMajor === majorName) {
+        setActiveMajor(next[0]?.fullName || "");
+      }
+      return next;
+    });
+  };
+
+  const handleTabChange = (majorName: string) => {
+    if (!majorName || majorName === activeMajor) return;
+
+    if (activeMajor) {
+      setMajorPlanners(prev => ({
+        ...prev,
+        [activeMajor]: semesters
+      }));
+    }
+
+    setActiveMajor(majorName);
+  };
+
+  // 내보내기 함수들
+  const handleExportDocx = async () => {
+    if (!activeMajorLabel) {
+      alert('전공을 선택한 후 저장할 수 있습니다.');
+      return;
+    }
+    setShowExportDropdown(false);
+    try {
+      await exportToDocx(
+        `${activeMajorLabel}_커리큘럼`,
+        CURRENT_STUDENT.name,
+        CURRENT_STUDENT.department,
+        semesters,
+        {
+          totalCredits: totalCredits,
+          acquiredCredits: gradesData.totalAcquiredCredits,
+          averageGpa: gradesData.averageGpa,
+          lastSemesterGpa: gradesData.lastSemesterGpa
+        },
+        activeMajorLabel
+      );
+      alert('DOCX 파일이 다운로드되었습니다.');
+    } catch (error) {
+      console.error('DOCX 내보내기 오류:', error);
+      alert('DOCX 내보내기에 실패했습니다. 필요한 라이브러리가 설치되어 있는지 확인해주세요.');
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!activeMajorLabel) {
+      alert('전공을 선택한 후 저장할 수 있습니다.');
+      return;
+    }
+    setShowExportDropdown(false);
+    try {
+      await exportToPdfSimple(
+        `${activeMajorLabel}_커리큘럼`,
+        CURRENT_STUDENT.name,
+        CURRENT_STUDENT.department,
+        semesters,
+        {
+          totalCredits: totalCredits,
+          acquiredCredits: gradesData.totalAcquiredCredits,
+          averageGpa: gradesData.averageGpa,
+          lastSemesterGpa: gradesData.lastSemesterGpa
+        },
+        activeMajorLabel
+      );
+      alert('PDF 파일이 다운로드되었습니다.');
+    } catch (error) {
+      console.error('PDF 내보내기 오류:', error);
+      alert('PDF 내보내기에 실패했습니다.');
+    }
+  };
 
   // 배치된 모든 과목 번호
   const placedCourseNumbers = useMemo(() => {
@@ -186,6 +639,11 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
 
   // 계획 저장
   const savePlan = () => {
+    if (!activeMajor) {
+      alert('전공을 선택한 후 저장할 수 있습니다.');
+      return;
+    }
+
     const semesterData: { [key: string]: string[] } = {};
     semesters.forEach(sem => {
       const key = `${sem.year}-${sem.semester}`;
@@ -194,12 +652,15 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
 
     const newPlan: SavedPlan = {
       name: planName,
+      majorName: activeMajor,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       semesters: semesterData
     };
 
-    const existingIndex = savedPlans.findIndex(p => p.name === planName);
+    const existingIndex = savedPlans.findIndex(
+      p => p.name === planName && p.majorName === activeMajor
+    );
     let updatedPlans: SavedPlan[];
     
     if (existingIndex >= 0) {
@@ -217,11 +678,13 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
 
   // 계획 불러오기
   const loadPlan = (plan: SavedPlan) => {
-    const allCourses: PlannedCourse[] = MIS_ALL_COURSES.map((course, idx) => ({
-      ...course,
-      plannedId: `course-${idx}-${course.courseNumber}`,
-      targetGrade: getCourseGrade(course.courseNumber)
-    }));
+    const targetMajor = plan.majorName || activeMajor;
+    if (!targetMajor) {
+      alert('전공을 선택한 후 불러올 수 있습니다.');
+      return;
+    }
+
+    const allCourses = buildPlannedCourses(targetMajor);
 
     const newSemesters = initialSemesters.map(sem => {
       const key = `${sem.year}-${sem.semester}`;
@@ -242,22 +705,27 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
     setSemesters(newSemesters);
     setAvailableCourses(remaining);
     setPlanName(plan.name);
+    setMajorPlanners(prev => ({ ...prev, [targetMajor]: newSemesters }));
+    setActiveMajor(targetMajor);
+    setSelectedMajors(prev => {
+      if (prev.some(major => major.fullName === targetMajor)) {
+        return prev;
+      }
+      const option = SUBJECT_MAJOR_OPTIONS.find(item => item.fullName === targetMajor) || findSubjectMajorByName(targetMajor);
+      const shortName = option?.shortName || getMajorShortName(targetMajor);
+      return [...prev, { fullName: targetMajor, shortName }];
+    });
     setShowLoadModal(false);
   };
 
   // 계획 초기화 (이수 완료 과목은 유지)
   const resetPlan = () => {
+    if (!activeMajor) {
+      alert('전공을 선택한 후 초기화할 수 있습니다.');
+      return;
+    }
     if (confirm('현재 계획을 초기화하시겠습니까? (이미 수강한 과목은 유지됩니다)')) {
-      // 이미 수강한 과목들 (현재 학년까지)
-      const completedCourses = getCoursesByGradeUpTo(CURRENT_STUDENT.grade);
-      const completedCourseNumbers = new Set(completedCourses.map(c => c.courseNumber));
-
-      const allCoursesWithId: PlannedCourse[] = MIS_ALL_COURSES.map((course, idx) => ({
-        ...course,
-        plannedId: `course-${idx}-${course.courseNumber}`,
-        targetGrade: getCourseGrade(course.courseNumber),
-        isCompleted: completedCourseNumbers.has(course.courseNumber)
-      }));
+      const allCoursesWithId = buildPlannedCourses(activeMajor);
 
       // 이미 수강한 과목들은 해당 학기에 자동 배치
       const newSemesters = initialSemesters.map(sem => ({ ...sem, courses: [] as PlannedCourse[] }));
@@ -265,7 +733,8 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
 
       allCoursesWithId.forEach(course => {
         if (course.isCompleted) {
-          const targetYear = course.targetGrade || getCourseGrade(course.courseNumber) || 1;
+          const targetYear = course.targetGrade || getCourseGrade(course.courseNumber);
+          if (!targetYear) return;
           const courseSemester = course.semester || 1;
           const semIdx = (targetYear - 1) * 2 + (courseSemester - 1);
 
@@ -281,278 +750,446 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
 
       setSemesters(newSemesters);
       setAvailableCourses(remaining);
-      setSelectedCareerTrack(null);
+      setMajorPlanners(prev => ({ ...prev, [activeMajor]: newSemesters }));
     }
   };
 
-  // 추천 트랙 적용
-  const applyCareerTrack = (careerTitle: string) => {
-    const career = MIS_RECOMMENDED_CAREERS.find(c => c.title === careerTitle);
-    if (!career) return;
-
-    const allCourses: PlannedCourse[] = MIS_ALL_COURSES.map((course, idx) => ({
-      ...course,
-      plannedId: `course-${idx}-${course.courseNumber}`,
-      targetGrade: getCourseGrade(course.courseNumber)
-    }));
-
-    // 트랙 관련 교과목만 필터링 (relatedCourses에 포함된 교과목)
-    const relatedCourseNames = career.relatedCourses;
-    const trackCourses = allCourses.filter(course => 
-      relatedCourseNames.some(rc => 
-        course.courseName.includes(rc) || 
-        rc.includes(course.courseName) ||
-        // 부분 매칭 (예: "데이터분석" -> "데이터분석프로그래밍", "데이터베이스활용" 등)
-        course.courseName.toLowerCase().includes(rc.toLowerCase()) ||
-        rc.toLowerCase().includes(course.courseName.toLowerCase())
-      )
-    );
-
-    // 1학년 필수 교과목도 포함
-    const requiredCourses = allCourses.filter(course => 
-      course.completionType === '학문기초' || 
-      course.completionType === '전공필수' ||
-      course.courseName.includes('경영학입문') ||
-      course.courseName.includes('경제학원론') ||
-      course.courseName.includes('경상통계학') ||
-      course.courseName.includes('경영정보') ||
-      course.courseName.includes('프로그래밍기초')
-    );
-
-    // 트랙 관련 교과목 + 필수 교과목 합치기 (중복 제거)
-    const coursesToPlace = [...new Map([
-      ...requiredCourses.map(c => [c.plannedId, c]),
-      ...trackCourses.map(c => [c.plannedId, c])
-    ]).values()];
-
-    const newSemesters = initialSemesters.map(sem => ({ ...sem, courses: [] as PlannedCourse[] }));
-    const placedIds = new Set<string>();
-
-    coursesToPlace.forEach(course => {
-      const targetYear = course.targetGrade || getCourseGrade(course.courseNumber) || 1;
-      const semester = course.semester || 1;
-      const semIdx = (targetYear - 1) * 2 + (semester - 1);
-
-      if (semIdx >= 0 && semIdx < 8) {
-        newSemesters[semIdx].courses.push(course);
-        placedIds.add(course.plannedId);
-      }
-    });
-
-    const remaining = allCourses.filter(c => !placedIds.has(c.plannedId));
-    
-    setSemesters(newSemesters);
-    setAvailableCourses(remaining);
-    setSelectedCareerTrack(careerTitle);
-  };
-
   // 학년별 색상
-  const getGradeColor = (grade: number) => {
+  const getGradeColor = (grade: number | undefined) => {
+    if (!grade) return 'bg-slate-400';
     const colors: Record<number, string> = {
       1: 'bg-green-500',
       2: 'bg-blue-500',
       3: 'bg-purple-500',
       4: 'bg-orange-500'
     };
-    return colors[grade] || 'bg-gray-400';
+    return colors[grade] || 'bg-slate-400';
   };
 
-  const getGradeBgColor = (grade: number) => {
+  const getGradeBgColor = (grade: number | undefined) => {
+    if (!grade) return 'bg-slate-50 border-slate-300';
     const colors: Record<number, string> = {
       1: 'bg-green-50 border-green-300',
       2: 'bg-blue-50 border-blue-300',
       3: 'bg-purple-50 border-purple-300',
       4: 'bg-orange-50 border-orange-300'
     };
-    return colors[grade] || 'bg-gray-50 border-gray-300';
+    return colors[grade] || 'bg-slate-50 border-slate-300';
   };
 
   return (
-    <div className="space-y-6">
-      {/* 헤더 */}
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-gray-800 mb-1">📐 나의 4년 커리큘럼 플래너</h2>
-            <p className="text-gray-600 text-sm">교과목 블럭을 드래그하여 나만의 커리어 경로를 설계하세요</p>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setShowLoadModal(true)}
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition font-medium"
-            >
-              📂 불러오기
-            </button>
-            <button
-              onClick={() => setShowSaveModal(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium"
-            >
-              💾 저장하기
-            </button>
-            <button
-              onClick={resetPlan}
-              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition font-medium"
-            >
-              🔄 초기화
-            </button>
+    <div className="space-y-4" ref={plannerRef} id="curriculum-planner">
+
+
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="flex items-end px-4 pt-2 bg-gray-50 border-b border-gray-200 overflow-x-auto scrollbar-hide">
+          {selectedMajors.map((major, idx) => {
+            const isActive = activeMajor === major.fullName;
+            return (
+              <button
+                key={major.fullName}
+                onClick={() => handleTabChange(major.fullName)}
+                className={`
+                  relative px-5 py-2.5 text-sm font-medium transition-all rounded-t-lg mr-1 border-t border-x min-w-[120px]
+                  ${isActive 
+                    ? 'bg-white border-gray-200 border-b-white text-blue-600 z-10 -mb-[1px] shadow-[0_-2px_5px_rgba(0,0,0,0.02)]' 
+                    : 'bg-gray-100 border-transparent text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+                  }
+                `}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <span className={`text-base ${isActive ? '' : 'grayscale opacity-70'}`}>
+                    {idx === 0 ? '📊' : idx === 1 ? '💼' : '🤖'}
+                  </span>
+                  <span className="truncate max-w-[100px]">{major.shortName}</span>
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveMajor(major.fullName);
+                    }}
+                    className="ml-1 p-0.5 rounded-full hover:bg-gray-200 text-gray-400 hover:text-red-500 transition-colors z-20 cursor-pointer"
+                    title="제거"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </span>
+                </div>
+                {isActive && (
+                  <div className="absolute top-0 left-0 w-full h-0.5 bg-blue-500 rounded-t-lg" />
+                )}
+              </button>
+            );
+          })}
+          
+          {selectedMajors.length === 0 && (
+            <div className="px-6 py-3 text-sm text-gray-400 italic">
+              상단에서 전공을 선택해주세요.
+            </div>
+          )}
+        </div>
+
+        {/* 헤더 콘텐츠 */}
+        <div className="px-5 py-3">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-800 mb-1 flex items-center gap-2 tracking-tight">
+                📐 {activeMajorLabel || "전공 선택"} 커리큘럼 플래너
+              </h2>
+              <p className="text-gray-500 text-xs">교과목 블럭을 드래그하여 나만의 커리어 경로를 설계하세요</p>
+            </div>
+
+            <div className="flex justify-end gap-2 flex-wrap">
+              <button
+                onClick={() => setShowLoadModal(true)}
+                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition font-medium text-sm"
+              >
+                📂 불러오기
+              </button>
+
+              {/* 저장하기 드롭다운 */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowExportDropdown(!showExportDropdown)}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium flex items-center gap-1 text-sm"
+                >
+                  💾 저장하기
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                <AnimatePresence>
+                  {showExportDropdown && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50"
+                    >
+                      <button
+                        onClick={() => {
+                          setShowExportDropdown(false);
+                          setShowSaveModal(true);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <span>🌐</span> 브라우저 저장
+                      </button>
+                      <button
+                        onClick={handleExportDocx}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <span>📄</span> DOCX 다운로드
+                      </button>
+                      <button
+                        onClick={handleExportPdf}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <span>📕</span> PDF 다운로드
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <button
+                onClick={resetPlan}
+                className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition font-medium text-sm"
+              >
+                🔄 초기화
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* 통계 및 모듈/마이크로디그리 현황 */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* 학점 통계 */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <span>📊</span> 학점 현황
-          </h3>
-          
+      <div className="grid lg:grid-cols-3 gap-4">
+        {/* 학점 이수현황 (개선된 버전) */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-2">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+              <span>📊</span> 학점 이수현황
+            </h3>
+            <button
+              onClick={() => setIsGpaHidden(!isGpaHidden)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition flex items-center gap-1 ${
+                isGpaHidden
+                  ? 'bg-gray-200 text-gray-600'
+                  : 'bg-green-100 text-green-700'
+              }`}
+            >
+              {isGpaHidden ? '🔒 비공개' : '🔓 공개'}
+            </button>
+          </div>
+
           {/* 120학점 기준 이수율 원형 차트 */}
-          <div className="flex items-center justify-center mb-4">
-            <div className="relative w-28 h-28">
-              <svg className="w-28 h-28 transform -rotate-90">
+          <div className="flex items-center justify-center mb-3">
+            <div className="relative w-20 h-20">
+              <svg className="w-20 h-20 transform -rotate-90">
                 <circle
-                  cx="56"
-                  cy="56"
-                  r="48"
+                  cx="40"
+                  cy="40"
+                  r="34"
                   stroke="#e5e7eb"
-                  strokeWidth="10"
+                  strokeWidth="6"
                   fill="none"
                 />
                 <motion.circle
-                  cx="56"
-                  cy="56"
-                  r="48"
+                  cx="40"
+                  cy="40"
+                  r="34"
                   stroke="#3b82f6"
-                  strokeWidth="10"
+                  strokeWidth="6"
                   fill="none"
-                  strokeDasharray={`${2 * Math.PI * 48}`}
-                  strokeDashoffset={2 * Math.PI * 48 * (1 - Math.min(totalCredits / 120, 1))}
+                  strokeDasharray={`${2 * Math.PI * 34}`}
+                  strokeDashoffset={2 * Math.PI * 34 * (1 - Math.min(gradesData.totalAcquiredCredits / 120, 1))}
                   strokeLinecap="round"
-                  initial={{ strokeDashoffset: 2 * Math.PI * 48 }}
-                  animate={{ strokeDashoffset: 2 * Math.PI * 48 * (1 - Math.min(totalCredits / 120, 1)) }}
+                  initial={{ strokeDashoffset: 2 * Math.PI * 34 }}
+                  animate={{ strokeDashoffset: 2 * Math.PI * 34 * (1 - Math.min(gradesData.totalAcquiredCredits / 120, 1)) }}
                   transition={{ duration: 1, ease: "easeOut" }}
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <p className="text-xl font-bold text-blue-600">{Math.round((totalCredits / 120) * 100)}%</p>
-                  <p className="text-[10px] text-gray-500">이수율</p>
+                  <p className="text-base font-bold text-blue-600">{Math.round((gradesData.totalAcquiredCredits / 120) * 100)}%</p>
                 </div>
               </div>
             </div>
           </div>
-          
-          {/* 총 학점 / 졸업 학점 */}
-          <div className="text-center mb-4 py-2 bg-blue-50 rounded-lg">
-            <span className="text-2xl font-bold text-blue-600">{totalCredits}</span>
-            <span className="text-gray-500 text-sm"> / 120 학점</span>
-          </div>
 
-          {/* 학년별 학점 */}
-          <div className="grid grid-cols-4 gap-2">
-            {[1, 2, 3, 4].map(year => (
-              <div key={year} className="text-center">
-                <div className="text-lg font-bold text-gray-700">
-                  {semesterCredits[(year-1)*2] + semesterCredits[(year-1)*2+1]}
-                </div>
-                <div className="text-xs text-gray-500">{year}학년</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 모듈 이수 현황 */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <span>📦</span> 모듈 이수 현황
-          </h3>
+          {/* 학점 정보 */}
           <div className="space-y-3">
-            {moduleProgress.map(({ module, completed, total, isComplete }) => (
-              <div key={module.id} className="relative">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-3 h-3 rounded-full" 
-                      style={{ backgroundColor: module.color }}
-                    />
-                    <span className={`text-sm font-medium ${isComplete ? 'text-gray-800' : 'text-gray-600'}`}>
-                      {module.name}
-                    </span>
-                    {isComplete && <span className="text-green-500 text-xs">✓</span>}
+            {/* 이수 학점 */}
+            <div className="flex items-center justify-between py-2 border-b border-gray-100">
+              <span className="text-gray-600 text-sm">이수 학점</span>
+              <span className="font-bold text-gray-800">
+                {gradesData.totalAcquiredCredits} / 120
+              </span>
+            </div>
+
+            {/* 직전학기 평점 */}
+            <div className="flex items-center justify-between py-2 border-b border-gray-100">
+              <span className="text-gray-600 text-sm">직전학기 평점</span>
+              <span className={`font-bold ${isGpaHidden ? 'blur-sm select-none' : 'text-purple-600'}`}>
+                {gradesData.lastSemesterGpa?.toFixed(2) || '-'} / 4.5
+              </span>
+            </div>
+
+            {/* 전체 평점 */}
+            <div className="flex items-center justify-between py-2">
+              <span className="text-gray-600 text-sm">전체 평점</span>
+              <span className={`font-bold ${isGpaHidden ? 'blur-sm select-none' : 'text-blue-600'}`}>
+                {gradesData.averageGpa.toFixed(2)} / 4.5
+              </span>
+            </div>
+          </div>
+
+          {/* 학년별 학점 미니 바 */}
+          <div className="mt-4 pt-3 border-t border-gray-100">
+            <div className="text-xs text-gray-500 mb-2">학년별 배치 학점</div>
+            <div className="grid grid-cols-4 gap-1">
+              {[1, 2, 3, 4].map(year => {
+                const yearCredits = semesterCredits[(year-1)*2] + semesterCredits[(year-1)*2+1];
+                return (
+                  <div key={year} className="text-center">
+                    <div className="h-8 bg-gray-100 rounded-sm relative overflow-hidden">
+                      <motion.div
+                        initial={{ height: 0 }}
+                        animate={{ height: `${Math.min((yearCredits / 36) * 100, 100)}%` }}
+                        className={`absolute bottom-0 left-0 right-0 ${getGradeColor(year)}`}
+                      />
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">{yearCredits}</div>
                   </div>
-                  <span className="text-xs text-gray-500">{completed}/{total}</span>
-                </div>
-                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(completed / total) * 100}%` }}
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: module.color }}
-                  />
-                </div>
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* 마이크로디그리 현황 */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <span>🎓</span> 마이크로디그리 현황
-          </h3>
-          <div className="space-y-4">
-            {microDegreeProgress.map(({ microDegree, modulesCompleted, totalModules, isComplete, modules }) => (
-              <div 
-                key={microDegree.id} 
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  isComplete 
-                    ? 'bg-green-50 border-green-400' 
-                    : 'bg-gray-50 border-gray-200'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">{microDegree.icon}</span>
-                    <span className={`font-bold ${isComplete ? 'text-green-700' : 'text-gray-700'}`}>
-                      {microDegree.name}
-                    </span>
-                  </div>
-                  {isComplete && (
-                    <span className="px-2 py-0.5 bg-green-500 text-white text-xs rounded-full font-bold">
-                      획득!
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  {modules.map(({ module, isComplete: modComplete }) => (
-                    <div 
-                      key={module.id}
-                      className={`flex-1 px-2 py-1 rounded text-xs text-center ${
-                        modComplete 
-                          ? 'bg-green-200 text-green-800' 
-                          : 'bg-gray-200 text-gray-600'
-                      }`}
-                    >
-                      {module.name.split(' ')[0]}
-                      {modComplete && ' ✓'}
-                    </div>
-                  ))}
-                </div>
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-white rounded-lg border border-gray-200 h-full overflow-hidden flex flex-col">
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/30">
+              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <span>🔍</span> 전공 탐색
+              </h2>
+              {recommendedMajorOptions.length > 0 && (
+                 <div className="flex items-center gap-2">
+                   <span className="text-xs font-semibold text-gray-500 hidden sm:inline-block">추천 전공:</span>
+                   <div className="flex gap-1.5">
+                     {recommendedMajorOptions.map((major) => (
+                       <button
+                         key={major.fullName}
+                         onClick={() => handleSelectMajor(major)}
+                         className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-full transition-colors border border-indigo-100 text-xs font-medium"
+                         title={major.fullName}
+                       >
+                         <span>{major.shortName}</span>
+                         {typeof major.matchScore === "number" && (
+                           <span className="text-[10px] font-bold opacity-80 bg-white/50 px-1 rounded">
+                             {major.matchScore}%
+                           </span>
+                         )}
+                       </button>
+                     ))}
+                   </div>
+                 </div>
+              )}
+            </div>
+
+            <div className="p-4 flex flex-col h-full gap-3">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={majorQuery}
+                  onChange={(e) => setMajorQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none text-sm placeholder-gray-400"
+                  placeholder="전공명 검색 (예: 경영, 정보...)" 
+                />
+                <svg className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                {majorQuery && (
+                  <button 
+                    onClick={() => setMajorQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 w-5 h-5 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors"
+                  >
+                    <span className="sr-only">Clear</span>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
               </div>
-            ))}
+
+              <div className="flex-1 border border-gray-200 rounded-lg bg-white overflow-hidden min-h-[220px] shadow-sm relative">
+                  {majorQuery ? (
+                    <div className="absolute inset-0 overflow-y-auto p-2 space-y-0.5 custom-scrollbar">
+                      {majorSearchOptions.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                          <svg className="w-8 h-8 mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          <span className="text-xs">검색 결과가 없습니다.</span>
+                        </div>
+                      ) : (
+                        majorSearchOptions.map(opt => {
+                          const isSelected = selectedMajors.some(m => m.fullName === opt.fullName);
+                          return (
+                            <button
+                              key={opt.fullName}
+                              onClick={() => handleSelectMajor(opt)}
+                              className={`w-full text-left px-3 py-2 rounded text-sm flex items-center justify-between transition-colors ${
+                                isSelected 
+                                  ? 'bg-blue-50 text-blue-700 font-medium' 
+                                  : 'hover:bg-gray-50 text-gray-700'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                <span className="truncate">{opt.fullName}</span>
+                                <span className="text-xs text-gray-400 shrink-0">({opt.shortName})</span>
+                              </div>
+                              {isSelected && <span className="text-blue-600 text-xs">선택됨</span>}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 h-full divide-x divide-gray-100 absolute inset-0">
+                      <div className="flex flex-col bg-gray-50/50">
+                        <div className="px-3 py-2 text-[11px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100 bg-gray-50 sticky top-0">
+                          계열/단과대
+                        </div>
+                        <div className="overflow-y-auto custom-scrollbar flex-1 p-1 space-y-0.5">
+                          {majorHierarchy.map(college => (
+                            <button
+                              key={college.name}
+                              onClick={() => handleSelectCollege(college.name)}
+                              className={`w-full text-left px-2.5 py-1.5 rounded text-[13px] transition-all ${
+                                selectedCollege === college.name
+                                  ? 'bg-white text-blue-700 font-bold shadow-sm ring-1 ring-black/5 z-10'
+                                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                              }`}
+                            >
+                              {college.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col bg-white">
+                        <div className="px-3 py-2 text-[11px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100 bg-white sticky top-0">
+                          학부/학과
+                        </div>
+                        <div className="overflow-y-auto custom-scrollbar flex-1 p-1 space-y-0.5">
+                          {departmentOptions.map(dept => (
+                            <button
+                              key={dept.name}
+                              onClick={() => handleSelectDepartment(dept.name)}
+                              className={`w-full text-left px-2.5 py-1.5 rounded text-[13px] transition-all ${
+                                selectedDepartment === dept.name
+                                  ? 'bg-blue-50 text-blue-700 font-bold'
+                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                              }`}
+                            >
+                              {dept.name}
+                            </button>
+                          ))}
+                          {departmentOptions.length === 0 && (
+                            <div className="px-3 py-10 text-xs text-gray-400 text-center">
+                              선택해주세요
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col bg-white">
+                        <div className="px-3 py-2 text-[11px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100 bg-white sticky top-0">
+                          전공
+                        </div>
+                        <div className="overflow-y-auto custom-scrollbar flex-1 p-1 space-y-0.5">
+                          {filteredMajorOptions.map(major => {
+                             const isSelected = selectedMajors.some(m => m.fullName === major.fullName);
+                             return (
+                              <button
+                                key={major.fullName}
+                                onClick={() => handleSelectMajor(major)}
+                                className={`w-full text-left px-2.5 py-1.5 rounded text-[13px] transition-all flex items-center justify-between group ${
+                                  isSelected
+                                    ? 'bg-blue-50 text-blue-700 font-bold'
+                                    : 'text-gray-600 hover:bg-blue-50/50 hover:text-blue-600'
+                                }`}
+                              >
+                                <span className="truncate">{major.shortName}</span>
+                                {isSelected && <span className="text-blue-500 text-[10px] font-bold">✓</span>}
+                              </button>
+                             );
+                          })}
+                           {filteredMajorOptions.length === 0 && selectedDepartment && (
+                            <div className="px-3 py-10 text-xs text-gray-400 text-center">
+                              전공이 없습니다
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* 메인 플래너 영역 */}
-      <div className="grid lg:grid-cols-4 gap-6">
+      <div className="grid lg:grid-cols-4 gap-4">
         {/* 교과목 풀 - 사이드바 (sticky) */}
         <div className="lg:col-span-1">
-          <div className="lg:sticky lg:top-6 bg-white rounded-xl shadow-sm p-4 max-h-[400px] lg:max-h-[calc(100vh-8rem)] overflow-y-auto scrollbar-hide">
-            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b border-gray-200 pb-3">
+          <div className="lg:sticky lg:top-4 bg-white rounded-lg border border-gray-200 p-3 max-h-[400px] lg:max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-hide">
+            <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2 border-b border-gray-100 pb-2 text-sm">
               <span>📚</span> 교과목 풀
-              <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
+              <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded-full text-gray-600">
                 {availableCourses.length}개
               </span>
             </h3>
@@ -580,9 +1217,9 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                   onDragEnd={handleDragEnd}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className={`p-3 rounded-lg cursor-grab active:cursor-grabbing border-2 transition-all ${
+                  className={`p-2.5 rounded-md cursor-grab active:cursor-grabbing border transition-all ${
                     draggedCourse?.plannedId === course.plannedId 
-                      ? 'border-blue-500 bg-blue-50 shadow-lg' 
+                      ? 'border-blue-500 bg-blue-50 shadow-md' 
                       : `${getGradeBgColor(grade)} hover:border-blue-300`
                   }`}
                 >
@@ -591,7 +1228,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                       <div className="flex items-center gap-1 mb-1 flex-wrap">
                         {/* 학년 배지 */}
                         <span className={`px-1.5 py-0.5 rounded text-xs font-bold text-white ${getGradeColor(grade)}`}>
-                          {grade}학년
+                          {grade ? `${grade}학년` : '미정'}
                         </span>
                         <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                           course.completionType === '전공필수' ? 'bg-red-100 text-red-700' :
@@ -636,13 +1273,13 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
               key={`${semester.year}-${semester.semester}`}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => handleDropToSemester(semIdx)}
-              className={`bg-white rounded-xl shadow-md p-4 min-h-[200px] transition-all ${
+              className={`bg-white rounded-lg border border-gray-200 p-3 min-h-[180px] transition-all ${
                 draggedCourse ? 'ring-2 ring-blue-300 ring-dashed' : ''
               }`}
             >
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                  <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${getGradeColor(semester.year)}`}>
+              <div className="flex items-center justify-between mb-2 border-b border-gray-50 pb-2">
+                <h4 className="font-bold text-gray-800 flex items-center gap-2 text-sm">
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold ${getGradeColor(semester.year)}`}>
                     {semester.year}-{semester.semester}
                   </span>
                   {semester.label}
@@ -693,7 +1330,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                               )}
                               {/* 학년 배지 */}
                               <span className={`px-1 py-0.5 rounded text-xs font-bold text-white ${getGradeColor(grade)}`}>
-                                {grade}
+                                {grade ? `${grade}학년` : '미정'}
                               </span>
                               <span className={`px-1 py-0.5 rounded text-xs font-medium ${
                                 course.completionType === '전공필수' ? 'bg-red-100 text-red-700' :
@@ -748,32 +1385,6 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
         </div>
       </div>
 
-      {/* 추천 트랙 빠른 적용 */}
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <span>💼</span> 추천 트랙 빠른 적용
-        </h3>
-        <p className="text-sm text-gray-500 mb-4">
-          클릭하면 해당 트랙에 맞게 교과목이 자동 배치됩니다
-        </p>
-        <div className="flex flex-wrap gap-3">
-          {MIS_RECOMMENDED_CAREERS.slice(0, 4).map((career) => (
-            <button
-              key={career.title}
-              onClick={() => applyCareerTrack(career.title)}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                selectedCareerTrack === career.title
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {career.title}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 저장 모달 */}
       <AnimatePresence>
         {showSaveModal && (
           <motion.div

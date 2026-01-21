@@ -50,6 +50,7 @@ export interface GradeRecord {
 
 export interface StudentGrades {
   averageGpa: number;
+  lastSemesterGpa?: number; // 직전학기 평점
   percentileScore: number;
   totalRegisteredCredits: number;
   totalAcquiredCredits: number;

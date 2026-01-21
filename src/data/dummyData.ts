@@ -1107,6 +1107,7 @@ export const AVAILABLE_COURSES: Course[] = [
 // 신입생 학점 이수 정보 (1학기만)
 export const FRESHMAN_GRADES: StudentGrades = {
   averageGpa: 3.2,
+  lastSemesterGpa: 3.2,
   percentileScore: 78.5,
   totalRegisteredCredits: 8,
   totalAcquiredCredits: 8,
@@ -1133,6 +1134,7 @@ export const FRESHMAN_GRADES: StudentGrades = {
 // 기존 학생 학점 이수 정보 (경영학과, 5학기)
 export const DUMMY_GRADES: StudentGrades = {
   averageGpa: 3.65,
+  lastSemesterGpa: 3.72,
   percentileScore: 89.2,
   totalRegisteredCredits: 89,
   totalAcquiredCredits: 89,
@@ -1345,6 +1347,7 @@ export const FRESHMAN_COMPETENCY: MajorCompetencyResult = {
 // 경영정보학과 학생 성적 정보 (2학년, 진행중)
 export const MIS_GRADES: StudentGrades = {
   averageGpa: 3.75,
+  lastSemesterGpa: 3.9,
   percentileScore: 85.2,
   totalRegisteredCredits: 34,
   totalAcquiredCredits: 34,
@@ -1643,6 +1646,258 @@ export function compareWithRoleModel(
     matchPercentage: Math.round(matchPercentage * 10) / 10,
     matchedCourses,
     missingCourses
+  };
+}
+
+// ============================================
+// 비교과 활동 확장 데이터 (평생학습계좌 시스템)
+// ============================================
+
+// 비교과 활동 카테고리
+export interface ExtracurricularCategory {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  requiredCount: number; // 졸업 요건
+}
+
+export const EXTRACURRICULAR_CATEGORIES: ExtracurricularCategory[] = [
+  { id: 'certificate', name: '자격증', icon: '📜', color: 'bg-blue-100 text-blue-700', requiredCount: 4 },
+  { id: 'contest', name: '공모전/대회', icon: '🏆', color: 'bg-yellow-100 text-yellow-700', requiredCount: 2 },
+  { id: 'internship', name: '인턴십/현장실습', icon: '💼', color: 'bg-green-100 text-green-700', requiredCount: 1 },
+  { id: 'volunteer', name: '봉사활동', icon: '🤝', color: 'bg-pink-100 text-pink-700', requiredCount: 2 },
+  { id: 'club', name: '동아리/학회', icon: '👥', color: 'bg-purple-100 text-purple-700', requiredCount: 1 },
+  { id: 'seminar', name: '특강/세미나', icon: '🎤', color: 'bg-orange-100 text-orange-700', requiredCount: 3 },
+];
+
+// 비교과 활동 인터페이스 (확장)
+export interface ExtracurricularActivity {
+  id: number;
+  category: string;
+  name: string;
+  date: string;
+  status: 'completed' | 'in-progress' | 'planned';
+  description: string;
+  mileage: number; // 마일리지 점수
+  hours: number; // 활동 시간
+  certificateUrl?: string; // 수료증 다운로드 URL (완료 시)
+  issuer?: string; // 발급 기관
+}
+
+// 비교과 활동 더미 데이터 (확장)
+export const EXTRACURRICULAR_ACTIVITIES: ExtracurricularActivity[] = [
+  {
+    id: 1,
+    category: 'certificate',
+    name: 'SQLD',
+    date: '2024-03',
+    status: 'completed',
+    description: 'SQL 개발자 자격증',
+    mileage: 100,
+    hours: 40,
+    certificateUrl: '/certificates/sqld.pdf',
+    issuer: '한국데이터산업진흥원'
+  },
+  {
+    id: 2,
+    category: 'certificate',
+    name: '정보처리기사',
+    date: '2024-06',
+    status: 'in-progress',
+    description: '필기 합격, 실기 준비 중',
+    mileage: 0,
+    hours: 60,
+    issuer: '한국산업인력공단'
+  },
+  {
+    id: 3,
+    category: 'certificate',
+    name: 'ADsP',
+    date: '2024-04',
+    status: 'completed',
+    description: '데이터분석 준전문가',
+    mileage: 80,
+    hours: 30,
+    certificateUrl: '/certificates/adsp.pdf',
+    issuer: '한국데이터산업진흥원'
+  },
+  {
+    id: 4,
+    category: 'contest',
+    name: 'MJU 창업경진대회',
+    date: '2024-05',
+    status: 'completed',
+    description: '우수상 수상',
+    mileage: 150,
+    hours: 80,
+    certificateUrl: '/certificates/mju_startup.pdf',
+    issuer: '명지대학교 창업지원단'
+  },
+  {
+    id: 5,
+    category: 'contest',
+    name: '빅데이터 분석 경진대회',
+    date: '2024-09',
+    status: 'planned',
+    description: 'DACON 경진대회 참가 예정',
+    mileage: 0,
+    hours: 0
+  },
+  {
+    id: 6,
+    category: 'internship',
+    name: 'IT 기업 하계 인턴',
+    date: '2024-07',
+    status: 'planned',
+    description: '7월 시작 예정',
+    mileage: 0,
+    hours: 160
+  },
+  {
+    id: 7,
+    category: 'club',
+    name: 'IT 학술동아리',
+    date: '2023-03',
+    status: 'completed',
+    description: '2학기 활동 완료',
+    mileage: 50,
+    hours: 40,
+    certificateUrl: '/certificates/it_club.pdf',
+    issuer: 'IT 학술동아리'
+  },
+  {
+    id: 8,
+    category: 'volunteer',
+    name: 'IT 교육 봉사',
+    date: '2024-01',
+    status: 'completed',
+    description: '초등학생 코딩 교육',
+    mileage: 30,
+    hours: 20,
+    certificateUrl: '/certificates/volunteer.pdf',
+    issuer: '명지대학교 사회봉사센터'
+  },
+  {
+    id: 9,
+    category: 'seminar',
+    name: 'AI 트렌드 특강',
+    date: '2024-04',
+    status: 'completed',
+    description: 'ChatGPT와 생성형 AI 활용',
+    mileage: 20,
+    hours: 3,
+    certificateUrl: '/certificates/ai_seminar.pdf',
+    issuer: '경영정보학과'
+  },
+  {
+    id: 10,
+    category: 'seminar',
+    name: '취업 멘토링 세미나',
+    date: '2024-05',
+    status: 'completed',
+    description: 'IT 기업 현직자 멘토링',
+    mileage: 15,
+    hours: 2,
+    certificateUrl: '/certificates/mentoring.pdf',
+    issuer: '경력개발센터'
+  },
+];
+
+// 추천 비교과 활동
+export interface RecommendedActivity {
+  category: string;
+  name: string;
+  description: string;
+  difficulty: '상' | '중' | '하';
+  recommendFor: string;
+  mileageReward: number;
+  estimatedHours: number;
+}
+
+export const RECOMMENDED_EXTRACURRICULAR: RecommendedActivity[] = [
+  {
+    category: 'certificate',
+    name: '정보처리기사',
+    description: '전공 필수 자격증',
+    difficulty: '중',
+    recommendFor: '전 학과 학생',
+    mileageReward: 150,
+    estimatedHours: 80
+  },
+  {
+    category: 'certificate',
+    name: 'AWS Cloud Practitioner',
+    description: '클라우드 기초 자격증',
+    difficulty: '하',
+    recommendFor: '클라우드 관심자',
+    mileageReward: 80,
+    estimatedHours: 30
+  },
+  {
+    category: 'contest',
+    name: '빅데이터 분석 경진대회',
+    description: 'DACON, Kaggle 등',
+    difficulty: '상',
+    recommendFor: '데이터 사이언스 취업 희망자',
+    mileageReward: 200,
+    estimatedHours: 100
+  },
+  {
+    category: 'internship',
+    name: '현장실습 학기제',
+    description: '학점 인정 인턴십 (16주)',
+    difficulty: '중',
+    recommendFor: '실무 경험 필요자',
+    mileageReward: 300,
+    estimatedHours: 640
+  },
+  {
+    category: 'volunteer',
+    name: '코딩 교육 봉사',
+    description: '초중등학생 대상 프로그래밍 교육',
+    difficulty: '하',
+    recommendFor: '교육에 관심 있는 학생',
+    mileageReward: 50,
+    estimatedHours: 30
+  },
+  {
+    category: 'seminar',
+    name: '산업체 특강 시리즈',
+    description: 'IT 기업 실무자 특강',
+    difficulty: '하',
+    recommendFor: '취업 준비생',
+    mileageReward: 20,
+    estimatedHours: 3
+  },
+];
+
+// 학습계좌 통계 계산 함수
+export function getLearningAccountStats(activities: ExtracurricularActivity[]) {
+  const completedActivities = activities.filter(a => a.status === 'completed');
+
+  const totalMileage = completedActivities.reduce((sum, a) => sum + a.mileage, 0);
+  const totalHours = completedActivities.reduce((sum, a) => sum + a.hours, 0);
+  const totalActivities = completedActivities.length;
+  const uniqueCategories = new Set(completedActivities.map(a => a.category)).size;
+
+  // 카테고리별 진행도
+  const categoryProgress = EXTRACURRICULAR_CATEGORIES.map(cat => {
+    const completed = completedActivities.filter(a => a.category === cat.id).length;
+    return {
+      ...cat,
+      completed,
+      percentage: Math.min((completed / cat.requiredCount) * 100, 100)
+    };
+  });
+
+  return {
+    totalMileage,
+    totalHours,
+    totalActivities,
+    uniqueCategories,
+    categoryProgress,
+    completedActivities
   };
 }
 

@@ -13,6 +13,7 @@ import {
 } from "../data/dummyData";
 import CurriculumPlanner from "../components/CurriculumPlanner";
 import TutorialOverlay from "../components/TutorialOverlay";
+import LearningAccount from "../components/LearningAccount";
 
 interface CareerRoadmapPageProps {
   onNavigate?: (page: string) => void;
@@ -20,31 +21,7 @@ interface CareerRoadmapPageProps {
   initialViewMode?: 'roadmap' | 'careers' | 'planner' | 'rolemodels' | 'extracurricular';
 }
 
-// 비교과 활동 더미 데이터
-const EXTRACURRICULAR_CATEGORIES = [
-  { id: 'certificate', name: '자격증', icon: '📜', color: 'bg-blue-100 text-blue-700' },
-  { id: 'contest', name: '공모전/대회', icon: '🏆', color: 'bg-yellow-100 text-yellow-700' },
-  { id: 'internship', name: '인턴십/현장실습', icon: '💼', color: 'bg-green-100 text-green-700' },
-  { id: 'volunteer', name: '봉사활동', icon: '🤝', color: 'bg-pink-100 text-pink-700' },
-  { id: 'club', name: '동아리/학회', icon: '👥', color: 'bg-purple-100 text-purple-700' },
-  { id: 'seminar', name: '특강/세미나', icon: '🎤', color: 'bg-orange-100 text-orange-700' },
-];
-
-const DUMMY_EXTRACURRICULAR_ACTIVITIES = [
-  { id: 1, category: 'certificate', name: 'SQLD', date: '2024-03', status: 'completed', description: 'SQL 개발자 자격증' },
-  { id: 2, category: 'certificate', name: '정보처리기사', date: '2024-06', status: 'in-progress', description: '필기 합격, 실기 준비 중' },
-  { id: 3, category: 'contest', name: 'MJU 창업경진대회', date: '2024-05', status: 'completed', description: '우수상 수상' },
-  { id: 4, category: 'internship', name: 'IT 기업 하계 인턴', date: '2024-07', status: 'planned', description: '7월 시작 예정' },
-  { id: 5, category: 'club', name: 'IT 학술동아리', date: '2023-03', status: 'completed', description: '2학기 활동' },
-  { id: 6, category: 'volunteer', name: 'IT 교육 봉사', date: '2024-01', status: 'completed', description: '20시간 이수' },
-];
-
-const RECOMMENDED_ACTIVITIES = [
-  { category: 'certificate', name: 'ADsP', description: '데이터분석 준전문가', difficulty: '중', recommendFor: '데이터 분석 관심자' },
-  { category: 'certificate', name: 'AWS Cloud Practitioner', description: '클라우드 기초 자격증', difficulty: '하', recommendFor: '클라우드 관심자' },
-  { category: 'contest', name: '빅데이터 분석 경진대회', description: 'DACON, Kaggle 등', difficulty: '상', recommendFor: '데이터 사이언스 취업 희망자' },
-  { category: 'internship', name: '현장실습 학기제', description: '학점 인정 인턴십', difficulty: '중', recommendFor: '실무 경험 필요자' },
-];
+// 비교과 활동 더미 데이터 (기존 호환성을 위해 유지 - 실제로는 dummyData.ts에서 가져옴)
 
 export default function CareerRoadmapPage({ onNavigate, riasecResult, initialViewMode = 'planner' }: CareerRoadmapPageProps) {
   const [selectedYear, setSelectedYear] = useState<number>(CURRENT_STUDENT.grade || 1);
@@ -191,7 +168,7 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
     return allCareers.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
   }, [riasecResult, coursesUpToSelectedYear, selectedYear]);
 
-  if (!isMISStudent) {
+  if (!isMISStudent && viewMode !== 'planner') {
     return (
       <div className="bg-white rounded-xl shadow-md p-8 text-center">
         <div className="text-6xl mb-4">🎓</div>
@@ -216,20 +193,6 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
           onComplete={() => setShowTutorial(false)}
         />
       )}
-
-      {/* 튜토리얼 다시 보기 버튼 */}
-      <div className="flex justify-end">
-        <button
-          onClick={() => {
-            localStorage.removeItem('roadmap-tutorial-completed');
-            setShowTutorial(true);
-          }}
-          className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-100 transition"
-          title="튜토리얼 다시 보기"
-        >
-          💡 사용법 안내
-        </button>
-      </div>
 
 
       {/* 학년 선택 (플래너, 비교과 모드가 아닐 때만 표시) */}
@@ -678,141 +641,15 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
           </motion.div>
         )}
 
-        {/* 비교과 활동 뷰 */}
+        {/* 비교과 활동 뷰 - 평생학습계좌 */}
         {viewMode === 'extracurricular' && (
           <motion.div
             key="extracurricular"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="space-y-6"
           >
-            {/* 비교과 활동 헤더 */}
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-6 text-white">
-              <h2 className="text-2xl font-bold mb-2">🏆 비교과 활동 관리</h2>
-              <p className="text-purple-100">교과 외 활동 이력을 관리하고 경력 개발에 활용하세요</p>
-            </div>
-
-            {/* 활동 카테고리 요약 */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              {EXTRACURRICULAR_CATEGORIES.map((cat) => {
-                const count = DUMMY_EXTRACURRICULAR_ACTIVITIES.filter(a => a.category === cat.id).length;
-                return (
-                  <div key={cat.id} className={`${cat.color} rounded-xl p-4 text-center`}>
-                    <div className="text-3xl mb-2">{cat.icon}</div>
-                    <div className="font-bold">{cat.name}</div>
-                    <div className="text-sm opacity-80">{count}건</div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* 내 비교과 활동 */}
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-800">📋 내 비교과 활동 이력</h3>
-                <button className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition">
-                  + 활동 추가
-                </button>
-              </div>
-              
-              <div className="space-y-3">
-                {DUMMY_EXTRACURRICULAR_ACTIVITIES.map((activity) => {
-                  const category = EXTRACURRICULAR_CATEGORIES.find(c => c.id === activity.category);
-                  const statusStyle = activity.status === 'completed' 
-                    ? 'bg-green-100 text-green-700' 
-                    : activity.status === 'in-progress'
-                    ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-gray-100 text-gray-600';
-                  const statusLabel = activity.status === 'completed' ? '완료' 
-                    : activity.status === 'in-progress' ? '진행중' : '예정';
-                  
-                  return (
-                    <div 
-                      key={activity.id}
-                      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-                    >
-                      <div className="flex items-center gap-4">
-                        <span className="text-2xl">{category?.icon}</span>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-gray-800">{activity.name}</span>
-                            <span className={`px-2 py-0.5 rounded text-xs ${category?.color}`}>
-                              {category?.name}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-500">{activity.description}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusStyle}`}>
-                          {statusLabel}
-                        </span>
-                        <p className="text-xs text-gray-400 mt-1">{activity.date}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 추천 비교과 활동 */}
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">💡 추천 비교과 활동</h3>
-              <p className="text-sm text-gray-500 mb-4">경영정보학과 학생에게 추천하는 비교과 활동입니다</p>
-              
-              <div className="grid md:grid-cols-2 gap-4">
-                {RECOMMENDED_ACTIVITIES.map((rec, idx) => {
-                  const category = EXTRACURRICULAR_CATEGORIES.find(c => c.id === rec.category);
-                  return (
-                    <div 
-                      key={idx}
-                      className="p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50/30 transition cursor-pointer"
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="text-2xl">{category?.icon}</span>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-bold text-gray-800">{rec.name}</span>
-                            <span className={`px-2 py-0.5 text-xs rounded ${
-                              rec.difficulty === '상' ? 'bg-red-100 text-red-600' :
-                              rec.difficulty === '중' ? 'bg-yellow-100 text-yellow-600' :
-                              'bg-green-100 text-green-600'
-                            }`}>
-                              난이도 {rec.difficulty}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600 mb-2">{rec.description}</p>
-                          <p className="text-xs text-purple-600">👤 {rec.recommendFor}</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 비교과 활동 통계 */}
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="bg-white rounded-xl shadow-md p-6 text-center">
-                <div className="text-4xl font-bold text-purple-600 mb-2">
-                  {DUMMY_EXTRACURRICULAR_ACTIVITIES.filter(a => a.status === 'completed').length}
-                </div>
-                <div className="text-gray-600">완료된 활동</div>
-              </div>
-              <div className="bg-white rounded-xl shadow-md p-6 text-center">
-                <div className="text-4xl font-bold text-yellow-600 mb-2">
-                  {DUMMY_EXTRACURRICULAR_ACTIVITIES.filter(a => a.status === 'in-progress').length}
-                </div>
-                <div className="text-gray-600">진행중 활동</div>
-              </div>
-              <div className="bg-white rounded-xl shadow-md p-6 text-center">
-                <div className="text-4xl font-bold text-blue-600 mb-2">
-                  {new Set(DUMMY_EXTRACURRICULAR_ACTIVITIES.map(a => a.category)).size}
-                </div>
-                <div className="text-gray-600">참여 분야</div>
-              </div>
-            </div>
+            <LearningAccount />
           </motion.div>
         )}
       </AnimatePresence>

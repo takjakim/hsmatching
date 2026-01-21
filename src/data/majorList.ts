@@ -3,6 +3,14 @@ import type { ClusterType } from './questionPool';
 
 type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C' | 'V';
 
+export interface MajorHierarchyEntry {
+  cluster: ClusterType;
+  college: string;
+  department: string;
+  major: string;
+  majorName: string;
+}
+
 interface Major {
   key: string;
   name: string;
@@ -138,7 +146,7 @@ export function getMajorUrl(majorName: string): string | undefined {
 }
 
 // CSV 데이터를 직접 배열로 변환
-const CSV_DATA = `대학,학부(학과),전공
+const CSV_DATA = `College,Department,Major
 인문대학,아시아·중동어문학부,중어중문학전공
 인문대학,아시아·중동어문학부,일어일문학전공
 인문대학,아시아·중동어문학부,아랍지역학전공
@@ -149,9 +157,6 @@ const CSV_DATA = `대학,학부(학과),전공
 인문대학,인문콘텐츠학부,문헌정보학전공
 인문대학,인문콘텐츠학부,글로벌문화콘텐츠학전공
 인문대학,문예창작학과,
-인문대학,사학과,
-인문대학,미술사학과,
-인문대학,철학과,
 사회과학대학,공공인재학부,행정학전공
 사회과학대학,공공인재학부,정치외교학전공
 사회과학대학,경상·통계학부,경제학전공
@@ -192,6 +197,7 @@ const CSV_DATA = `대학,학부(학과),전공
 스마트시스템 공과대학,스마트인프라공학부,환경시스템공학전공
 스마트시스템 공과대학,스마트인프라공학부,건설환경공학전공
 스마트시스템 공과대학,스마트인프라공학부,스마트모빌리티공학전공
+스마트시스템 공과대학,스마트인프라공학부,GLOBAL SMART INFRASTRUCTURE ENGINEERING MAJOR
 스마트시스템 공과대학,기계시스템공학부,기계공학전공
 스마트시스템 공과대학,기계시스템공학부,로봇공학전공
 반도체·ICT대학,컴퓨터정보통신공학부,컴퓨터공학전공
@@ -597,6 +603,21 @@ function getCluster(college: string, department: string, major: string): Cluster
   
   // 기본값
   return '융합';
+}
+
+export function getMajorHierarchyEntries(): MajorHierarchyEntry[] {
+  const csvData = parseCSV(CSV_DATA);
+
+  return csvData.map(({ college, department, major }) => {
+    const majorName = generateMajorName(department, major);
+    return {
+      cluster: getCluster(college, department, major),
+      college,
+      department,
+      major: major || department,
+      majorName
+    };
+  });
 }
 
 // MAJORS 배열 생성

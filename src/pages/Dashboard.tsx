@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { CURRENT_STUDENT, getCurrentGrades } from "../data/dummyData";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
 
@@ -11,20 +11,12 @@ interface DashboardProps {
 
 export default function Dashboard({ onNavigate, riasecCompleted = false, riasecResult }: DashboardProps) {
   const currentGrades = getCurrentGrades();
-  const [showNotAvailablePopup, setShowNotAvailablePopup] = useState(false);
-  const [popupMessage, setPopupMessage] = useState("");
-
-  // 검사 기간 아님 팝업 표시
-  const showNotAvailable = (diagnosisType: string) => {
-    setPopupMessage(`${diagnosisType}: 현재 검사기간이 아닙니다.`);
-    setShowNotAvailablePopup(true);
-  };
   
   // 5단계 진행 상태 (실제로는 백엔드에서 가져와야 함)
   const roadmapSteps = [
-    { 
-      step: 1, 
-      title: "RIASEC 전공직무선택", 
+    {
+      step: 1,
+      title: "MJU 전공 진로 적합도 검사",
       description: "진로 적성 검사",
       icon: "🎯",
       completed: riasecCompleted,
@@ -51,19 +43,32 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
     { 
       step: 3, 
       title: "전공능력진단", 
-      description: "전공능력 키우기",
+      description: "추천 전공 자가진단",
       icon: "📚",
       completed: false,
       progress: 0,
       color: "from-green-500 to-emerald-600",
       bgColor: "bg-green-50",
       borderColor: "border-green-300",
-      action: () => showNotAvailable("전공능력진단"),
-      actionLabel: "진단 시작"
+      action: () => onNavigate("roadmap-explorer"),
+      actionLabel: "자가진단 시작"
     },
-    { 
-      step: 4, 
-      title: "롤모델 탐색", 
+    {
+      step: 4,
+      title: "커리큘럼 플래너",
+      description: "교과/비교과 탐색 및 이수 확인",
+      icon: "📊",
+      completed: false,
+      progress: 15,
+      color: "from-cyan-500 to-blue-600",
+      bgColor: "bg-cyan-50",
+      borderColor: "border-cyan-300",
+      action: () => onNavigate("roadmap-fullcycle"),
+      actionLabel: "관리하기"
+    },
+    {
+      step: 5,
+      title: "롤모델 탐색",
       description: "선배 커리어 탐색",
       icon: "⭐",
       completed: false,
@@ -73,19 +78,6 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
       borderColor: "border-amber-300",
       action: () => onNavigate("roadmap-fullcycle"),
       actionLabel: "탐색 시작"
-    },
-    { 
-      step: 5, 
-      title: "전주기진로 관리", 
-      description: "교과/비교과 추적",
-      icon: "📊",
-      completed: false,
-      progress: 15,
-      color: "from-cyan-500 to-blue-600",
-      bgColor: "bg-cyan-50",
-      borderColor: "border-cyan-300",
-      action: () => onNavigate("roadmap-fullcycle"),
-      actionLabel: "관리하기"
     }
   ];
 
@@ -187,7 +179,7 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
                   >
                     {totalProgress}%
                   </motion.p>
-                  <p className="text-xs text-blue-100">전체 진행률</p>
+                  <p className="text-xs text-blue-100">e-advisor 진행률</p>
                 </div>
               </div>
             </div>
@@ -390,7 +382,7 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
           <div className="h-48 flex flex-col items-center justify-center bg-gray-50 rounded-lg">
             <span className="text-4xl mb-2">🎓</span>
             <p className="text-sm text-gray-500 text-center">
-              전공 선택 후<br />전공능력을 진단하세요
+              추천 전공 자가진단을 통해<br />전공을 탐색해보세요
             </p>
             <div className="mt-4 text-center">
               <p className="text-xs text-gray-400">현재 전공</p>
@@ -399,48 +391,14 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
           </div>
           
           <button
-            onClick={() => showNotAvailable("전공능력진단")}
+            onClick={() => onNavigate("roadmap-explorer")}
             className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg text-sm font-medium transition"
           >
-            진단 시작하기 →
+            자가진단 시작하기 →
           </button>
         </motion.div>
       </div>
 
-      {/* 검사기간 아님 팝업 */}
-      <AnimatePresence>
-        {showNotAvailablePopup && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-            onClick={() => setShowNotAvailablePopup(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4"
-            >
-              <div className="text-center">
-                <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-3xl">⏰</span>
-                </div>
-                <h3 className="text-lg font-bold text-gray-800 mb-2">검사 기간 안내</h3>
-                <p className="text-gray-600 mb-6">{popupMessage}</p>
-                <button
-                  onClick={() => setShowNotAvailablePopup(false)}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition"
-                >
-                  확인
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* 빠른 액션 버튼들 */}
       <div className="grid md:grid-cols-5 gap-4">
