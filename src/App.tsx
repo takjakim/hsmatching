@@ -14,6 +14,7 @@ import ResultViewer from "./pages/ResultViewer";
 import PublicLanding from "./pages/PublicLanding";
 import AdminLogs from "./pages/AdminLogs";
 import { CURRENT_STUDENT } from "./data/dummyData";
+import PilotSurvey from "./pages/PilotSurvey";
 
 type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C';
 type RiasecResult = Record<Dim, number>;
@@ -29,6 +30,18 @@ export default function App() {
   useEffect(() => {
     localStorage.removeItem("riasecResult");
   }, []);
+
+  useEffect(() => {                                                                                                            
+    const pathname = window.location.pathname;                                                                                 
+                                                                                                                               
+    // /pilot 경로 처리                                                                                                        
+    if (pathname === '/pilot') {                                                                                               
+      setCurrentPage('pilot');                                                                                                 
+      return;                                                                                                                  
+    }                                                                                                                          
+                                                                                                                               
+    // ... 나머지 코드                                                                                                         
+  }, []);  // 빈 배열로 초기 로드 시에만 실행 
 
   // 학생별 RIASEC 결과 불러오기
   useEffect(() => {
@@ -161,6 +174,8 @@ export default function App() {
             }}
           />
         );
+      case "pilot":
+        return <PilotSurvey onNavigate={setCurrentPage} />;
       case "login":
         return <Login onLogin={handleLogin} onNavigateToLanding={() => setCurrentPage("landing")} />;
       case "dashboard":
@@ -251,7 +266,7 @@ export default function App() {
   };
 
   // 공개 페이지 (로그인 불필요)
-  const publicPages = ["landing", "result-viewer", "login"];
+  const publicPages = ["landing", "result-viewer", "login", "pilot"];
   // riasec은 로그인 여부에 따라 다르게 처리
   const isPublicPage = publicPages.includes(currentPage) || (currentPage === "riasec" && !isLoggedIn);
 
