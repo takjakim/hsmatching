@@ -6,6 +6,8 @@ interface RiasecQuestionProps {
   question: Question;
   value?: 'A' | 'B';
   onChange: (choice: 'A' | 'B') => void;
+  onPrevious?: () => void;
+  canGoPrevious?: boolean;
   questionNumber: number;
   totalQuestions: number;
 }
@@ -40,6 +42,8 @@ export default function RiasecQuestion({
   question,
   value,
   onChange,
+  onPrevious,
+  canGoPrevious = false,
   questionNumber,
   totalQuestions,
 }: RiasecQuestionProps) {
@@ -245,13 +249,24 @@ export default function RiasecQuestion({
                 })}
               </div>
 
-              {/* Mobile: Auto-advance hint */}
-              <p
-                className="lg:hidden text-center text-xs mt-6"
-                style={{ color: COLORS.muted }}
-              >
-                선택하면 자동으로 다음 문항으로 이동합니다
-              </p>
+              {/* Mobile: Back button + hint */}
+              <div className="lg:hidden mt-6 flex flex-col items-center gap-3">
+                {canGoPrevious && (
+                  <button
+                    onClick={onPrevious}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                    style={{ color: COLORS.secondary, backgroundColor: `${COLORS.secondary}10` }}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    이전 문항
+                  </button>
+                )}
+                <p className="text-xs" style={{ color: COLORS.muted }}>
+                  선택하면 자동으로 다음 문항으로 이동합니다
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -263,9 +278,23 @@ export default function RiasecQuestion({
         style={{ backgroundColor: 'rgba(250, 250, 249, 0.9)', backdropFilter: 'blur(8px)' }}
       >
         <div className="max-w-4xl mx-auto px-6 flex items-center justify-between">
-          <p className="text-xs" style={{ color: COLORS.muted }}>
-            선택하면 자동으로 다음 문항으로 이동합니다
-          </p>
+          <div className="flex items-center gap-4">
+            {canGoPrevious && (
+              <button
+                onClick={onPrevious}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80"
+                style={{ color: COLORS.secondary, backgroundColor: `${COLORS.secondary}10` }}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                이전 문항
+              </button>
+            )}
+            <p className="text-xs" style={{ color: COLORS.muted }}>
+              선택하면 자동으로 다음 문항으로 이동합니다
+            </p>
+          </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               <div

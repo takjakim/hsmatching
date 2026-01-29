@@ -34,10 +34,12 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
   const { name, studentId, email } = participantInfo;
   const isValidEmail = email.includes('@') && email.includes('.');
   const isValidName = name.trim().length >= 2;
-  const canStart = isValidName && isValidEmail;
 
   const [selectedType, setSelectedType] = useState<RiasecCode | null>(null);
   const [isMjuStudent, setIsMjuStudent] = useState(true);
+  const [consentChecked, setConsentChecked] = useState(false);
+
+  const canStart = isValidName && isValidEmail && consentChecked;
 
   const handleChange = (field: keyof ParticipantInfo, value: string) => {
     onParticipantInfoChange({ ...participantInfo, [field]: value });
@@ -241,9 +243,6 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
                   color: COLORS.text.primary,
                 }}
               />
-              <p className="text-xs mt-2" style={{ color: COLORS.muted }}>
-                검사 결과를 이메일로 받아보실 수 있습니다.
-              </p>
             </div>
 
             {/* RIASEC Types - Mobile only */}
@@ -294,6 +293,58 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
                   </span>
                 </div>
               ))}
+            </div>
+
+            {/* Consent Section */}
+            <div
+              className="mb-6 p-5 rounded-xl border"
+              style={{
+                backgroundColor: COLORS.bg,
+                borderColor: '#E2E8F0',
+              }}
+            >
+              <h3
+                className="text-sm font-bold mb-3"
+                style={{ color: COLORS.text.primary }}
+              >
+                개인정보 수집 및 이용 동의
+              </h3>
+              <div
+                className="p-3 rounded-lg mb-4 overflow-y-auto text-xs leading-relaxed"
+                style={{
+                  backgroundColor: COLORS.surface,
+                  border: `1px solid #E2E8F0`,
+                  maxHeight: '150px',
+                  color: COLORS.text.secondary,
+                }}
+              >
+                <p className="mb-2">
+                  <strong>1. 수집 항목:</strong> 이름, 학번(선택), 이메일 주소, 검사 응답 결과, 기기 정보
+                </p>
+                <p className="mb-2">
+                  <strong>2. 수집 목적:</strong> 진로 흥미 유형 검사 결과 제공 및 명지대학교 진로교육 연구
+                </p>
+                <p className="mb-2">
+                  <strong>3. 보유 기간:</strong> 검사일로부터 90일 후 자동 파기
+                </p>
+                <p className="mb-2">
+                  <strong>4. 동의 거부 시 불이익:</strong> 본 검사 참여가 제한됩니다. 동의는 자발적이며, 동의 거부 시 불이익은 없습니다.
+                </p>
+                <p>
+                  <strong>5.</strong> 개인정보는 「개인정보보호법」에 따라 안전하게 처리되며, 수집 목적 외 제3자 제공은 하지 않습니다.
+                </p>
+              </div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={consentChecked}
+                  onChange={(e) => setConsentChecked(e.target.checked)}
+                  className="w-5 h-5 rounded border-2 accent-blue-600"
+                />
+                <span className="text-sm font-medium" style={{ color: COLORS.text.primary }}>
+                  위 내용에 동의합니다 <span style={{ color: '#EF4444' }}>(필수)</span>
+                </span>
+              </label>
             </div>
 
             {/* Start Button */}

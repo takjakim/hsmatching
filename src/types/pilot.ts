@@ -7,6 +7,8 @@ export type QuestionArea = 'value' | 'decision' | 'efficacy' | 'practical' | 'pr
 // Survey phase for 2-step pilot
 export type PilotPhase =
   | 'intro'
+  | 'interest_select'
+  | 'major_preview'
   | 'riasec'
   | 'riasec_result'
   | 'supplementary'

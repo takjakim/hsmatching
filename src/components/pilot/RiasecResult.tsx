@@ -45,6 +45,7 @@ interface RiasecResultProps {
   participantName?: string;
   supplementaryData?: SupplementaryData;
   isComplete?: boolean;  // true if survey is complete (shows different UI)
+  interestedMajorKeys?: string[];
 }
 
 // Unified color palette - Light theme matching other question components
@@ -95,7 +96,7 @@ const RIASEC_LABELS: Record<string, { name: string; fullName: string; color: str
 );
 
 // Major descriptions for top recommendations - 풍부한 전공 소개
-const MAJOR_DESCRIPTIONS: Record<string, string> = {
+export const MAJOR_DESCRIPTIONS: Record<string, string> = {
   // Engineering & Tech
   '컴퓨터공학전공': '컴퓨터 과학의 핵심 이론부터 최신 기술까지 체계적으로 학습합니다. 자료구조, 알고리즘, 운영체제, 데이터베이스 등 기초 이론과 함께 AI, 클라우드, 보안 등 첨단 분야를 다룹니다. 정보처리기사, AWS/Azure 자격증 등을 취득할 수 있으며, IT 기업, 스타트업, 금융권 등 폭넓은 분야로 진출합니다.',
   '정보통신공학전공': '5G, 6G 이동통신부터 IoT, 네트워크 보안까지 통신 기술 전반을 학습합니다. 무선통신, 신호처리, 네트워크 프로토콜 등의 이론과 함께 실습 중심의 교육을 제공합니다. 정보통신기사, 네트워크관리사 등의 자격증 취득이 가능하며, 통신사, 네트워크 장비업체, IT 기업에서 활동합니다.',
@@ -193,7 +194,7 @@ const MAJOR_DESCRIPTIONS: Record<string, string> = {
 };
 
 // Major career paths
-const MAJOR_CAREERS: Record<string, string[]> = {
+export const MAJOR_CAREERS: Record<string, string[]> = {
   // Engineering & Tech
   '컴퓨터공학전공': ['소프트웨어 개발자', '시스템 엔지니어', 'AI 연구원', '보안 전문가'],
   '정보통신공학전공': ['네트워크 엔지니어', '통신 전문가', 'IoT 개발자', '5G 기술자'],
@@ -650,25 +651,85 @@ function generateMatchReason(
 }
 
 // Calculate similarity between user scores and major profile
+// Uses cosine similarity on normalized profiles + profile-shape penalty
 function calculateMajorMatch(userScores: RiasecScores, majorVec: Partial<Record<string, number>>): number {
   const dims: Array<keyof RiasecScores> = ['R', 'I', 'A', 'S', 'E', 'C'];
-  const maxScore = Math.max(...dims.map(d => userScores[d])) || 1;
+  const maxUser = Math.max(...dims.map(d => userScores[d])) || 1;
+  const maxMajor = Math.max(...dims.map(d => majorVec[d] || 0)) || 1;
 
-  let dotProduct = 0;
-  let userMagnitude = 0;
-  let majorMagnitude = 0;
+  // Normalize both to 0-1 relative to own max
+  const userNorm = dims.map(d => userScores[d] / maxUser);
+  const majorNorm = dims.map(d => (majorVec[d] || 0) / maxMajor);
 
-  dims.forEach(dim => {
-    const userVal = userScores[dim] / maxScore;
-    const majorVal = majorVec[dim] || 0;
+  // Cosine similarity
+  let dot = 0, magU = 0, magM = 0;
+  for (let i = 0; i < 6; i++) {
+    dot += userNorm[i] * majorNorm[i];
+    magU += userNorm[i] * userNorm[i];
+    magM += majorNorm[i] * majorNorm[i];
+  }
+  if (magU === 0 || magM === 0) return 0;
+  const cosine = dot / (Math.sqrt(magU) * Math.sqrt(magM));
 
-    dotProduct += userVal * majorVal;
-    userMagnitude += userVal * userVal;
-    majorMagnitude += majorVal * majorVal;
+  // Profile-shape distance penalty: penalize when top dimensions don't align
+  // Find user's top 3 dims and check if major emphasizes them too
+  const userRanked = dims
+    .map((d, i) => ({ dim: d, val: userNorm[i] }))
+    .sort((a, b) => b.val - a.val);
+  const majorRanked = dims
+    .map((d, i) => ({ dim: d, val: majorNorm[i] }))
+    .sort((a, b) => b.val - a.val);
+
+  const userTop3 = new Set(userRanked.slice(0, 3).map(x => x.dim));
+  const majorTop3 = new Set(majorRanked.slice(0, 3).map(x => x.dim));
+  let overlap = 0;
+  userTop3.forEach(d => { if (majorTop3.has(d)) overlap++; });
+  const topBonus = overlap / 3; // 0, 0.33, 0.67, or 1.0
+
+  // Weighted mean distance (Euclidean) — low = good match
+  let sumSqDiff = 0;
+  for (let i = 0; i < 6; i++) {
+    const diff = userNorm[i] - majorNorm[i];
+    sumSqDiff += diff * diff;
+  }
+  const dist = Math.sqrt(sumSqDiff / 6);
+  const distScore = 1 - dist; // closer = higher
+
+  // Final: blend cosine (shape), distScore (magnitude closeness), topBonus (peak alignment)
+  return cosine * 0.4 + distScore * 0.3 + topBonus * 0.3;
+}
+
+// Cosine similarity between two RIASEC vectors
+function cosineSimilarity(vecA: Partial<Record<string, number>>, vecB: Partial<Record<string, number>>): number {
+  const dims = ['R', 'I', 'A', 'S', 'E', 'C'] as const;
+  let dot = 0, magA = 0, magB = 0;
+  dims.forEach(d => {
+    const a = vecA[d] || 0;
+    const b = vecB[d] || 0;
+    dot += a * b;
+    magA += a * a;
+    magB += b * b;
   });
+  if (magA === 0 || magB === 0) return 0;
+  return dot / (Math.sqrt(magA) * Math.sqrt(magB));
+}
 
-  if (userMagnitude === 0 || majorMagnitude === 0) return 0;
-  return dotProduct / (Math.sqrt(userMagnitude) * Math.sqrt(majorMagnitude));
+// Average RIASEC vector from a list of major keys
+function averageInterestVector(majorKeys: string[]): Partial<Record<string, number>> {
+  const dims = ['R', 'I', 'A', 'S', 'E', 'C'] as const;
+  if (majorKeys.length === 0) return {};
+  const sum: Record<string, number> = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
+  let count = 0;
+  majorKeys.forEach(key => {
+    const major = MAJORS.find(m => m.key === key);
+    if (major) {
+      dims.forEach(d => { sum[d] += major.vec[d] || 0; });
+      count++;
+    }
+  });
+  if (count === 0) return {};
+  dims.forEach(d => { sum[d] /= count; });
+  return sum;
 }
 
 const RiasecResult: React.FC<RiasecResultProps> = ({
@@ -680,6 +741,7 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
   participantName,
   supplementaryData,
   isComplete = false,
+  interestedMajorKeys = [],
 }) => {
   // Helper to get display name
   const displayName = participantName || '회원님';
@@ -957,34 +1019,60 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
   };
 
   // Original recommendations (without supplementary)
+  const interestVec = useMemo(() => averageInterestVector(interestedMajorKeys), [interestedMajorKeys]);
+
   const originalMajors = useMemo(() => {
     return MAJORS
-      .map(major => ({
-        ...major,
-        matchScore: calculateMajorMatch(scores, major.vec),
-        description: MAJOR_DESCRIPTIONS[major.name] || `${major.name}에서는 ${major.college} 계열의 전문 지식과 역량을 키울 수 있습니다.`,
-        matchReason: generateMatchReason(scores, major.vec, major.name, displayName),
-      }))
+      .map(major => {
+        let matchScore = calculateMajorMatch(scores, major.vec);
+        // Apply interested major bonus
+        if (interestedMajorKeys.length > 0) {
+          if (interestedMajorKeys.includes(major.key)) {
+            matchScore += 0.08; // Direct selection bonus
+          } else if (Object.keys(interestVec).length > 0) {
+            matchScore += cosineSimilarity(major.vec, interestVec) * 0.12; // Similarity bonus
+          }
+          matchScore = Math.min(matchScore, 1.0);
+        }
+        return {
+          ...major,
+          matchScore,
+          description: MAJOR_DESCRIPTIONS[major.name] || `${major.name}에서는 ${major.college} 계열의 전문 지식과 역량을 키울 수 있습니다.`,
+          matchReason: generateMatchReason(scores, major.vec, major.name, displayName),
+        };
+      })
       .filter(m => m.matchScore > 0.5)
       .sort((a, b) => b.matchScore - a.matchScore)
       .slice(0, 3);
-  }, [scores, displayName]);
+  }, [scores, displayName, interestedMajorKeys, interestVec]);
 
   // Adjusted recommendations (with supplementary applied)
   const adjustedMajors = useMemo(() => {
     if (!supplementaryData) return originalMajors;
 
     return MAJORS
-      .map(major => ({
-        ...major,
-        matchScore: calculateAdjustedMajorMatch(adjustedScores, major.vec, major.college),
-        description: MAJOR_DESCRIPTIONS[major.name] || `${major.name}에서는 ${major.college} 계열의 전문 지식과 역량을 키울 수 있습니다.`,
-        matchReason: generateMatchReason(adjustedScores, major.vec, major.name, displayName),
-      }))
+      .map(major => {
+        let matchScore = calculateAdjustedMajorMatch(adjustedScores, major.vec, major.college);
+        // Apply interested major bonus
+        if (interestedMajorKeys.length > 0) {
+          if (interestedMajorKeys.includes(major.key)) {
+            matchScore += 0.08;
+          } else if (Object.keys(interestVec).length > 0) {
+            matchScore += cosineSimilarity(major.vec, interestVec) * 0.12;
+          }
+          matchScore = Math.min(matchScore, 1.0);
+        }
+        return {
+          ...major,
+          matchScore,
+          description: MAJOR_DESCRIPTIONS[major.name] || `${major.name}에서는 ${major.college} 계열의 전문 지식과 역량을 키울 수 있습니다.`,
+          matchReason: generateMatchReason(adjustedScores, major.vec, major.name, displayName),
+        };
+      })
       .filter(m => m.matchScore > 0.5)
       .sort((a, b) => b.matchScore - a.matchScore)
       .slice(0, 3);
-  }, [adjustedScores, supplementaryData, displayName]);
+  }, [adjustedScores, supplementaryData, displayName, interestedMajorKeys, interestVec]);
 
   // Active recommendations based on toggle
   const recommendedMajors = applySupplementary ? adjustedMajors : originalMajors;

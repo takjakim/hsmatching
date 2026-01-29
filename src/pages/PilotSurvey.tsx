@@ -8,6 +8,8 @@ import RankingQuestion from '../components/pilot/RankingQuestion';
 import FreeTextQuestion from '../components/pilot/FreeTextQuestion';
 import RiasecQuestion from '../components/pilot/RiasecQuestion';
 import RiasecResult from '../components/pilot/RiasecResult';
+import InterestSelect from '../components/pilot/InterestSelect';
+import MajorPreview from '../components/pilot/MajorPreview';
 import { PilotResult as PilotResultType } from '../types/pilot';
 
 interface PilotSurveyProps {
@@ -49,8 +51,17 @@ export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps
     riasecScores,
     currentRiasecQuestion,
     answerRiasecQuestion,
+    goToPreviousRiasec,
+    riasecCanGoPrevious,
     startSupplementary,
     skipSupplementary,
+    selectedClusters,
+    toggleCluster,
+    startMajorPreview,
+    startRiasecFromPreview,
+    backToInterestSelect,
+    interestedMajorKeys,
+    toggleInterestedMajor,
   } = usePilotSurvey({
     participantInfo: participantInfo.name && participantInfo.email ? participantInfo : undefined,
     onComplete,
@@ -67,6 +78,30 @@ export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps
     );
   }
 
+  // Interest Select phase
+  if (phase === 'interest_select') {
+    return (
+      <InterestSelect
+        selectedClusters={selectedClusters}
+        onSelectCluster={toggleCluster}
+        onNext={startMajorPreview}
+      />
+    );
+  }
+
+  // Major Preview phase
+  if (phase === 'major_preview') {
+    return (
+      <MajorPreview
+        selectedClusters={selectedClusters}
+        onStartRiasec={startRiasecFromPreview}
+        onBack={backToInterestSelect}
+        interestedMajorKeys={interestedMajorKeys}
+        onToggleMajor={toggleInterestedMajor}
+      />
+    );
+  }
+
   // RIASEC phase - RiasecQuestion is already a full-screen component
   if (phase === 'riasec' && currentRiasecQuestion) {
     return (
@@ -74,6 +109,8 @@ export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps
         question={currentRiasecQuestion}
         value={riasecAnswers[currentRiasecQuestion.id]}
         onChange={answerRiasecQuestion}
+        onPrevious={goToPreviousRiasec}
+        canGoPrevious={riasecCanGoPrevious}
         questionNumber={riasecIndex + 1}
         totalQuestions={75}
       />
@@ -88,6 +125,7 @@ export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps
         onContinue={startSupplementary}
         onSkip={skipSupplementary}
         participantName={participantInfo.name || undefined}
+        interestedMajorKeys={interestedMajorKeys}
       />
     );
   }
@@ -200,6 +238,7 @@ export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps
         isComplete={true}
         onNavigate={onNavigate}
         onRestart={resetSurvey}
+        interestedMajorKeys={interestedMajorKeys}
       />
     );
   }
@@ -238,12 +277,27 @@ export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps
     );
   }
 
-  // Default fallback - show debug info in development
+  // Default fallback - offer reset if stuck in invalid state
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAFAF9] p-6">
       <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
-        <p className="text-[#475569] mb-4">페이지를 불러오는 중...</p>
-        <p className="text-xs text-[#94A3B8]">Phase: {phase}</p>
+        <div className="w-16 h-16 mx-auto mb-4 bg-amber-100 rounded-full flex items-center justify-center">
+          <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <h2 className="text-lg font-bold text-[#1E293B] mb-2">이전 검사 데이터에 문제가 있습니다</h2>
+        <p className="text-sm text-[#475569] mb-6">저장된 진행 상태를 불러올 수 없습니다.<br />처음부터 다시 시작해 주세요.</p>
+        <button
+          onClick={() => {
+            localStorage.removeItem('pilot_survey_progress');
+            resetSurvey();
+          }}
+          className="w-full py-3 rounded-xl font-semibold text-white"
+          style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #4A6FA5 100%)' }}
+        >
+          처음부터 시작하기
+        </button>
       </div>
     </div>
   );

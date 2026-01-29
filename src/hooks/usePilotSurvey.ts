@@ -15,7 +15,7 @@ import {
 } from '../types/pilot';
 import { getActiveQuestions } from '../data/pilotQuestions';
 import { savePilotResult, generatePilotCode } from '../../lib/supabase';
-import { QUESTION_POOL } from '../data/questionPool';
+import { QUESTION_POOL, ClusterType } from '../data/questionPool';
 
 const STORAGE_KEY = 'pilot_survey_progress';
 const AUTO_SAVE_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -64,6 +64,14 @@ interface UsePilotSurveyReturn {
   riasecCanGoNext: boolean;
   startSupplementary: () => void;
   skipSupplementary: () => Promise<void>;
+  selectedClusters: ClusterType[];
+  setSelectedClusters: (clusters: ClusterType[]) => void;
+  toggleCluster: (cluster: ClusterType) => void;
+  startMajorPreview: () => void;
+  startRiasecFromPreview: () => void;
+  backToInterestSelect: () => void;
+  interestedMajorKeys: string[];
+  toggleInterestedMajor: (key: string) => void;
 }
 
 export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSurveyReturn {
@@ -80,6 +88,8 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
   const [riasecIndex, setRiasecIndex] = useState(0);
   const [riasecAnswers, setRiasecAnswers] = useState<RiasecAnswer>({});
   const [riasecScores, setRiasecScores] = useState<RiasecScores | null>(null);
+  const [selectedClusters, setSelectedClusters] = useState<ClusterType[]>([]);
+  const [interestedMajorKeys, setInterestedMajorKeys] = useState<string[]>([]);
 
   // Calculate active questions based on current answers (handles conditional questions)
   const activeQuestions = useMemo(() => {
@@ -96,42 +106,49 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
       try {
         const parsed = JSON.parse(saved);
 
-        // Restore RIASEC answers if available
-        if (parsed.riasecAnswers) {
-          setRiasecAnswers(parsed.riasecAnswers);
-        }
+        // Validate saved data integrity before restoring
+        const isValidRiasecScores = parsed.riasecScores &&
+          typeof parsed.riasecScores === 'object' &&
+          ['R', 'I', 'A', 'S', 'E', 'C'].every(k => typeof parsed.riasecScores[k] === 'number');
 
-        // Restore RIASEC scores if available
-        if (parsed.riasecScores) {
-          setRiasecScores(parsed.riasecScores);
-        }
+        const isValidRiasecAnswers = parsed.riasecAnswers &&
+          typeof parsed.riasecAnswers === 'object';
 
-        // Restore supplementary answers if available
-        if (parsed.answers && Object.keys(parsed.answers).length > 0) {
-          setAnswers(parsed.answers);
-          setCurrentIndex(parsed.currentIndex || 0);
-        }
-
-        // Restore phase
-        if (parsed.phase === 'supplementary') {
-          setPhase('supplementary');
-        } else if (parsed.phase === 'riasec') {
-          // Validate riasecIndex is within bounds
+        // Restore phase with strict validation
+        if (parsed.phase === 'riasec') {
           const savedIndex = parsed.riasecIndex ?? 0;
           if (savedIndex >= 0 && savedIndex < QUESTION_POOL.length) {
-            setPhase('riasec');
+            if (isValidRiasecAnswers) setRiasecAnswers(parsed.riasecAnswers);
             setRiasecIndex(savedIndex);
+            setPhase('riasec');
           } else {
-            // Invalid index, start from beginning
-            console.warn('Invalid riasecIndex in localStorage, resetting');
-            setPhase('intro');
+            console.warn('Invalid riasecIndex, resetting');
             localStorage.removeItem(STORAGE_KEY);
           }
-        } else if (parsed.phase === 'riasec_result' && parsed.riasecScores) {
-          setPhase('riasec_result');
+        } else if (parsed.phase === 'riasec_result') {
+          if (isValidRiasecScores) {
+            if (isValidRiasecAnswers) setRiasecAnswers(parsed.riasecAnswers);
+            setRiasecScores(parsed.riasecScores);
+            setPhase('riasec_result');
+          } else {
+            console.warn('Invalid riasecScores for riasec_result phase, resetting');
+            localStorage.removeItem(STORAGE_KEY);
+          }
+        } else if (parsed.phase === 'supplementary') {
+          if (isValidRiasecScores) setRiasecScores(parsed.riasecScores);
+          if (isValidRiasecAnswers) setRiasecAnswers(parsed.riasecAnswers);
+          if (parsed.answers && Object.keys(parsed.answers).length > 0) {
+            setAnswers(parsed.answers);
+            setCurrentIndex(parsed.currentIndex || 0);
+          }
+          setPhase('supplementary');
+        } else {
+          // Unknown or 'complete' phase in storage — discard
+          localStorage.removeItem(STORAGE_KEY);
         }
       } catch (e) {
-        console.error('Failed to load saved progress:', e);
+        console.error('Failed to load saved progress, resetting:', e);
+        localStorage.removeItem(STORAGE_KEY);
       }
     }
   }, []);
@@ -258,10 +275,42 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
     setRiasecAnswers({});
   }, []);
 
-  // Start survey (redirects to RIASEC)
+  // Start survey (redirects to interest_select)
   const startSurvey = useCallback(() => {
+    setPhase('interest_select');
+  }, []);
+
+  const toggleCluster = useCallback((cluster: ClusterType) => {
+    setSelectedClusters(prev => {
+      if (prev.includes(cluster)) {
+        return prev.filter(c => c !== cluster);
+      }
+      if (prev.length >= 3) return prev;
+      return [...prev, cluster];
+    });
+  }, []);
+
+  const toggleInterestedMajor = useCallback((key: string) => {
+    setInterestedMajorKeys(prev => {
+      if (prev.includes(key)) {
+        return prev.filter(k => k !== key);
+      }
+      if (prev.length >= 5) return prev;
+      return [...prev, key];
+    });
+  }, []);
+
+  const startMajorPreview = useCallback(() => {
+    setPhase('major_preview');
+  }, []);
+
+  const startRiasecFromPreview = useCallback(() => {
     startRiasec();
   }, [startRiasec]);
+
+  const backToInterestSelect = useCallback(() => {
+    setPhase('interest_select');
+  }, []);
 
   // Answer RIASEC question and auto-advance
   const answerRiasecQuestion = useCallback((choice: 'A' | 'B') => {
@@ -397,6 +446,10 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
   }, []);
 
   const skipSupplementary = useCallback(async () => {
+    if (!riasecScores) {
+      setError('RIASEC 점수가 없습니다. 처음부터 다시 시작해 주세요.');
+      return;
+    }
     // Save RIASEC-only result
     setIsLoading(true);
     try {
@@ -543,6 +596,14 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
     riasecCanGoNext,
     startSupplementary,
     skipSupplementary,
+    selectedClusters,
+    setSelectedClusters,
+    toggleCluster,
+    startMajorPreview,
+    startRiasecFromPreview,
+    backToInterestSelect,
+    interestedMajorKeys,
+    toggleInterestedMajor,
   };
 }
 
