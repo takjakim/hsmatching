@@ -346,6 +346,9 @@ export async function getAllPilotResults(limit: number = 1000): Promise<PilotRes
     return data.map(row => ({
       id: row.id,
       code: row.code,
+      name: row.name,
+      student_id: row.student_id,
+      email: row.email,
       riasec_code: row.riasec_code,
       raw_answers: row.raw_answers,
       value_scores: row.value_scores,
@@ -369,6 +372,46 @@ export async function getAllPilotResults(limit: number = 1000): Promise<PilotRes
 /**
  * 파일럿 코드 생성 (P + 7자리 랜덤)
  */
+// ===== Admin Authentication =====
+
+/**
+ * SHA-256 해싱 (Web Crypto API)
+ */
+async function hashSHA256(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * 관리자 인증 (DB 조회 → 해시 비교)
+ */
+export async function verifyAdmin(username: string, password: string): Promise<{ valid: boolean; name: string }> {
+  try {
+    const { data, error } = await supabase
+      .from('admin_users')
+      .select('password_hash, name')
+      .eq('username', username)
+      .single();
+
+    if (error || !data) {
+      return { valid: false, name: '' };
+    }
+
+    const inputHash = await hashSHA256(password);
+    if (inputHash === data.password_hash) {
+      return { valid: true, name: data.name };
+    }
+
+    return { valid: false, name: '' };
+  } catch (error) {
+    console.error('Admin verification failed:', error);
+    throw error; // caller handles fallback
+  }
+}
+
 export function generatePilotCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 혼동 문자 제외
   let code = 'P';

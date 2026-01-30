@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { DUMMY_STUDENT, FRESHMAN_STUDENT, MIS_STUDENT, ADMIN_ACCOUNT, setCurrentStudent } from "../data/dummyData";
+import { verifyAdmin } from "../../lib/supabase";
 import logLogo from "../img/log_logo.png";
 
 interface LoginProps {
@@ -14,27 +15,46 @@ export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [showHint, setShowHint] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
-    // 관리자 계정 체크
-    if (studentId === ADMIN_ACCOUNT.studentId && password === ADMIN_ACCOUNT.password) {
-      onLogin(ADMIN_ACCOUNT.studentId, true);
-    } 
-    // 학생 계정 체크 (경영학과, 무전공 신입생, 경영정보학과)
-    else if (studentId === DUMMY_STUDENT.studentId && password === DUMMY_STUDENT.password) {
-      setCurrentStudent(DUMMY_STUDENT.studentId);
-      onLogin(DUMMY_STUDENT.studentId, false);
-    } else if (studentId === FRESHMAN_STUDENT.studentId && password === FRESHMAN_STUDENT.password) {
-      setCurrentStudent(FRESHMAN_STUDENT.studentId);
-      onLogin(FRESHMAN_STUDENT.studentId, false);
-    } else if (studentId === MIS_STUDENT.studentId && password === MIS_STUDENT.password) {
-      setCurrentStudent(MIS_STUDENT.studentId);
-      onLogin(MIS_STUDENT.studentId, false);
-    } else {
-      setError("학번 또는 비밀번호가 일치하지 않습니다.");
+    try {
+      // 관리자 계정 체크 (DB 우선)
+      try {
+        const result = await verifyAdmin(studentId, password);
+        if (result.valid) {
+          setIsLoading(false);
+          onLogin(studentId, true);
+          return;
+        }
+      } catch {
+        // DB 실패 시 하드코딩 fallback
+        if (studentId === ADMIN_ACCOUNT.studentId && password === ADMIN_ACCOUNT.password) {
+          setIsLoading(false);
+          onLogin(ADMIN_ACCOUNT.studentId, true);
+          return;
+        }
+      }
+
+      // 학생 계정 체크 (경영학과, 무전공 신입생, 경영정보학과)
+      if (studentId === DUMMY_STUDENT.studentId && password === DUMMY_STUDENT.password) {
+        setCurrentStudent(DUMMY_STUDENT.studentId);
+        onLogin(DUMMY_STUDENT.studentId, false);
+      } else if (studentId === FRESHMAN_STUDENT.studentId && password === FRESHMAN_STUDENT.password) {
+        setCurrentStudent(FRESHMAN_STUDENT.studentId);
+        onLogin(FRESHMAN_STUDENT.studentId, false);
+      } else if (studentId === MIS_STUDENT.studentId && password === MIS_STUDENT.password) {
+        setCurrentStudent(MIS_STUDENT.studentId);
+        onLogin(MIS_STUDENT.studentId, false);
+      } else {
+        setError("학번 또는 비밀번호가 일치하지 않습니다.");
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -180,9 +200,10 @@ export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
                 <div className="flex-shrink-0">
                   <button
                     type="submit"
-                    className="bg-gray-700 hover:bg-gray-800 text-white font-semibold py-8 px-6 rounded-md transition duration-150 min-w-[100px] h-full"
+                    disabled={isLoading}
+                    className="bg-gray-700 hover:bg-gray-800 disabled:bg-gray-400 text-white font-semibold py-8 px-6 rounded-md transition duration-150 min-w-[100px] h-full"
                   >
-                    로그인
+                    {isLoading ? "확인 중..." : "로그인"}
                   </button>
                 </div>
               </div>

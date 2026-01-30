@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { usePilotSurvey } from '../hooks/usePilotSurvey';
 import PilotIntro from '../components/pilot/PilotIntro';
 import LikertQuestion from '../components/pilot/LikertQuestion';
@@ -67,6 +67,30 @@ export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps
     onComplete,
   });
 
+  // Auto-reset if phase state is inconsistent (e.g. after HMR or corrupt localStorage)
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPhaseDataReady =
+    phase === 'intro' ||
+    phase === 'interest_select' ||
+    phase === 'major_preview' ||
+    (phase === 'riasec' && !!currentRiasecQuestion) ||
+    (phase === 'riasec_result' && !!riasecScores) ||
+    (phase === 'supplementary' && !!currentQuestion) ||
+    (phase === 'complete' && !!result && !!result.riasecScores);
+
+  useEffect(() => {
+    if (!isPhaseDataReady && !isLoading) {
+      resetTimerRef.current = setTimeout(() => {
+        console.warn('Auto-resetting: phase data not ready after 1s. phase:', phase);
+        localStorage.removeItem('pilot_survey_progress');
+        resetSurvey();
+      }, 1000);
+    }
+    return () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    };
+  }, [isPhaseDataReady, isLoading, phase, resetSurvey]);
+
   // Intro phase
   if (phase === 'intro') {
     return (
@@ -103,7 +127,15 @@ export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps
   }
 
   // RIASEC phase - RiasecQuestion is already a full-screen component
-  if (phase === 'riasec' && currentRiasecQuestion) {
+  if (phase === 'riasec') {
+    if (!currentRiasecQuestion) {
+      // riasecIndex not yet updated (e.g. during localStorage restore) — wait for next render
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-[#FAFAF9]">
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#1E3A5F] border-t-transparent"></div>
+        </div>
+      );
+    }
     return (
       <RiasecQuestion
         question={currentRiasecQuestion}
@@ -118,7 +150,14 @@ export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps
   }
 
   // RIASEC Result phase
-  if (phase === 'riasec_result' && riasecScores) {
+  if (phase === 'riasec_result') {
+    if (!riasecScores) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-[#FAFAF9]">
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#1E3A5F] border-t-transparent"></div>
+        </div>
+      );
+    }
     return (
       <RiasecResult
         scores={riasecScores}
@@ -131,7 +170,14 @@ export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps
   }
 
   // Supplementary phase - All question types get full-screen treatment
-  if (phase === 'supplementary' && currentQuestion) {
+  if (phase === 'supplementary') {
+    if (!currentQuestion) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-[#FAFAF9]">
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#1E3A5F] border-t-transparent"></div>
+        </div>
+      );
+    }
     const commonProps = {
       questionNumber: currentIndex + 1,
       totalQuestions: activeQuestions.length,
@@ -205,7 +251,14 @@ export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps
   }
 
   // Complete phase - render RiasecResult with supplementary data
-  if (phase === 'complete' && result && result.riasecScores) {
+  if (phase === 'complete') {
+    if (!result || !result.riasecScores) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-[#FAFAF9]">
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#1E3A5F] border-t-transparent"></div>
+        </div>
+      );
+    }
     // Map career decision status to display text
     const decisionLevelMap: Record<string, string> = {
       decided: '확정',
@@ -277,7 +330,8 @@ export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps
     );
   }
 
-  // Default fallback - offer reset if stuck in invalid state
+  // Default fallback - log for debugging and auto-reset
+  console.warn('PilotSurvey fallback reached. phase:', phase, 'result:', !!result, 'riasecScores:', !!riasecScores, 'currentQuestion:', !!currentQuestion);
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#FAFAF9] p-6">
       <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">

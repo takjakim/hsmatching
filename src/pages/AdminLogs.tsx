@@ -10,7 +10,11 @@ interface ResultLog {
   deviceInfo?: DeviceInfo;
 }
 
-export default function AdminLogs() {
+interface AdminLogsProps {
+  onNavigate?: (page: string) => void;
+}
+
+export default function AdminLogs({ onNavigate }: AdminLogsProps) {
   const [logs, setLogs] = useState<ResultLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -161,15 +165,7 @@ export default function AdminLogs() {
     const data = filteredAndSortedLogs.map(log => ({
       code: log.code,
       createdAt: log.createdAt,
-      riasec: log.result.norm || {},
-      recommendedMajors: (log.result.majors || []).map((m: any) => ({
-        name: m.name,
-        score: m.matchScore || m.score
-      })),
-      recommendedRoles: (log.result.roles || []).map((r: any) => ({
-        name: r.name,
-        score: r.matchScore || r.score
-      })),
+      result: log.result,
       deviceInfo: log.deviceInfo || null
     }));
 
@@ -227,6 +223,12 @@ export default function AdminLogs() {
               className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium transition"
             >
               🔄 새로고침
+            </button>
+            <button
+              onClick={() => onNavigate?.("pilot-admin")}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition"
+            >
+              🧪 Pilot 결과
             </button>
           </div>
         </div>

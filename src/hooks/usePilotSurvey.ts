@@ -117,14 +117,14 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
         // Restore phase with strict validation
         if (parsed.phase === 'riasec') {
           const savedIndex = parsed.riasecIndex ?? 0;
+          if (isValidRiasecAnswers) setRiasecAnswers(parsed.riasecAnswers);
           if (savedIndex >= 0 && savedIndex < QUESTION_POOL.length) {
-            if (isValidRiasecAnswers) setRiasecAnswers(parsed.riasecAnswers);
             setRiasecIndex(savedIndex);
-            setPhase('riasec');
           } else {
-            console.warn('Invalid riasecIndex, resetting');
-            localStorage.removeItem(STORAGE_KEY);
+            console.warn('Invalid riasecIndex, starting from 0');
+            setRiasecIndex(0);
           }
+          setPhase('riasec');
         } else if (parsed.phase === 'riasec_result') {
           if (isValidRiasecScores) {
             if (isValidRiasecAnswers) setRiasecAnswers(parsed.riasecAnswers);

@@ -13,6 +13,7 @@ import HSMatchingPrototype from "./HSMatchingPrototype";
 import ResultViewer from "./pages/ResultViewer";
 import PublicLanding from "./pages/PublicLanding";
 import AdminLogs from "./pages/AdminLogs";
+import PilotAdmin from "./pages/PilotAdmin";
 import { CURRENT_STUDENT } from "./data/dummyData";
 import PilotSurvey from "./pages/PilotSurvey";
 
@@ -255,7 +256,13 @@ export default function App() {
           setCurrentPage("dashboard");
           return null;
         }
-        return <AdminLogs />;
+        return <AdminLogs onNavigate={setCurrentPage} />;
+      case "pilot-admin":
+        if (!isAdmin) {
+          setCurrentPage("dashboard");
+          return null;
+        }
+        return <PilotAdmin onNavigate={setCurrentPage} />;
       default:
         if (isLoggedIn) {
           return <Dashboard onNavigate={setCurrentPage} riasecCompleted={!!riasecResult} riasecResult={riasecResult} />;
