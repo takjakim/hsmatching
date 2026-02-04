@@ -149,7 +149,7 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
                 검사 시작하기
               </h2>
               <p className="text-sm" style={{ color: COLORS.muted }}>
-                총 75문항 · 약 15-20분 소요
+                총 75문항
               </p>
             </div>
 

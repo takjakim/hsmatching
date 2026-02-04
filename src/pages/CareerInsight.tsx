@@ -49,7 +49,7 @@ export default function CareerInsight({ riasecResult, onStartTest, onNavigate }:
             </h3>
             <p className="text-gray-600 max-w-2xl mx-auto">
               진로-학습 통합 분석을 이용하려면 먼저 MJU 전공 진로 적합도 검사를 완료해주세요.
-              검사는 약 10-15분 정도 소요되며, 29개의 기본 문항과 적응형 추가 문항으로 구성되어 있습니다.
+              검사는 29개의 기본 문항과 적응형 추가 문항으로 구성되어 있습니다.
             </p>
           </div>
 

@@ -15,6 +15,8 @@ import jsPDF from 'jspdf';
 import { RiasecScores, ValueScores, SelfEfficacy } from '../../types/pilot';
 import { MAJORS } from '../../data/majorList';
 import { RIASEC_DATA, RiasecCode } from '../../data/riasecData';
+import { recommendRoles } from '../../utils/roleRecommendation';
+import { getWorkpediaJobUrl } from '../../data/workpediaJobMap';
 
 // Supplementary survey result data - display-ready types
 interface SupplementaryData {
@@ -768,6 +770,7 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
       const page2Element = document.getElementById('pdf-page-2');
       const page3Element = document.getElementById('pdf-page-3');
       const page4Element = document.getElementById('pdf-page-4');
+      const page5Element = document.getElementById('pdf-page-5');
 
       if (!page1Element || !page2Element) {
         throw new Error('PDF content not found');
@@ -912,6 +915,38 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
           margin,
           img4Width,
           img4Height
+        );
+      }
+
+      // Add Page 5 - 추천 직무
+      if (page5Element) {
+        pdf.addPage();
+
+        const canvas5 = await html2canvas(page5Element, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#FFFFFF',
+        });
+
+        const img5Data = canvas5.toDataURL('image/png');
+        let img5Width = contentWidth;
+        let img5Height = (canvas5.height * contentWidth) / canvas5.width;
+
+        if (img5Height > contentHeight) {
+          const scale = contentHeight / img5Height;
+          img5Height = contentHeight;
+          img5Width = contentWidth * scale;
+        }
+
+        const x5 = margin + (contentWidth - img5Width) / 2;
+        pdf.addImage(
+          img5Data,
+          'PNG',
+          x5,
+          margin,
+          img5Width,
+          img5Height
         );
       }
 
@@ -1079,6 +1114,22 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
 
   // Get selected major for dual radar chart
   const selectedMajor = recommendedMajors[selectedMajorIndex] || recommendedMajors[0];
+
+  // 🆕 직무 추천 계산 (RIASEC + 전공 연관성)
+  const recommendedRoles = useMemo(() => {
+    const topMajor = recommendedMajors[0];
+    // 전공 정보가 있으면 전공-직무 연관성 반영
+    if (topMajor) {
+      return recommendRoles(
+        activeScores,
+        8, // 상위 8개 직무
+        topMajor.key,
+        topMajor.cluster
+      );
+    }
+    // 전공 정보가 없으면 순수 RIASEC 기반 추천
+    return recommendRoles(activeScores, 8);
+  }, [activeScores, recommendedMajors]);
 
   // Standardize both profiles to 0-100 scale based on their own max values
   // This makes the shapes comparable rather than the absolute values
@@ -1771,6 +1822,177 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
           )}
         </motion.div>
 
+        {/* 🆕 추천 직무 섹션 */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="rounded-3xl p-6 lg:p-8 mb-8"
+          style={{
+            backgroundColor: COLORS.surface,
+            border: `1px solid ${COLORS.card.border}`,
+            boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
+          }}
+        >
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+            <div>
+              <h2
+                className="text-xl lg:text-2xl font-bold"
+                style={{
+                  color: COLORS.primary,
+                  fontFamily: "'Pretendard', sans-serif",
+                }}
+              >
+                추천 직무
+              </h2>
+              <p className="text-sm mt-1" style={{ color: COLORS.text.muted }}>
+                RIASEC 적성과 추천 전공을 기반으로 분석한 적합 직무입니다
+              </p>
+            </div>
+            <span
+              className="px-4 py-2 rounded-full text-sm font-semibold self-start"
+              style={{
+                background: `linear-gradient(135deg, ${COLORS.secondary} 0%, ${COLORS.primary} 100%)`,
+                color: '#FFFFFF',
+              }}
+            >
+              TOP {recommendedRoles.length}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {recommendedRoles.map((role, index) => {
+              const matchPercent = Math.round(role.matchScore * 100);
+              const workpediaUrl = getWorkpediaJobUrl(role.name);
+
+              return (
+                <motion.div
+                  key={role.key}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 + index * 0.05 }}
+                  whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                  className="p-5 rounded-2xl transition-all duration-300 relative overflow-hidden"
+                  style={{
+                    backgroundColor: COLORS.surface,
+                    border: `1px solid ${COLORS.card.border}`,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                  }}
+                >
+                  {/* Top accent bar */}
+                  <div
+                    className="absolute top-0 left-0 right-0 h-1"
+                    style={{
+                      background: role.isRelatedToMajor
+                        ? `linear-gradient(135deg, ${COLORS.accent} 0%, #F59E0B 100%)`
+                        : `linear-gradient(135deg, ${COLORS.secondary} 0%, ${COLORS.primary} 100%)`,
+                    }}
+                  />
+
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-3 mt-1">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm"
+                        style={{
+                          background: index < 3
+                            ? `linear-gradient(135deg, ${COLORS.primary} 0%, ${COLORS.secondary} 100%)`
+                            : '#E2E8F0',
+                          color: index < 3 ? '#FFFFFF' : COLORS.text.secondary,
+                        }}
+                      >
+                        {index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-sm leading-tight" style={{ color: COLORS.text.primary }}>
+                          {role.name.replace(/\s*\(.*?\)\s*/g, '').trim()}
+                        </h3>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Match Score */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <div
+                      className="flex-1 h-2 rounded-full overflow-hidden"
+                      style={{ backgroundColor: '#E2E8F0' }}
+                    >
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${matchPercent}%` }}
+                        transition={{ duration: 0.5, delay: 0.5 + index * 0.05 }}
+                        className="h-full rounded-full"
+                        style={{
+                          background: `linear-gradient(90deg, ${COLORS.secondary} 0%, ${COLORS.primary} 100%)`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-sm font-bold" style={{ color: COLORS.primary }}>
+                      {matchPercent}%
+                    </span>
+                  </div>
+
+                  {/* Badges */}
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {role.isRelatedToMajor && (
+                      <span
+                        className="px-2 py-1 rounded-lg text-xs font-medium"
+                        style={{
+                          backgroundColor: `${COLORS.accent}20`,
+                          color: '#B45309',
+                          border: `1px solid ${COLORS.accent}40`,
+                        }}
+                      >
+                        ✨ 전공 연관
+                      </span>
+                    )}
+                    {role.matchReasons.slice(0, 1).map((reason, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2 py-1 rounded-lg text-xs"
+                        style={{
+                          backgroundColor: `${COLORS.primary}10`,
+                          color: COLORS.text.secondary,
+                        }}
+                      >
+                        {reason}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Profile Strength */}
+                  {role.profileStrength && (
+                    <p className="text-xs leading-relaxed mb-3" style={{ color: COLORS.text.muted }}>
+                      {role.profileStrength}
+                    </p>
+                  )}
+
+                  {/* External Link */}
+                  {workpediaUrl && (
+                    <a
+                      href={workpediaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 hover:opacity-80"
+                      style={{
+                        color: COLORS.secondary,
+                        backgroundColor: `${COLORS.secondary}10`,
+                        border: `1px solid ${COLORS.secondary}20`,
+                      }}
+                    >
+                      직업 상세정보
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+
+        </motion.div>
+
         {/* Top Type Descriptions - Full Width */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -2153,9 +2375,6 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
                   </h2>
                   <p className="leading-relaxed text-white/85">
                     보완 설문을 통해 직업가치관, 자기효능감 등 추가적인 분석이 가능합니다
-                  </p>
-                  <p className="text-sm mt-3 text-white/60">
-                    약 5분 소요
                   </p>
                 </>
               )}
@@ -3556,6 +3775,141 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
               </div>
             </div>
           )}
+
+          {/* ==================== PAGE 5: 추천 직무 ==================== */}
+          <div
+            id="pdf-page-5"
+            style={{
+              width: '800px',
+              padding: '24px',
+              backgroundColor: '#FFFFFF',
+              fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
+              wordBreak: 'keep-all',
+            }}
+          >
+            {/* Page Header */}
+            <div style={{ marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: COLORS.primary, marginBottom: '8px' }}>
+                {supplementaryData ? '6' : '4'}. 추천 직무
+              </h2>
+              <p style={{ fontSize: '10px', color: COLORS.muted }}>
+                RIASEC 적성과 추천 전공을 기반으로 분석한 적합 직무입니다
+              </p>
+            </div>
+
+            {/* Jobs Grid - 2 columns, 4 rows */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {recommendedRoles.slice(0, 8).map((role, idx) => {
+                const matchPercent = Math.round(role.matchScore * 100);
+                return (
+                  <div
+                    key={role.key}
+                    style={{
+                      backgroundColor: '#F8FAFC',
+                      borderRadius: '12px',
+                      padding: '14px',
+                      border: role.isRelatedToMajor ? '2px solid #F59E0B' : '1px solid #E2E8F0',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                      {/* Rank Badge */}
+                      <div style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '8px',
+                        backgroundColor: idx < 3 ? COLORS.primary : '#94A3B8',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}>
+                        <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold' }}>{idx + 1}</span>
+                      </div>
+
+                      {/* Job Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                          <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: COLORS.text.primary, margin: 0 }}>
+                            {role.name.replace(/\s*\(.*?\)\s*/g, '').trim()}
+                          </h3>
+                          {role.isRelatedToMajor && (
+                            <span style={{
+                              fontSize: '9px',
+                              fontWeight: 'bold',
+                              color: '#B45309',
+                              backgroundColor: '#FEF3C7',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                            }}>
+                              전공연관
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Match Bar */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                          <div style={{
+                            flex: 1,
+                            height: '6px',
+                            backgroundColor: '#E2E8F0',
+                            borderRadius: '3px',
+                            overflow: 'hidden',
+                          }}>
+                            <div style={{
+                              width: `${matchPercent}%`,
+                              height: '100%',
+                              backgroundColor: role.isRelatedToMajor ? '#F59E0B' : COLORS.primary,
+                              borderRadius: '3px',
+                            }} />
+                          </div>
+                          <span style={{ fontSize: '11px', fontWeight: 'bold', color: COLORS.primary }}>
+                            {matchPercent}%
+                          </span>
+                        </div>
+
+                        {/* Match Reasons */}
+                        {role.matchReasons.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {role.matchReasons.slice(0, 2).map((reason, i) => (
+                              <span
+                                key={i}
+                                style={{
+                                  fontSize: '9px',
+                                  color: COLORS.text.secondary,
+                                  backgroundColor: '#F1F5F9',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                }}
+                              >
+                                {reason}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* PDF Footer */}
+            <div style={{
+              borderTop: '2px solid #E2E8F0',
+              paddingTop: '14px',
+              marginTop: '20px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <p style={{ fontSize: '9px', color: COLORS.muted }}>
+                명지대학교 진로교육 프로그램 · 추천 직무 분석
+              </p>
+              <p style={{ fontSize: '9px', color: COLORS.muted }}>
+                본 결과는 참고용이며, 전문 상담과 함께 활용하시기 바랍니다.
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

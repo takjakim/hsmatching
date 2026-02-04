@@ -4,6 +4,29 @@ import type { ClusterType } from "../data/questionPool";
 type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C' | 'V';
 type RiasecResult = Partial<Record<Dim, number>>;
 
+// 의료 계열 전공 제외 목록 (학교 요청)
+const EXCLUDED_MAJOR_KEYWORDS = [
+  '간호',
+  '약학',
+  '의학',
+  '의예',
+  '치의',
+  '한의',
+  '수의',
+  '보건',
+  '물리치료',
+  '방사선',
+  '임상병리',
+  '의료',
+  '의대',
+  '약대',
+];
+
+function isExcludedMajor(majorName: string): boolean {
+  const normalized = majorName.toLowerCase();
+  return EXCLUDED_MAJOR_KEYWORDS.some(keyword => normalized.includes(keyword));
+}
+
 interface MajorProfile {
   key: string;
   name: string;
@@ -132,7 +155,10 @@ export function recommendMajors(
   const lowDims = sortedUserDims.filter((dim) => userVector.vector[dim] <= 0.2);
   const primaryDim = sortedUserDims[0];
 
-  const scoredMajors = MAJORS.map((major) => {
+  const scoredMajors = MAJORS
+    // Filter out excluded majors (medical-related)
+    .filter((major) => !isExcludedMajor(major.name))
+    .map((major) => {
     const majorVector = prepareVector(major.vec);
     if (majorVector.magnitude === 0) {
       return null;

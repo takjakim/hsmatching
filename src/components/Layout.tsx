@@ -21,8 +21,8 @@ export default function Layout({ children, currentPage, onPageChange, onLogout, 
     { id: "roadmap-planner", label: "📐 내 커리큘럼", desc: "4년 계획 설계" },
     { id: "roadmap-guide", label: "📍 로드맵·교과목", desc: "학년별 가이드" },
     { id: "roadmap-extracurricular", label: "🏆 비교과 활동", desc: "활동 이력 관리" },
-    { id: "roadmap-careers", label: "💼 추천 직무", desc: "MJU 전공 진로 적합도 검사 기반" },
     { id: "roadmap-rolemodels", label: "⭐ 롤모델", desc: "선배와 비교" },
+    { id: "roadmap-careers", label: "💼 추천 직무", desc: "MJU 전공 진로 적합도 검사 기반" },
   ];
 
   // 일반 학생 메뉴
@@ -81,7 +81,7 @@ export default function Layout({ children, currentPage, onPageChange, onLogout, 
               {/* 모바일 햄버거 메뉴 */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden text-gray-700 hover:text-blue-600 p-2 rounded-lg transition"
+                className="lg:hidden text-gray-700 hover:text-blue-600 p-2 rounded-lg transition min-w-[44px] min-h-[44px] flex items-center justify-center"
               >
                 <svg
                   className="w-6 h-6"
@@ -108,15 +108,15 @@ export default function Layout({ children, currentPage, onPageChange, onLogout, 
               </button>
 
               {/* 로고 */}
-              <div className="flex items-center space-x-3">
-                <img 
-                  src="https://myicap.mju.ac.kr/files/web1/images/common/logo.png" 
-                  alt="e-Advisor 로고" 
-                  className="h-12 w-auto object-contain"
+              <div className="flex items-center space-x-2 md:space-x-3">
+                <img
+                  src="https://myicap.mju.ac.kr/files/web1/images/common/logo.png"
+                  alt="e-Advisor 로고"
+                  className="h-10 md:h-12 w-auto object-contain"
                 />
                 <div>
-                  <h1 className="text-xl font-bold text-gray-800">e-Advisor</h1>
-                  <p className="text-xs text-gray-600">MYiCap+ 데이터 기반 학생역량지원체계</p>
+                  <h1 className="text-lg md:text-xl font-bold text-gray-800">e-Advisor</h1>
+                  <p className="text-xs text-gray-600 hidden sm:block">MYiCap+ 데이터 기반 학생역량지원체계</p>
                   <p className="text-xs text-gray-600">
                     {isAdmin ? "관리자 시스템" : "진로·학습 통합 분석 시스템"}
                   </p>
@@ -125,8 +125,8 @@ export default function Layout({ children, currentPage, onPageChange, onLogout, 
             </div>
             
             {/* 사용자 정보 */}
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
+            <div className="flex items-center space-x-2 md:space-x-4">
+              <div className="text-right hidden sm:block">
                 {isAdmin ? (
                   <>
                     <p className="font-semibold text-sm text-gray-800">관리자</p>
@@ -155,7 +155,7 @@ export default function Layout({ children, currentPage, onPageChange, onLogout, 
                   onMouseLeave={() => setShowRoadmapSubmenu(false)}
                 >
                   <button
-                    className={`px-4 py-2 rounded-md transition font-medium text-sm flex items-center gap-1 ${
+                    className={`px-3 md:px-4 py-2 rounded-md transition font-medium text-sm flex items-center gap-1 min-h-[44px] ${
                       currentPage.startsWith("roadmap")
                         ? "bg-blue-600 text-white shadow-md"
                         : "text-gray-700 hover:bg-blue-100"
@@ -199,7 +199,7 @@ export default function Layout({ children, currentPage, onPageChange, onLogout, 
                 <button
                   key={item.id}
                   onClick={() => handleMenuClick(item.id)}
-                  className={`px-4 py-2 rounded-md transition font-medium text-sm ${
+                  className={`px-3 md:px-4 py-2 rounded-md transition font-medium text-sm min-h-[44px] ${
                     currentPage === item.id
                       ? "bg-blue-600 text-white shadow-md"
                       : "text-gray-700 hover:bg-blue-100"
@@ -259,7 +259,7 @@ export default function Layout({ children, currentPage, onPageChange, onLogout, 
                       <button
                         key={item.id}
                         onClick={() => handleMenuClick(item.id)}
-                        className={`w-full text-left px-4 py-3 rounded-lg transition font-medium flex items-center space-x-3 ${
+                        className={`w-full text-left px-4 py-3 rounded-lg transition font-medium flex items-center space-x-3 min-h-[56px] ${
                           currentPage === item.id
                             ? "bg-blue-600 text-white shadow-md"
                             : "text-gray-700 hover:bg-blue-50"
@@ -312,12 +312,12 @@ export default function Layout({ children, currentPage, onPageChange, onLogout, 
                   </div>
 
                   {/* 모바일 메뉴 아이템 */}
-                  <nav className="p-4 space-y-1">
+                  <nav className="p-4 space-y-2">
                     {menuItems.map((item) => (
                       <button
                         key={item.id}
                         onClick={() => handleMenuClick(item.id)}
-                        className={`w-full text-left px-4 py-3 rounded-lg transition font-medium flex items-center space-x-3 ${
+                        className={`w-full text-left px-4 py-3 rounded-lg transition font-medium flex items-center space-x-3 min-h-[56px] ${
                           currentPage === item.id
                             ? "bg-blue-600 text-white shadow-md"
                             : "text-gray-700 hover:bg-blue-50"

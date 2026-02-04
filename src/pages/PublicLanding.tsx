@@ -64,7 +64,6 @@ export default function PublicLanding({ onStartTest, onViewResult, onLogin }: Pu
               <span className="text-3xl">🚀</span>
               <div className="text-left">
                 <div>검사 시작하기</div>
-                <div className="text-sm font-normal opacity-90">약 10-15분 소요</div>
               </div>
             </div>
           </motion.button>

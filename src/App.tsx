@@ -14,8 +14,11 @@ import ResultViewer from "./pages/ResultViewer";
 import PublicLanding from "./pages/PublicLanding";
 import AdminLogs from "./pages/AdminLogs";
 import PilotAdmin from "./pages/PilotAdmin";
+import AdminDashboard from "./pages/AdminDashboard";
 import { CURRENT_STUDENT } from "./data/dummyData";
+import { AdminUser, AdminRole } from "./types/admin";
 import PilotSurvey from "./pages/PilotSurvey";
+import { PilotResult as PilotResultType } from "./types/pilot";
 
 type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C';
 type RiasecResult = Record<Dim, number>;
@@ -24,30 +27,39 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentPage, setCurrentPage] = useState("login");
   const [riasecResult, setRiasecResult] = useState<RiasecResult | null>(null);
+  const [competencyResult, setCompetencyResult] = useState<any>(null);
   const [currentStudentId, setCurrentStudentId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
 
   // 레거시 키 정리 (이전 버전에서 사용하던 단일 키 제거)
   useEffect(() => {
     localStorage.removeItem("riasecResult");
   }, []);
 
-  useEffect(() => {                                                                                                            
-    const pathname = window.location.pathname;                                                                                 
-                                                                                                                               
-    // /pilot 경로 처리                                                                                                        
-    if (pathname === '/pilot') {                                                                                               
-      setCurrentPage('pilot');                                                                                                 
-      return;                                                                                                                  
-    }                                                                                                                          
-                                                                                                                               
-    // ... 나머지 코드                                                                                                         
-  }, []);  // 빈 배열로 초기 로드 시에만 실행 
+  useEffect(() => {
+    const pathname = window.location.pathname;
+
+    // /pilot 경로 처리
+    if (pathname === '/pilot') {
+      setCurrentPage('pilot');
+      return;
+    }
+
+    // /old 경로 처리 - 기존 RIASEC 테스트
+    if (pathname === '/old' || pathname === '/riasec-old') {
+      setCurrentPage('riasec-old');
+      return;
+    }
+
+    // ... 나머지 코드
+  }, []);  // 빈 배열로 초기 로드 시에만 실행
 
   // 학생별 RIASEC 결과 불러오기
   useEffect(() => {
     if (!currentStudentId) {
       setRiasecResult(null);
+      setCompetencyResult(null);
       return;
     }
 
@@ -62,13 +74,35 @@ export default function App() {
     } else {
       setRiasecResult(null);
     }
+
+    // Load competency result
+    const savedCompetency = localStorage.getItem(`competencyResult_${currentStudentId}`);
+    if (savedCompetency) {
+      try {
+        setCompetencyResult(JSON.parse(savedCompetency));
+      } catch (e) {
+        console.error("Failed to parse saved competency result", e);
+        setCompetencyResult(null);
+      }
+    } else {
+      setCompetencyResult(null);
+    }
   }, [currentStudentId]);
 
-  const handleLogin = (studentId: string, isAdminUser: boolean = false) => {
+  const handleLogin = (studentId: string, isAdminUser: boolean = false, adminUserData?: AdminUser) => {
     setIsLoggedIn(true);
     setIsAdmin(isAdminUser);
-    if (isAdminUser) {
-      setCurrentPage("admin-logs");
+    if (isAdminUser && adminUserData) {
+      setAdminUser(adminUserData);
+      setCurrentPage("admin-dashboard");
+    } else if (isAdminUser) {
+      // 레거시 admin 로그인 (adminUserData 없는 경우)
+      setAdminUser({
+        username: studentId,
+        name: '관리자',
+        role: 'admin',
+      });
+      setCurrentPage("admin-dashboard");
     } else {
       setCurrentPage("dashboard");
     }
@@ -80,24 +114,27 @@ export default function App() {
     // 현재 학생의 RIASEC 검사 결과 삭제
     if (currentStudentId && !isAdmin) {
       localStorage.removeItem(`riasecResult_${currentStudentId}`);
+      localStorage.removeItem(`competencyResult_${currentStudentId}`);
     }
-    
+
     // 모든 학생의 RIASEC 결과를 삭제하려면 (선택사항)
     // Object.keys(localStorage).forEach(key => {
     //   if (key.startsWith('riasecResult_')) {
     //     localStorage.removeItem(key);
     //   }
     // });
-    
+
     // 기타 캐시 데이터가 있다면 여기서 삭제
     // localStorage.removeItem('기타_캐시_키');
-    
+
     // 상태 초기화
     setRiasecResult(null);
+    setCompetencyResult(null);
     setCurrentStudentId(null);
     setIsLoggedIn(false);
     setIsAdmin(false);
-    setCurrentPage("dashboard");
+    setAdminUser(null);
+    setCurrentPage("login");
   };
 
   const handleRiasecComplete = (result: Record<Dim, number>) => {
@@ -110,6 +147,31 @@ export default function App() {
       setCurrentPage("insight");
     }
     // 공개 사용자는 결과 페이지에 머무름
+  };
+
+  // 파일럿 테스트 완료 핸들러
+  const handlePilotComplete = (pilotResult: PilotResultType) => {
+    // PilotResult의 riasecScores를 RiasecResult 형식 (0-1 범위)으로 변환
+    if (pilotResult.riasecScores) {
+      const scores = pilotResult.riasecScores;
+      // 최대값으로 정규화하여 0-1 범위로 변환
+      const maxScore = Math.max(scores.R, scores.I, scores.A, scores.S, scores.E, scores.C) || 1;
+      const result: RiasecResult = {
+        R: scores.R / maxScore,
+        I: scores.I / maxScore,
+        A: scores.A / maxScore,
+        S: scores.S / maxScore,
+        E: scores.E / maxScore,
+        C: scores.C / maxScore,
+      };
+      setRiasecResult(result);
+      const targetStudentId = currentStudentId || CURRENT_STUDENT.studentId;
+      localStorage.setItem(`riasecResult_${targetStudentId}`, JSON.stringify(result));
+    }
+    // 검사 완료 후 인사이트 페이지로 이동
+    if (isLoggedIn) {
+      setCurrentPage("insight");
+    }
   };
 
   // URL 파라미터 및 해시 처리 (초기 로드 시에만)
@@ -176,7 +238,8 @@ export default function App() {
           />
         );
       case "pilot":
-        return <PilotSurvey onNavigate={setCurrentPage} />;
+        // 레거시 /pilot 경로 - 새 riasec으로 리다이렉트
+        return <PilotSurvey onNavigate={setCurrentPage} onComplete={handlePilotComplete} />;
       case "login":
         return <Login onLogin={handleLogin} onNavigateToLanding={() => setCurrentPage("landing")} />;
       case "dashboard":
@@ -238,7 +301,7 @@ export default function App() {
           "roadmap-careers": "careers",
           "roadmap-rolemodels": "rolemodels"
         };
-        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} initialViewMode={viewModeMap[currentPage] || "planner"} />;
+        return <CareerRoadmapPage onNavigate={setCurrentPage} riasecResult={riasecResult} competencyResult={competencyResult} initialViewMode={viewModeMap[currentPage] || "planner"} />;
       }
       case "roadmap-explorer":
         if (isAdmin) {
@@ -247,11 +310,28 @@ export default function App() {
         }
         return <MajorExplorer onNavigate={setCurrentPage} riasecResult={riasecResult} />;
       case "riasec":
+        // 새로운 파일럿 테스트로 교체
+        return <PilotSurvey onNavigate={setCurrentPage} onComplete={handlePilotComplete} />;
+      case "riasec-old":
+        // 기존 HSMatchingPrototype (레거시)
         return <HSMatchingPrototype onComplete={handleRiasecComplete} onNavigate={setCurrentPage} />;
       case "result-viewer":
         return <ResultViewer />;
-      case "admin-logs":
+      case "admin-dashboard":
         // 관리자만 접근 가능
+        if (!isAdmin || !adminUser) {
+          setCurrentPage("dashboard");
+          return null;
+        }
+        return (
+          <AdminDashboard
+            adminUser={adminUser}
+            onLogout={handleLogout}
+            onNavigate={setCurrentPage}
+          />
+        );
+      case "admin-logs":
+        // 관리자만 접근 가능 (레거시 지원)
         if (!isAdmin) {
           setCurrentPage("dashboard");
           return null;
@@ -274,13 +354,13 @@ export default function App() {
 
   // 공개 페이지 (로그인 불필요)
   const publicPages = ["landing", "result-viewer", "login", "pilot"];
-  // riasec은 로그인 여부에 따라 다르게 처리
-  const isPublicPage = publicPages.includes(currentPage) || (currentPage === "riasec" && !isLoggedIn);
+  // riasec, riasec-old는 로그인 여부에 따라 다르게 처리
+  const isPublicPage = publicPages.includes(currentPage) || ((currentPage === "riasec" || currentPage === "riasec-old") && !isLoggedIn);
 
   // 공개 페이지는 Layout 없이 표시
   if (isPublicPage) {
-    // riasec와 login 페이지는 자체 레이아웃이 있으므로 래퍼 없이 표시
-    if (currentPage === "riasec" || currentPage === "login") {
+    // riasec, riasec-old, login 페이지는 자체 레이아웃이 있으므로 래퍼 없이 표시
+    if (currentPage === "riasec" || currentPage === "riasec-old" || currentPage === "login") {
       console.log("공개 페이지 렌더링 (래퍼 없음):", currentPage, "isPublicPage:", isPublicPage);
       const pageContent = renderPage();
       console.log("렌더링된 페이지 콘텐츠:", pageContent ? "있음" : "없음");
@@ -301,6 +381,11 @@ export default function App() {
   if (!isLoggedIn) {
     console.log("로그인 필요 - Login 페이지로 리다이렉트");
     return <Login onLogin={handleLogin} />;
+  }
+
+  // Admin Dashboard는 자체 레이아웃 사용
+  if (currentPage === "admin-dashboard" && isAdmin && adminUser) {
+    return renderPage();
   }
 
   return (

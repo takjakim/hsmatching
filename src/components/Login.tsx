@@ -3,11 +3,54 @@ import { motion } from "framer-motion";
 import { DUMMY_STUDENT, FRESHMAN_STUDENT, MIS_STUDENT, ADMIN_ACCOUNT, setCurrentStudent } from "../data/dummyData";
 import { verifyAdmin } from "../../lib/supabase";
 import logLogo from "../img/log_logo.png";
+import { AdminUser } from "../types/admin";
 
 interface LoginProps {
-  onLogin: (studentId: string, isAdmin?: boolean) => void;
+  onLogin: (studentId: string, isAdmin?: boolean, adminUser?: AdminUser) => void;
   onNavigateToLanding?: () => void;
 }
+
+// 테스트용 관리자 계정들
+const TEST_ADMIN_ACCOUNTS: Record<string, { password: string; user: AdminUser }> = {
+  'admin': {
+    password: 'admin123',
+    user: {
+      username: 'admin',
+      name: '시스템관리자',
+      role: 'admin',
+    }
+  },
+  'prof_cs': {
+    password: 'prof123',
+    user: {
+      username: 'prof_cs',
+      name: '김교수',
+      role: 'professor',
+      department: '컴퓨터공학전공',
+      college: 'ICT융합대학',
+    }
+  },
+  'prof_biz': {
+    password: 'prof123',
+    user: {
+      username: 'prof_biz',
+      name: '이교수',
+      role: 'professor',
+      department: '경영학전공',
+      college: '경영대학',
+    }
+  },
+  'staff': {
+    password: 'staff123',
+    user: {
+      username: 'staff',
+      name: '박직원',
+      role: 'staff',
+      department: '비교과교육센터',
+      college: '교무처',
+    }
+  },
+};
 
 export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
   const [studentId, setStudentId] = useState("");
@@ -23,19 +66,35 @@ export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
     setIsLoading(true);
 
     try {
+      // 테스트 관리자 계정 체크
+      const testAdmin = TEST_ADMIN_ACCOUNTS[studentId];
+      if (testAdmin && testAdmin.password === password) {
+        setIsLoading(false);
+        onLogin(studentId, true, testAdmin.user);
+        return;
+      }
+
       // 관리자 계정 체크 (DB 우선)
       try {
         const result = await verifyAdmin(studentId, password);
         if (result.valid) {
           setIsLoading(false);
-          onLogin(studentId, true);
+          // DB에서 role 정보를 가져올 수 있으면 사용
+          const adminUser: AdminUser = {
+            username: studentId,
+            name: result.name || '관리자',
+            role: (result as any).role || 'admin',
+            department: (result as any).department,
+            college: (result as any).college,
+          };
+          onLogin(studentId, true, adminUser);
           return;
         }
       } catch {
         // DB 실패 시 하드코딩 fallback
         if (studentId === ADMIN_ACCOUNT.studentId && password === ADMIN_ACCOUNT.password) {
           setIsLoading(false);
-          onLogin(ADMIN_ACCOUNT.studentId, true);
+          onLogin(ADMIN_ACCOUNT.studentId, true, TEST_ADMIN_ACCOUNTS['admin'].user);
           return;
         }
       }
@@ -58,9 +117,15 @@ export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
     }
   };
 
-  const quickLogin = (studentType: 'senior' | 'freshman' | 'mis' | 'admin') => {
+  const quickLogin = (studentType: 'senior' | 'freshman' | 'mis' | 'admin' | 'professor_cs' | 'professor_biz' | 'staff') => {
     if (studentType === 'admin') {
-      onLogin(ADMIN_ACCOUNT.studentId, true);
+      onLogin('admin', true, TEST_ADMIN_ACCOUNTS['admin'].user);
+    } else if (studentType === 'professor_cs') {
+      onLogin('prof_cs', true, TEST_ADMIN_ACCOUNTS['prof_cs'].user);
+    } else if (studentType === 'professor_biz') {
+      onLogin('prof_biz', true, TEST_ADMIN_ACCOUNTS['prof_biz'].user);
+    } else if (studentType === 'staff') {
+      onLogin('staff', true, TEST_ADMIN_ACCOUNTS['staff'].user);
     } else if (studentType === 'senior') {
       setCurrentStudent(DUMMY_STUDENT.studentId);
       onLogin(DUMMY_STUDENT.studentId, false);
@@ -327,26 +392,97 @@ export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
                   </p>
                 </div>
 
-                {/* 관리자 */}
-                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg text-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="font-semibold text-gray-700">관리자 계정</p>
-                    <button
-                      onClick={() => quickLogin('admin')}
-                      className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded"
-                    >
-                      빠른 로그인
-                    </button>
+                {/* 관리자 섹션 */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-sm font-semibold text-gray-500 mb-3">관리자 계정</p>
+
+                  {/* 전공 교수 - 컴퓨터공학 */}
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-sm mb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-semibold text-gray-700">👨‍🏫 컴퓨터공학 교수</p>
+                      <button
+                        onClick={() => quickLogin('professor_cs')}
+                        className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded"
+                      >
+                        빠른 로그인
+                      </button>
+                    </div>
+                    <p className="text-gray-600">
+                      <span className="font-medium">아이디:</span> prof_cs
+                    </p>
+                    <p className="text-gray-600">
+                      <span className="font-medium">비밀번호:</span> prof123
+                    </p>
+                    <p className="text-xs text-emerald-700 mt-2">
+                      ✓ 컴퓨터공학 전공 학생 결과만 조회
+                    </p>
                   </div>
-                  <p className="text-gray-600">
-                    <span className="font-medium">학번:</span> {ADMIN_ACCOUNT.studentId}
-                  </p>
-                  <p className="text-gray-600">
-                    <span className="font-medium">비밀번호:</span> {ADMIN_ACCOUNT.password}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    ✓ 검사 응답 로그 조회 및 관리
-                  </p>
+
+                  {/* 전공 교수 - 경영학 */}
+                  <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg text-sm mb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-semibold text-gray-700">👨‍🏫 경영학 교수</p>
+                      <button
+                        onClick={() => quickLogin('professor_biz')}
+                        className="text-xs bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded"
+                      >
+                        빠른 로그인
+                      </button>
+                    </div>
+                    <p className="text-gray-600">
+                      <span className="font-medium">아이디:</span> prof_biz
+                    </p>
+                    <p className="text-gray-600">
+                      <span className="font-medium">비밀번호:</span> prof123
+                    </p>
+                    <p className="text-xs text-teal-700 mt-2">
+                      ✓ 경영학 전공 학생 결과만 조회
+                    </p>
+                  </div>
+
+                  {/* 비교과 담당직원 */}
+                  <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg text-sm mb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-semibold text-gray-700">👩‍💼 비교과 담당직원</p>
+                      <button
+                        onClick={() => quickLogin('staff')}
+                        className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded"
+                      >
+                        빠른 로그인
+                      </button>
+                    </div>
+                    <p className="text-gray-600">
+                      <span className="font-medium">아이디:</span> staff
+                    </p>
+                    <p className="text-gray-600">
+                      <span className="font-medium">비밀번호:</span> staff123
+                    </p>
+                    <p className="text-xs text-indigo-700 mt-2">
+                      ✓ 전체 학생 결과 및 통계 조회
+                    </p>
+                  </div>
+
+                  {/* 시스템 관리자 */}
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg text-sm">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-semibold text-gray-700">🔧 시스템 관리자</p>
+                      <button
+                        onClick={() => quickLogin('admin')}
+                        className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded"
+                      >
+                        빠른 로그인
+                      </button>
+                    </div>
+                    <p className="text-gray-600">
+                      <span className="font-medium">아이디:</span> {ADMIN_ACCOUNT.studentId}
+                    </p>
+                    <p className="text-gray-600">
+                      <span className="font-medium">비밀번호:</span> {ADMIN_ACCOUNT.password}
+                    </p>
+                    <p className="text-xs text-purple-700 mt-2">
+                      ✓ 모든 기능 접근 가능
+                    </p>
+                  </div>
                 </div>
               </motion.div>
             )}

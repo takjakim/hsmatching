@@ -1004,9 +1004,6 @@ export default function HSMatchingPrototype({ onComplete, onNavigate }: HSMatchi
                   >
                     검사 시작하기 →
                   </motion.button>
-                  <p className="mt-3 text-sm text-gray-500">
-                    예상 소요 시간: 약 12-18분 (계열 탐색 10문항 + 적성 검사 80문항 + 심층 탐색)
-                  </p>
                 </div>
               </motion.section>
             )}

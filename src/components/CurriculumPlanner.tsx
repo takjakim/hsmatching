@@ -42,6 +42,18 @@ interface SavedPlan {
   semesters: { [key: string]: string[] };
 }
 
+// 나만의 전공 조합 타입
+interface CustomMajorPlan {
+  id: string;
+  name: string;  // User-defined name like "데이터 사이언티스트 트랙"
+  majors: {
+    primary: string;
+    secondary?: string;
+    minor?: string;
+  };
+  createdAt: string;
+}
+
 interface CurriculumPlannerProps {
   riasecResult?: Record<Dim, number> | null;
 }
@@ -262,6 +274,11 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
   // 내보내기 드롭다운
   const [showExportDropdown, setShowExportDropdown] = useState(false);
 
+  // 나만의 전공 조합 관련 상태
+  const [customMajorName, setCustomMajorName] = useState("");
+  const [showCustomMajorModal, setShowCustomMajorModal] = useState(false);
+  const [savedCustomMajors, setSavedCustomMajors] = useState<CustomMajorPlan[]>([]);
+
   // 학점 정보
   const gradesData = getCurrentGrades();
 
@@ -427,6 +444,12 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
     const saved = localStorage.getItem('curriculumPlans');
     if (saved) {
       setSavedPlans(JSON.parse(saved));
+    }
+
+    // Load custom major combinations
+    const savedCustom = localStorage.getItem('customMajorPlans');
+    if (savedCustom) {
+      setSavedCustomMajors(JSON.parse(savedCustom));
     }
   }, []);
 
@@ -754,6 +777,91 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
     }
   };
 
+  // 나만의 전공 조합 저장
+  const saveCustomMajor = () => {
+    if (!customMajorName.trim()) {
+      alert('조합 이름을 입력해주세요.');
+      return;
+    }
+
+    if (selectedMajors.length < 2) {
+      alert('최소 2개 이상의 전공을 선택해야 합니다.');
+      return;
+    }
+
+    const newCustomMajor: CustomMajorPlan = {
+      id: Date.now().toString(),
+      name: customMajorName,
+      majors: {
+        primary: selectedMajors[0]?.fullName || "",
+        secondary: selectedMajors[1]?.fullName,
+        minor: selectedMajors[2]?.fullName,
+      },
+      createdAt: new Date().toISOString(),
+    };
+
+    const updated = [...savedCustomMajors, newCustomMajor];
+    setSavedCustomMajors(updated);
+    localStorage.setItem('customMajorPlans', JSON.stringify(updated));
+    setShowCustomMajorModal(false);
+    setCustomMajorName("");
+    alert('나만의 전공 조합이 저장되었습니다!');
+  };
+
+  // 저장된 나만의 전공 조합 불러오기
+  const loadCustomMajor = (customPlan: CustomMajorPlan) => {
+    const majorsToLoad: SelectedMajor[] = [];
+
+    if (customPlan.majors.primary) {
+      const primary = SUBJECT_MAJOR_OPTIONS.find(opt => opt.fullName === customPlan.majors.primary) ||
+                      findSubjectMajorByName(customPlan.majors.primary);
+      if (primary) {
+        majorsToLoad.push({
+          fullName: primary.fullName,
+          shortName: primary.shortName
+        });
+      }
+    }
+
+    if (customPlan.majors.secondary) {
+      const secondary = SUBJECT_MAJOR_OPTIONS.find(opt => opt.fullName === customPlan.majors.secondary) ||
+                        findSubjectMajorByName(customPlan.majors.secondary);
+      if (secondary) {
+        majorsToLoad.push({
+          fullName: secondary.fullName,
+          shortName: secondary.shortName
+        });
+      }
+    }
+
+    if (customPlan.majors.minor) {
+      const minor = SUBJECT_MAJOR_OPTIONS.find(opt => opt.fullName === customPlan.majors.minor) ||
+                    findSubjectMajorByName(customPlan.majors.minor);
+      if (minor) {
+        majorsToLoad.push({
+          fullName: minor.fullName,
+          shortName: minor.shortName
+        });
+      }
+    }
+
+    if (majorsToLoad.length > 0) {
+      setSelectedMajors(majorsToLoad);
+      setActiveMajor(majorsToLoad[0].fullName);
+      alert(`"${customPlan.name}" 조합을 불러왔습니다.`);
+    }
+  };
+
+  // 저장된 나만의 전공 조합 삭제
+  const deleteCustomMajor = (id: string) => {
+    if (confirm('이 전공 조합을 삭제하시겠습니까?')) {
+      const updated = savedCustomMajors.filter(plan => plan.id !== id);
+      setSavedCustomMajors(updated);
+      localStorage.setItem('customMajorPlans', JSON.stringify(updated));
+      alert('전공 조합이 삭제되었습니다.');
+    }
+  };
+
   // 학년별 색상
   const getGradeColor = (grade: number | undefined) => {
     if (!grade) return 'bg-slate-400';
@@ -781,6 +889,73 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
     <div className="space-y-4" ref={plannerRef} id="curriculum-planner">
 
 
+      {/* 나만의 전공 조합 섹션 */}
+      {selectedMajors.length > 1 && (
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-indigo-800 flex items-center gap-2">
+              <span>🎨</span> 나만의 전공 조합
+            </h3>
+            <button
+              onClick={() => setShowCustomMajorModal(true)}
+              className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 transition"
+            >
+              조합 저장하기
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mb-3">
+            {selectedMajors.map((major, idx) => (
+              <div key={major.fullName} className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  idx === 0 ? 'bg-indigo-600 text-white' :
+                  idx === 1 ? 'bg-purple-500 text-white' :
+                  'bg-pink-500 text-white'
+                }`}>
+                  {idx === 0 ? '주전공' : idx === 1 ? '복수전공' : '부전공'}: {major.shortName}
+                </span>
+                {idx < selectedMajors.length - 1 && <span className="text-gray-400">+</span>}
+              </div>
+            ))}
+          </div>
+
+          <p className="text-sm text-indigo-600">
+            💡 여러 전공의 교과목을 조합하여 나만의 커리어 경로를 설계하세요.
+          </p>
+
+          {/* 저장된 나만의 전공 조합 목록 */}
+          {savedCustomMajors.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-indigo-200">
+              <h4 className="text-sm font-semibold text-indigo-700 mb-2">저장된 조합:</h4>
+              <div className="flex flex-wrap gap-2">
+                {savedCustomMajors.map((customPlan) => (
+                  <div key={customPlan.id} className="flex items-center gap-1 bg-white rounded-lg px-3 py-1.5 border border-indigo-200">
+                    <button
+                      onClick={() => loadCustomMajor(customPlan)}
+                      className="text-sm text-indigo-700 hover:text-indigo-900 font-medium"
+                    >
+                      {customPlan.name}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteCustomMajor(customPlan.id);
+                      }}
+                      className="text-gray-400 hover:text-red-500 transition-colors"
+                      title="삭제"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="flex items-end px-4 pt-2 bg-gray-50 border-b border-gray-200 overflow-x-auto scrollbar-hide">
           {selectedMajors.map((major, idx) => {
@@ -791,8 +966,8 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                 onClick={() => handleTabChange(major.fullName)}
                 className={`
                   relative px-5 py-2.5 text-sm font-medium transition-all rounded-t-lg mr-1 border-t border-x min-w-[120px]
-                  ${isActive 
-                    ? 'bg-white border-gray-200 border-b-white text-blue-600 z-10 -mb-[1px] shadow-[0_-2px_5px_rgba(0,0,0,0.02)]' 
+                  ${isActive
+                    ? 'bg-white border-gray-200 border-b-white text-blue-600 z-10 -mb-[1px] shadow-[0_-2px_5px_rgba(0,0,0,0.02)]'
                     : 'bg-gray-100 border-transparent text-gray-500 hover:bg-gray-200 hover:text-gray-700'
                   }
                 `}
@@ -821,7 +996,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
               </button>
             );
           })}
-          
+
           {selectedMajors.length === 0 && (
             <div className="px-6 py-3 text-sm text-gray-400 italic">
               상단에서 전공을 선택해주세요.
@@ -1446,7 +1621,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
               className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md max-h-[80vh] overflow-y-auto"
             >
               <h3 className="text-xl font-bold text-gray-800 mb-4">📂 저장된 계획</h3>
-              
+
               {savedPlans.length === 0 ? (
                 <div className="text-center text-gray-500 py-8">
                   저장된 계획이 없습니다
@@ -1474,6 +1649,73 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
               >
                 닫기
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 나만의 전공 조합 저장 모달 */}
+      <AnimatePresence>
+        {showCustomMajorModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={() => setShowCustomMajorModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md"
+            >
+              <h3 className="text-xl font-bold text-gray-800 mb-4">💾 나만의 전공 조합 저장</h3>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  조합 이름 (예: "AI 비즈니스 트랙")
+                </label>
+                <input
+                  type="text"
+                  value={customMajorName}
+                  onChange={(e) => setCustomMajorName(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  placeholder="나만의 전공 조합 이름"
+                />
+              </div>
+
+              <div className="mb-4 space-y-2">
+                <p className="text-sm text-gray-600 font-medium">포함된 전공:</p>
+                {selectedMajors.map((major, idx) => (
+                  <div key={major.fullName} className="flex items-center gap-2">
+                    <span className={`text-sm font-bold px-2 py-1 rounded ${
+                      idx === 0 ? 'bg-indigo-100 text-indigo-700' :
+                      idx === 1 ? 'bg-purple-100 text-purple-700' :
+                      'bg-pink-100 text-pink-700'
+                    }`}>
+                      {idx === 0 ? '주전공' : idx === 1 ? '복수전공' : '부전공'}
+                    </span>
+                    <span className="text-sm text-gray-800">{major.fullName}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCustomMajorModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={saveCustomMajor}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                >
+                  저장
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

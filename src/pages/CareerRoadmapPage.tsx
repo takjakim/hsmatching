@@ -14,20 +14,68 @@ import {
 import CurriculumPlanner from "../components/CurriculumPlanner";
 import TutorialOverlay from "../components/TutorialOverlay";
 import LearningAccount from "../components/LearningAccount";
+import ConnectionLinks from "../components/ConnectionLinks";
+import StepGuideFlow from "../components/StepGuideFlow";
 
 interface CareerRoadmapPageProps {
   onNavigate?: (page: string) => void;
   riasecResult?: Record<'R' | 'I' | 'A' | 'S' | 'E' | 'C', number> | null;
   initialViewMode?: 'roadmap' | 'careers' | 'planner' | 'rolemodels' | 'extracurricular';
+  competencyResult?: any; // Add support for competency test result
 }
 
 // 비교과 활동 더미 데이터 (기존 호환성을 위해 유지 - 실제로는 dummyData.ts에서 가져옴)
 
-export default function CareerRoadmapPage({ onNavigate, riasecResult, initialViewMode = 'planner' }: CareerRoadmapPageProps) {
+export default function CareerRoadmapPage({ onNavigate, riasecResult, competencyResult, initialViewMode = 'planner' }: CareerRoadmapPageProps) {
   const [selectedYear, setSelectedYear] = useState<number>(CURRENT_STUDENT.grade || 1);
   const [selectedCareer, setSelectedCareer] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'roadmap' | 'careers' | 'planner' | 'rolemodels' | 'extracurricular'>(initialViewMode);
   const [showTutorial, setShowTutorial] = useState(false);
+
+  // Map viewMode to step number
+  const viewModeToStep: Record<string, number> = {
+    'roadmap': 3, // 전공 탐색
+    'careers': 3, // 전공 탐색 (alternative view)
+    'rolemodels': 4, // 롤모델 탐색
+    'planner': 5, // 커리큘럼 플래너
+    'extracurricular': 5 // 비교과 활동 (part of planner stage)
+  };
+
+  const currentStepNumber = viewModeToStep[viewMode] || 1;
+
+  // Define the 5-step flow
+  const guideSteps = [
+    {
+      step: 1,
+      title: '진로 유형 검사',
+      completed: !!riasecResult,
+      action: () => onNavigate?.('riasec')
+    },
+    {
+      step: 2,
+      title: '핵심역량진단',
+      completed: true, // Hardcoded as true since data comes from dummyData
+      action: () => onNavigate?.('competency')
+    },
+    {
+      step: 3,
+      title: '전공 탐색',
+      completed: !!riasecResult, // RIASEC test should be done
+      action: () => setViewMode('roadmap')
+    },
+    {
+      step: 4,
+      title: '롤모델 탐색',
+      completed: false, // User can explore role models freely
+      action: () => setViewMode('rolemodels')
+    },
+    {
+      step: 5,
+      title: '커리큘럼 플래너',
+      completed: false, // User can plan their curriculum
+      action: () => setViewMode('planner')
+    }
+  ];
 
   // 튜토리얼 단계 정의
   const tutorialSteps = useMemo(() => {
@@ -194,19 +242,24 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
         />
       )}
 
+      {/* Step Guide Flow */}
+      <StepGuideFlow
+        currentStep={currentStepNumber}
+        steps={guideSteps}
+      />
 
       {/* 학년 선택 (플래너, 비교과 모드가 아닐 때만 표시) */}
       {viewMode !== 'planner' && viewMode !== 'extracurricular' && (
       <div className="bg-white rounded-xl shadow-md p-6" data-tutorial="year-select">
         <h2 className="text-lg font-bold text-gray-800 mb-4">학년 선택</h2>
-        <div className="flex gap-3">
+        <div className="flex gap-2 md:gap-3">
           {[1, 2, 3, 4].map((year) => (
             <motion.button
               key={year}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setSelectedYear(year)}
-              className={`flex-1 py-4 rounded-xl font-bold transition-all ${
+              className={`flex-1 py-3 md:py-4 rounded-xl font-bold transition-all min-h-[56px] ${
                 selectedYear === year
                   ? 'bg-blue-600 text-white shadow-lg'
                   : year <= CURRENT_STUDENT.grade
@@ -214,8 +267,8 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
                   : 'bg-gray-100 text-gray-500 border-2 border-dashed border-gray-300'
               }`}
             >
-              <div className="text-2xl mb-1">{year}학년</div>
-              <div className={`text-xs ${selectedYear === year ? 'text-amber-100' : 'text-gray-500'}`}>
+              <div className="text-xl md:text-2xl mb-1">{year}학년</div>
+              <div className={`text-xs ${selectedYear === year ? 'text-blue-100' : 'text-gray-500'}`}>
                 {year < CURRENT_STUDENT.grade && '✓ 수료'}
                 {year === CURRENT_STUDENT.grade && '현재'}
                 {year > CURRENT_STUDENT.grade && '예정'}
@@ -234,9 +287,19 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
             data-tutorial="planner-section"
           >
             <CurriculumPlanner riasecResult={riasecResult} />
+
+            {/* 지원 서비스 - 교수학습센터 */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">📖 학습 계획에 도움이 필요하신가요?</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                커리큘럼 설계와 학습 전략 수립에 전문적인 도움이 필요하다면 교수학습센터를 방문하세요.
+              </p>
+              <ConnectionLinks variant="horizontal" filterIds={['learning', 'counseling']} showAll={false} />
+            </div>
           </motion.div>
         )}
 
@@ -357,7 +420,7 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
               >
                 <button
                   onClick={() => setSelectedCareer(selectedCareer === career.title ? null : career.title)}
-                  className="w-full p-4 text-left"
+                  className="w-full p-4 text-left min-h-[80px]"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -495,6 +558,15 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
                 </AnimatePresence>
               </motion.div>
             ))}
+
+            {/* 지원 서비스 - 취업지원팀, 상담 */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">🎯 진로 결정에 도움이 필요하신가요?</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                추천된 직무와 커리어 경로에 대해 더 자세한 상담이 필요하다면 아래 서비스를 이용하세요.
+              </p>
+              <ConnectionLinks variant="horizontal" filterIds={['counseling', 'career']} showAll={false} />
+            </div>
           </motion.div>
         )}
 
@@ -520,7 +592,7 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
             </div>
 
             {/* 롤 모델 카드들 */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
               {roleModelComparisons.map((model, index) => {
                 const getMatchColor = (percentage: number) => {
                   if (percentage >= 70) return { text: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200', bar: 'bg-green-500' };
@@ -638,6 +710,15 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
                 })}
               </div>
             </div>
+
+            {/* 지원 서비스 - 취업지원팀, 상담 */}
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">🤝 추가 지원이 필요하신가요?</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                롤모델 선배처럼 성공하기 위해 전문적인 도움이 필요하다면 아래 서비스를 이용하세요.
+              </p>
+              <ConnectionLinks variant="horizontal" filterIds={['career', 'counseling']} showAll={false} />
+            </div>
           </motion.div>
         )}
 
@@ -655,11 +736,11 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
       </AnimatePresence>
 
       {/* 전체 로드맵 타임라인 */}
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <h2 className="text-lg font-bold text-gray-800 mb-6">📅 전주기 로드맵 타임라인</h2>
+      <div className="bg-white rounded-xl shadow-md p-4 md:p-6">
+        <h2 className="text-base md:text-lg font-bold text-gray-800 mb-4 md:mb-6">📅 전주기 로드맵 타임라인</h2>
         <div className="relative">
           {/* 연결선 */}
-          <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-amber-500 via-orange-500 to-red-500" />
+          <div className="absolute left-4 md:left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-amber-500 via-orange-500 to-red-500" />
           
           {MIS_CAREER_ROADMAP.map((roadmap, index) => (
             <motion.div
@@ -667,38 +748,38 @@ export default function CareerRoadmapPage({ onNavigate, riasecResult, initialVie
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}
-              className={`relative pl-16 pb-8 ${
+              className={`relative pl-12 md:pl-16 pb-6 md:pb-8 ${
                 roadmap.year < CURRENT_STUDENT.grade || 
                 (roadmap.year === CURRENT_STUDENT.grade && roadmap.semester === 1)
                   ? 'opacity-100' : 'opacity-60'
               }`}
             >
               {/* 노드 */}
-              <div className={`absolute left-4 w-5 h-5 rounded-full border-4 ${
+              <div className={`absolute left-2.5 md:left-4 w-4 h-4 md:w-5 md:h-5 rounded-full border-3 md:border-4 ${
                 roadmap.year === CURRENT_STUDENT.grade
                   ? 'bg-amber-500 border-amber-200 animate-pulse'
                   : roadmap.year < CURRENT_STUDENT.grade
                   ? 'bg-green-500 border-green-200'
                   : 'bg-gray-300 border-gray-200'
               }`} />
-              
-              <div className={`p-4 rounded-lg ${
+
+              <div className={`p-3 md:p-4 rounded-lg ${
                 roadmap.year === CURRENT_STUDENT.grade
                   ? 'bg-amber-50 border-2 border-amber-300'
                   : 'bg-gray-50 border border-gray-200'
               }`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="px-2 py-0.5 bg-amber-200 text-amber-800 rounded text-xs font-bold">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <span className="px-2 py-0.5 bg-amber-200 text-amber-800 rounded text-xs font-bold whitespace-nowrap">
                     {roadmap.year}학년 {roadmap.semester}학기
                   </span>
                   {roadmap.year === CURRENT_STUDENT.grade && (
-                    <span className="px-2 py-0.5 bg-green-200 text-green-800 rounded text-xs font-bold">
+                    <span className="px-2 py-0.5 bg-green-200 text-green-800 rounded text-xs font-bold whitespace-nowrap">
                       현재
                     </span>
                   )}
                 </div>
-                <h4 className="font-bold text-gray-800 mb-1">{roadmap.title}</h4>
-                <p className="text-sm text-gray-600">{roadmap.description}</p>
+                <h4 className="font-bold text-gray-800 mb-1 text-sm md:text-base">{roadmap.title}</h4>
+                <p className="text-xs md:text-sm text-gray-600">{roadmap.description}</p>
               </div>
             </motion.div>
           ))}
@@ -721,7 +802,7 @@ function RoadmapCard({ roadmap, index }: { roadmap: CareerRoadmap; index: number
     >
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full p-6 text-left bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100"
+        className="w-full p-4 md:p-6 text-left bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100 min-h-[80px]"
       >
         <div className="flex items-center justify-between">
           <div>

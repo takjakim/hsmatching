@@ -1,7 +1,14 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { CURRENT_STUDENT, getCurrentGrades } from "../data/dummyData";
+import {
+  CURRENT_STUDENT,
+  getCurrentGrades,
+  ROLE_MODELS,
+  compareWithRoleModel,
+  getCoursesByGradeUpTo
+} from "../data/dummyData";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
+import ConnectionLinks from "../components/ConnectionLinks";
 
 interface DashboardProps {
   onNavigate: (page: string) => void;
@@ -11,7 +18,17 @@ interface DashboardProps {
 
 export default function Dashboard({ onNavigate, riasecCompleted = false, riasecResult }: DashboardProps) {
   const currentGrades = getCurrentGrades();
-  
+
+  // 롤모델 유사도 계산
+  const coursesForComparison = getCoursesByGradeUpTo(CURRENT_STUDENT.grade);
+  const roleModelComparisons = ROLE_MODELS.map(roleModel =>
+    compareWithRoleModel(coursesForComparison, roleModel)
+  );
+  const bestRoleModelMatch = Math.max(...roleModelComparisons.map(r => r.matchPercentage), 0);
+
+  // 커리큘럼 완료율 계산 (총 120학점 기준)
+  const curriculumProgress = Math.min(Math.round((currentGrades.totalAcquiredCredits / 120) * 100), 100);
+
   // 5단계 진행 상태 (실제로는 백엔드에서 가져와야 함)
   const roadmapSteps = [
     {
@@ -55,29 +72,31 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
     },
     {
       step: 4,
-      title: "커리큘럼 플래너",
-      description: "교과/비교과 탐색 및 이수 확인",
-      icon: "📊",
-      completed: false,
-      progress: 15,
-      color: "from-cyan-500 to-blue-600",
-      bgColor: "bg-cyan-50",
-      borderColor: "border-cyan-300",
-      action: () => onNavigate("roadmap-fullcycle"),
-      actionLabel: "관리하기"
-    },
-    {
-      step: 5,
       title: "롤모델 탐색",
-      description: "선배 커리어 탐색",
+      description: riasecCompleted && bestRoleModelMatch > 0
+        ? `최고 유사도: ${bestRoleModelMatch.toFixed(1)}%`
+        : "선배 커리어 탐색",
       icon: "⭐",
       completed: false,
-      progress: riasecCompleted ? 30 : 0,
+      progress: riasecCompleted ? bestRoleModelMatch : 0,
       color: "from-amber-500 to-orange-600",
       bgColor: "bg-amber-50",
       borderColor: "border-amber-300",
       action: () => onNavigate("roadmap-fullcycle"),
       actionLabel: "탐색 시작"
+    },
+    {
+      step: 5,
+      title: "커리큘럼 플래너",
+      description: `${currentGrades.totalAcquiredCredits}/120 학점 이수`,
+      icon: "📊",
+      completed: false,
+      progress: curriculumProgress,
+      color: "from-cyan-500 to-teal-600",
+      bgColor: "bg-cyan-50",
+      borderColor: "border-cyan-300",
+      action: () => onNavigate("roadmap-fullcycle"),
+      actionLabel: "관리하기"
     }
   ];
 
@@ -124,19 +143,17 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex-1">
             <h1 className="text-2xl font-bold mb-2">
-              안녕하세요, {CURRENT_STUDENT.name}님! 👋
+              안녕하세요, {CURRENT_STUDENT.name}님!
             </h1>
             <p className="text-blue-100 mb-4">
               {CURRENT_STUDENT.department} {CURRENT_STUDENT.grade}학년 · 학번 {CURRENT_STUDENT.studentId}
             </p>
             {targetCareer ? (
               <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
-                <span className="text-yellow-300">🎯</span>
                 <span className="font-medium">목표 진로: {targetCareer}</span>
               </div>
             ) : (
               <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
-                <span>💡</span>
                 <span>MJU 전공 진로 적합도 검사를 통해 목표 진로를 설정해보세요!</span>
               </div>
             )}
@@ -144,20 +161,46 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
           
           {/* 전체 진행률 원형 차트 */}
           <div className="flex flex-col items-center">
-            <div className="relative w-36 h-36">
-              <svg className="w-36 h-36 transform -rotate-90">
+            <div className="relative w-28 h-28 md:w-36 md:h-36">
+              <svg className="w-28 h-28 md:w-36 md:h-36 transform -rotate-90">
+                <circle
+                  cx="56"
+                  cy="56"
+                  r="48"
+                  className="md:hidden"
+                  stroke="rgba(255,255,255,0.2)"
+                  strokeWidth="10"
+                  fill="none"
+                />
                 <circle
                   cx="72"
                   cy="72"
                   r="60"
+                  className="hidden md:block"
                   stroke="rgba(255,255,255,0.2)"
                   strokeWidth="12"
                   fill="none"
                 />
                 <motion.circle
+                  cx="56"
+                  cy="56"
+                  r="48"
+                  className="md:hidden"
+                  stroke="white"
+                  strokeWidth="10"
+                  fill="none"
+                  strokeDasharray={`${2 * Math.PI * 48}`}
+                  strokeDashoffset={2 * Math.PI * 48 * (1 - totalProgress / 100)}
+                  strokeLinecap="round"
+                  initial={{ strokeDashoffset: 2 * Math.PI * 48 }}
+                  animate={{ strokeDashoffset: 2 * Math.PI * 48 * (1 - totalProgress / 100) }}
+                  transition={{ duration: 1.5, ease: "easeOut" }}
+                />
+                <motion.circle
                   cx="72"
                   cy="72"
                   r="60"
+                  className="hidden md:block"
                   stroke="white"
                   strokeWidth="12"
                   fill="none"
@@ -171,8 +214,8 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <motion.p 
-                    className="text-3xl font-bold"
+                  <motion.p
+                    className="text-2xl md:text-3xl font-bold"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.5 }}
@@ -194,19 +237,19 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
       <div className="bg-white rounded-2xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold text-gray-800">🚀 나의 진로 로드맵</h2>
+            <h2 className="text-xl font-bold text-gray-800">나의 진로 로드맵</h2>
             <p className="text-sm text-gray-500 mt-1">5단계를 완료하고 목표 진로에 도달하세요!</p>
           </div>
           <button
             onClick={() => onNavigate("roadmap-fullcycle")}
-            className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
+            className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1 min-h-[44px]"
           >
             전체 보기 →
           </button>
         </div>
 
         {/* 5단계 카드 그리드 */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
           {roadmapSteps.map((step, index) => (
             <motion.div
               key={step.step}
@@ -229,10 +272,10 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
               </div>
               
               {/* 아이콘 */}
-              <div className="text-3xl mb-2">{step.icon}</div>
-              
+              <div className="text-2xl md:text-3xl mb-2">{step.icon}</div>
+
               {/* 제목 */}
-              <h3 className="font-bold text-gray-800 text-sm mb-1">{step.title}</h3>
+              <h3 className="font-bold text-gray-800 text-xs md:text-sm mb-1">{step.title}</h3>
               <p className="text-xs text-gray-500 mb-3">{step.description}</p>
               
               {/* 진행률 바 */}
@@ -275,6 +318,12 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
             ))}
           </div>
         </div>
+
+        {/* 지원 서비스 바로가기 */}
+        <div className="mt-6 p-4 bg-white/50 backdrop-blur-sm rounded-xl border border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-600 mb-3">지원 서비스 바로가기</h3>
+          <ConnectionLinks variant="horizontal" />
+        </div>
       </div>
 
       {/* 진단 현황 요약 */}
@@ -284,11 +333,10 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white rounded-xl shadow-md p-6"
+          className="bg-white/70 backdrop-blur-md rounded-2xl shadow-lg border border-white/20 p-6"
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              <span className="text-2xl">🎯</span>
               MJU 전공 진로 적합도 검사
             </h3>
             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -310,8 +358,7 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-48 flex flex-col items-center justify-center bg-gray-50 rounded-lg">
-              <span className="text-4xl mb-2">📝</span>
+            <div className="h-48 flex flex-col items-center justify-center bg-gray-50/50 rounded-lg">
               <p className="text-sm text-gray-500 text-center">
                 검사를 완료하고<br />나의 진로 유형을 확인하세요
               </p>
@@ -320,7 +367,7 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
           
           <button
             onClick={() => onNavigate(riasecCompleted ? "insight" : "riasec")}
-            className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition"
+            className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg text-sm font-medium transition min-h-[44px]"
           >
             {riasecCompleted ? "결과 상세 보기 →" : "검사 시작하기 →"}
           </button>
@@ -331,11 +378,10 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-white rounded-xl shadow-md p-6"
+          className="bg-white/70 backdrop-blur-md rounded-2xl shadow-lg border border-white/20 p-6"
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              <span className="text-2xl">💪</span>
               핵심역량진단
             </h3>
             <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
@@ -356,7 +402,7 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
           
           <button
             onClick={() => onNavigate("competency")}
-            className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm font-medium transition"
+            className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg text-sm font-medium transition min-h-[44px]"
           >
             결과 상세 보기 →
           </button>
@@ -367,11 +413,10 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.5 }}
-          className="bg-white rounded-xl shadow-md p-6"
+          className="bg-white/70 backdrop-blur-md rounded-2xl shadow-lg border border-white/20 p-6"
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              <span className="text-2xl">📚</span>
               전공능력진단
             </h3>
             <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
@@ -379,8 +424,7 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
             </span>
           </div>
           
-          <div className="h-48 flex flex-col items-center justify-center bg-gray-50 rounded-lg">
-            <span className="text-4xl mb-2">🎓</span>
+          <div className="h-48 flex flex-col items-center justify-center bg-gray-50/50 rounded-lg">
             <p className="text-sm text-gray-500 text-center">
               추천 전공 자가진단을 통해<br />전공을 탐색해보세요
             </p>
@@ -392,7 +436,7 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
           
           <button
             onClick={() => onNavigate("roadmap-explorer")}
-            className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg text-sm font-medium transition"
+            className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg text-sm font-medium transition min-h-[44px]"
           >
             자가진단 시작하기 →
           </button>
@@ -401,7 +445,7 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
 
 
       {/* 빠른 액션 버튼들 */}
-      <div className="grid md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
         {[
           { icon: "📂", label: "전공 탐색", desc: "추천 전공 자가진단", action: () => onNavigate("roadmap-explorer"), iconBg: "bg-indigo-100", iconColor: "text-indigo-600", borderColor: "border-indigo-200" },
           { icon: "📐", label: "커리큘럼 플래너", desc: "4년 계획 설계", action: () => onNavigate("roadmap-fullcycle"), iconBg: "bg-blue-100", iconColor: "text-blue-600", borderColor: "border-blue-200" },
@@ -415,13 +459,13 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 + index * 0.1 }}
             onClick={item.action}
-            className={`bg-white border ${item.borderColor} rounded-xl p-4 text-left hover:shadow-md transition-all hover:scale-[1.02] group`}
+            className={`bg-white/60 backdrop-blur-sm border border-white/30 shadow-md rounded-2xl p-4 text-left hover:shadow-lg transition-all hover:scale-[1.02] group min-h-[120px] flex flex-col`}
           >
-            <div className={`w-12 h-12 ${item.iconBg} rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
-              <span className="text-2xl">{item.icon}</span>
+            <div className={`w-10 h-10 md:w-12 md:h-12 ${item.iconBg} rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
+              <span className="text-xl md:text-2xl">{item.icon}</span>
             </div>
-            <h4 className="font-bold text-gray-800">{item.label}</h4>
-            <p className="text-sm text-gray-500">{item.desc}</p>
+            <h4 className="font-bold text-gray-800 text-sm md:text-base">{item.label}</h4>
+            <p className="text-xs md:text-sm text-gray-500">{item.desc}</p>
           </motion.button>
         ))}
       </div>
@@ -433,9 +477,9 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8 }}
-          className="bg-white rounded-xl shadow-md p-6"
+          className="bg-white/70 backdrop-blur-md rounded-2xl shadow-lg border border-white/20 p-6"
         >
-          <h3 className="text-lg font-bold text-gray-800 mb-4">🎯 목표 달성 현황</h3>
+          <h3 className="text-lg font-bold text-gray-800 mb-4">목표 달성 현황</h3>
           <div className="space-y-4">
             {[
               { label: "진로 탐색", value: riasecCompleted ? 100 : 0, color: "bg-blue-500" },
@@ -466,41 +510,32 @@ export default function Dashboard({ onNavigate, riasecCompleted = false, riasecR
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.9 }}
-          className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-xl shadow-md p-6 text-white"
+          className="bg-gradient-to-br from-indigo-600/90 to-purple-700/90 backdrop-blur-md rounded-2xl shadow-lg border border-white/10 p-6 text-white"
         >
-          <h3 className="text-lg font-bold mb-4">💡 다음 추천 액션</h3>
+          <h3 className="text-lg font-bold mb-4">다음 추천 액션</h3>
           <div className="space-y-3">
             {!riasecCompleted && (
               <button
                 onClick={() => onNavigate("riasec")}
-                className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-3 text-left transition flex items-center gap-3"
+                className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-3 text-left transition min-h-[64px]"
               >
-                <span className="text-2xl">🎯</span>
-                <div>
-                  <p className="font-medium">MJU 전공 진로 적합도 검사 완료하기</p>
-                  <p className="text-sm text-white/70">진로 적성을 파악하세요</p>
-                </div>
+                <p className="font-medium">MJU 전공 진로 적합도 검사 완료하기</p>
+                <p className="text-sm text-white/70">진로 적성을 파악하세요</p>
               </button>
             )}
             <button
               onClick={() => onNavigate("roadmap-fullcycle")}
-              className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-3 text-left transition flex items-center gap-3"
+              className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-3 text-left transition min-h-[64px]"
             >
-              <span className="text-2xl">📚</span>
-              <div>
-                <p className="font-medium">커리큘럼 계획 세우기</p>
-                <p className="text-sm text-white/70">4년 로드맵을 설계하세요</p>
-              </div>
+              <p className="font-medium">커리큘럼 계획 세우기</p>
+              <p className="text-sm text-white/70">4년 로드맵을 설계하세요</p>
             </button>
             <button
               onClick={() => onNavigate("roadmap-fullcycle")}
-              className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-3 text-left transition flex items-center gap-3"
+              className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-3 text-left transition min-h-[64px]"
             >
-              <span className="text-2xl">⭐</span>
-              <div>
-                <p className="font-medium">롤모델 선배 찾기</p>
-                <p className="text-sm text-white/70">성공한 선배의 경로를 참고하세요</p>
-              </div>
+              <p className="font-medium">롤모델 선배 찾기</p>
+              <p className="text-sm text-white/70">성공한 선배의 경로를 참고하세요</p>
             </button>
           </div>
         </motion.div>
