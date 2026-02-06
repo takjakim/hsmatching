@@ -599,7 +599,7 @@ export default function App() {
         // 레거시 /pilot 경로 - 새 riasec으로 리다이렉트
         return <PilotSurvey onNavigate={setCurrentPage} onComplete={handlePilotComplete} isLoggedIn={isLoggedIn} currentStudentId={currentStudentId} />;
       case "login":
-        return <Login onLogin={handleLogin} onNavigateToLanding={() => setCurrentPage("landing")} />;
+        return <Login onLogin={handleLogin} />;
       case "dashboard":
         // 관리자는 대시보드 접근 불가
         if (isAdmin) {
@@ -797,7 +797,7 @@ export default function App() {
         if (isLoggedIn) {
           return <Dashboard key={dashboardKey} onNavigate={setCurrentPage} riasecCompleted={!!riasecResult} riasecResult={riasecResult} currentStudentId={currentStudentId} />;
         } else {
-          return <Login onLogin={handleLogin} onNavigateToLanding={() => setCurrentPage("landing")} />;
+          return <Login onLogin={handleLogin} />;
         }
     }
   };
