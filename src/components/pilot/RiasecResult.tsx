@@ -1158,46 +1158,45 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
       style={{ backgroundColor: COLORS.bg, wordBreak: 'keep-all' }}
     >
 
-      {/* PDF Export Button - Fixed at top right */}
-      <motion.button
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.5 }}
-        onClick={handleExportPDF}
-        disabled={isGeneratingPDF}
-        className="fixed top-4 right-4 z-50 flex items-center gap-2 px-5 py-3 rounded-2xl font-medium text-sm transition-all duration-300"
-        style={{
-          backgroundColor: isGeneratingPDF ? '#F1F5F9' : COLORS.surface,
-          color: isGeneratingPDF ? COLORS.muted : COLORS.text.primary,
-          border: `1px solid ${COLORS.card.border}`,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-        }}
-      >
-        {isGeneratingPDF ? (
-          <>
-            <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
-            <span>생성 중...</span>
-          </>
-        ) : (
-          <>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <span>PDF 저장</span>
-          </>
-        )}
-      </motion.button>
-
       {/* PDF Content Container */}
       <div ref={pdfContentRef} className="relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-7xl mx-auto"
+          className="max-w-7xl mx-auto relative"
         >
+          {/* PDF Export Button - 결과 컨텐츠 우측 상단 */}
+          <motion.button
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5 }}
+            onClick={handleExportPDF}
+            disabled={isGeneratingPDF}
+            className="absolute top-0 right-0 z-50 flex items-center gap-2 px-5 py-3 rounded-2xl font-medium text-sm transition-all duration-300"
+            style={{
+              backgroundColor: isGeneratingPDF ? '#F1F5F9' : COLORS.surface,
+              color: isGeneratingPDF ? COLORS.muted : COLORS.text.primary,
+              border: `1px solid ${COLORS.card.border}`,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            }}
+          >
+            {isGeneratingPDF ? (
+              <>
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span>생성 중...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>PDF 저장</span>
+              </>
+            )}
+          </motion.button>
           {/* Participant Name Header */}
           {participantName && (
             <motion.div
