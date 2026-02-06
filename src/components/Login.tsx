@@ -1,9 +1,16 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { DUMMY_STUDENT, FRESHMAN_STUDENT, MIS_STUDENT, ADMIN_ACCOUNT, setCurrentStudent } from "../data/dummyData";
-import { verifyAdmin } from "../../lib/supabase";
+import { ADMIN_ACCOUNT } from "../data/dummyData";
+import { verifyAdmin, loginStudent } from "../../lib/supabase";
 import logLogo from "../img/log_logo.png";
 import { AdminUser } from "../types/admin";
+
+// 테스트용 학생 계정 (DB에 저장된 계정 정보)
+const TEST_STUDENT_ACCOUNTS = {
+  mis: { studentId: '2501001', password: 'test1234', name: '김명지', department: '경영정보학과', grade: 2 },
+  senior: { studentId: '2401001', password: 'test1234', name: '이경영', department: '경영학과', grade: 3 },
+  freshman: { studentId: '2501002', password: 'test1234', name: '박신입', department: '무전공', grade: 1 },
+};
 
 interface LoginProps {
   onLogin: (studentId: string, isAdmin?: boolean, adminUser?: AdminUser) => void;
@@ -99,16 +106,10 @@ export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
         }
       }
 
-      // 학생 계정 체크 (경영학과, 무전공 신입생, 경영정보학과)
-      if (studentId === DUMMY_STUDENT.studentId && password === DUMMY_STUDENT.password) {
-        setCurrentStudent(DUMMY_STUDENT.studentId);
-        onLogin(DUMMY_STUDENT.studentId, false);
-      } else if (studentId === FRESHMAN_STUDENT.studentId && password === FRESHMAN_STUDENT.password) {
-        setCurrentStudent(FRESHMAN_STUDENT.studentId);
-        onLogin(FRESHMAN_STUDENT.studentId, false);
-      } else if (studentId === MIS_STUDENT.studentId && password === MIS_STUDENT.password) {
-        setCurrentStudent(MIS_STUDENT.studentId);
-        onLogin(MIS_STUDENT.studentId, false);
+      // 학생 계정 체크 (DB 조회)
+      const studentData = await loginStudent(studentId, password);
+      if (studentData) {
+        onLogin(studentData.student_id, false);
       } else {
         setError("학번 또는 비밀번호가 일치하지 않습니다.");
       }
@@ -117,24 +118,31 @@ export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
     }
   };
 
-  const quickLogin = (studentType: 'senior' | 'freshman' | 'mis' | 'admin' | 'professor_cs' | 'professor_biz' | 'staff') => {
-    if (studentType === 'admin') {
-      onLogin('admin', true, TEST_ADMIN_ACCOUNTS['admin'].user);
-    } else if (studentType === 'professor_cs') {
-      onLogin('prof_cs', true, TEST_ADMIN_ACCOUNTS['prof_cs'].user);
-    } else if (studentType === 'professor_biz') {
-      onLogin('prof_biz', true, TEST_ADMIN_ACCOUNTS['prof_biz'].user);
-    } else if (studentType === 'staff') {
-      onLogin('staff', true, TEST_ADMIN_ACCOUNTS['staff'].user);
-    } else if (studentType === 'senior') {
-      setCurrentStudent(DUMMY_STUDENT.studentId);
-      onLogin(DUMMY_STUDENT.studentId, false);
-    } else if (studentType === 'mis') {
-      setCurrentStudent(MIS_STUDENT.studentId);
-      onLogin(MIS_STUDENT.studentId, false);
-    } else {
-      setCurrentStudent(FRESHMAN_STUDENT.studentId);
-      onLogin(FRESHMAN_STUDENT.studentId, false);
+  const quickLogin = async (studentType: 'senior' | 'freshman' | 'mis' | 'admin' | 'professor_cs' | 'professor_biz' | 'staff') => {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      if (studentType === 'admin') {
+        onLogin('admin', true, TEST_ADMIN_ACCOUNTS['admin'].user);
+      } else if (studentType === 'professor_cs') {
+        onLogin('prof_cs', true, TEST_ADMIN_ACCOUNTS['prof_cs'].user);
+      } else if (studentType === 'professor_biz') {
+        onLogin('prof_biz', true, TEST_ADMIN_ACCOUNTS['prof_biz'].user);
+      } else if (studentType === 'staff') {
+        onLogin('staff', true, TEST_ADMIN_ACCOUNTS['staff'].user);
+      } else {
+        // 학생 계정 - DB에서 로그인
+        const account = TEST_STUDENT_ACCOUNTS[studentType];
+        const studentData = await loginStudent(account.studentId, account.password);
+        if (studentData) {
+          onLogin(studentData.student_id, false);
+        } else {
+          setError("테스트 계정 로그인 실패. DB에 계정이 있는지 확인하세요.");
+        }
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -323,44 +331,46 @@ export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
                 animate={{ opacity: 1, height: "auto" }}
                 className="space-y-3"
               >
-                {/* 기존 학생 */}
+                {/* 경영학과 학생 */}
                 <div className="p-4 bg-blue-50 border border-[#3b82f6] rounded-lg text-sm">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="font-semibold text-gray-700">경영학과 3학년 (수강 이력 풍부)</p>
+                    <p className="font-semibold text-gray-700">경영학과 3학년 ({TEST_STUDENT_ACCOUNTS.senior.name})</p>
                     <button
                       onClick={() => quickLogin('senior')}
-                      className="text-xs bg-[#1e3a8a] hover:bg-[#3b82f6] text-white px-3 py-1 rounded"
+                      disabled={isLoading}
+                      className="text-xs bg-[#1e3a8a] hover:bg-[#3b82f6] disabled:bg-gray-400 text-white px-3 py-1 rounded"
                     >
                       빠른 로그인
                     </button>
                   </div>
                   <p className="text-gray-600">
-                    <span className="font-medium">학번:</span> {DUMMY_STUDENT.studentId}
+                    <span className="font-medium">학번:</span> {TEST_STUDENT_ACCOUNTS.senior.studentId}
                   </p>
                   <p className="text-gray-600">
-                    <span className="font-medium">비밀번호:</span> {DUMMY_STUDENT.password}
+                    <span className="font-medium">비밀번호:</span> {TEST_STUDENT_ACCOUNTS.senior.password}
                   </p>
                   <p className="text-xs text-gray-500 mt-2">
-                    ✓ 진로-학습 통합 분석 체험 가능
+                    ✓ 수강 이력 풍부 - 진로-학습 통합 분석 체험 가능
                   </p>
                 </div>
 
-                {/* 신입생 */}
+                {/* 무전공 신입생 */}
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-sm">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="font-semibold text-gray-700">무전공 1학년 신입생 (교양만 수강)</p>
+                    <p className="font-semibold text-gray-700">무전공 1학년 신입생 ({TEST_STUDENT_ACCOUNTS.freshman.name})</p>
                     <button
                       onClick={() => quickLogin('freshman')}
-                      className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
+                      disabled={isLoading}
+                      className="text-xs bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-3 py-1 rounded"
                     >
                       빠른 로그인
                     </button>
                   </div>
                   <p className="text-gray-600">
-                    <span className="font-medium">학번:</span> {FRESHMAN_STUDENT.studentId}
+                    <span className="font-medium">학번:</span> {TEST_STUDENT_ACCOUNTS.freshman.studentId}
                   </p>
                   <p className="text-gray-600">
-                    <span className="font-medium">비밀번호:</span> {FRESHMAN_STUDENT.password}
+                    <span className="font-medium">비밀번호:</span> {TEST_STUDENT_ACCOUNTS.freshman.password}
                   </p>
                   <p className="text-xs text-gray-500 mt-2">
                     ✓ MJU 전공 진로 적합도 검사만으로 진로 탐색 체험
@@ -370,22 +380,23 @@ export default function Login({ onLogin, onNavigateToLanding }: LoginProps) {
                 {/* 경영정보학과 학생 (전주기 시뮬레이션) */}
                 <div className="p-4 bg-amber-50 border border-amber-300 rounded-lg text-sm">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="font-semibold text-gray-700">🎓 경영정보학과 2학년 (전주기 가이드)</p>
+                    <p className="font-semibold text-gray-700">🎓 경영정보학과 2학년 ({TEST_STUDENT_ACCOUNTS.mis.name})</p>
                     <button
                       onClick={() => quickLogin('mis')}
-                      className="text-xs bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded"
+                      disabled={isLoading}
+                      className="text-xs bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 text-white px-3 py-1 rounded"
                     >
                       빠른 로그인
                     </button>
                   </div>
                   <p className="text-gray-600">
-                    <span className="font-medium">학번:</span> {MIS_STUDENT.studentId}
+                    <span className="font-medium">학번:</span> {TEST_STUDENT_ACCOUNTS.mis.studentId}
                   </p>
                   <p className="text-gray-600">
-                    <span className="font-medium">비밀번호:</span> {MIS_STUDENT.password}
+                    <span className="font-medium">비밀번호:</span> {TEST_STUDENT_ACCOUNTS.mis.password}
                   </p>
                   <p className="text-xs text-gray-500 mt-2">
-                    ✓ 무전공 입학 → 경영정보학과 선택 시나리오
+                    ✓ 데이터 분석 전공 - SQLD, ADsP 자격증 보유
                   </p>
                   <p className="text-xs text-amber-700 mt-1">
                     ✓ 1~4학년 전주기 커리큘럼 및 진로 로드맵 체험

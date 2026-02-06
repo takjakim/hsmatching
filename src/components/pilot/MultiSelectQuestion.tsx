@@ -92,10 +92,9 @@ export default function MultiSelectQuestion({
         <div className="h-1 bg-slate-200">
           <motion.div
             className="h-full"
-            style={{ background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.secondary} 100%)` }}
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
+            style={{ background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.secondary} 100%)`, width: `${progress}%` }}
+            layout
+            transition={{ duration: 0.3, ease: 'easeOut' }}
           />
         </div>
       </div>

@@ -29,6 +29,11 @@ interface ParticipantInfo {
 interface UsePilotSurveyOptions {
   participantInfo?: ParticipantInfo;
   onComplete?: (result: PilotResult) => void;
+  skipIntro?: boolean;
+  // 보완검사부터 시작할 때 사용
+  initialRiasecScores?: RiasecScores;
+  initialRiasecAnswers?: RiasecAnswer;
+  startAtSupplementary?: boolean;
 }
 
 interface UsePilotSurveyReturn {
@@ -75,19 +80,31 @@ interface UsePilotSurveyReturn {
 }
 
 export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSurveyReturn {
-  const { participantInfo, onComplete } = options;
+  const {
+    participantInfo,
+    onComplete,
+    skipIntro = false,
+    initialRiasecScores,
+    initialRiasecAnswers,
+    startAtSupplementary = false,
+  } = options;
 
-  const [phase, setPhase] = useState<PilotPhase>('intro');
+  // 보완검사부터 시작하는 경우 phase를 supplementary로 설정
+  const [phase, setPhase] = useState<PilotPhase>(() => {
+    if (startAtSupplementary && initialRiasecScores) return 'supplementary';
+    if (skipIntro) return 'interest_select';
+    return 'intro';
+  });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<PilotAnswers>({});
   const [result, setResult] = useState<PilotResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // RIASEC state
+  // RIASEC state - 초기값이 있으면 사용
   const [riasecIndex, setRiasecIndex] = useState(0);
-  const [riasecAnswers, setRiasecAnswers] = useState<RiasecAnswer>({});
-  const [riasecScores, setRiasecScores] = useState<RiasecScores | null>(null);
+  const [riasecAnswers, setRiasecAnswers] = useState<RiasecAnswer>(initialRiasecAnswers || {});
+  const [riasecScores, setRiasecScores] = useState<RiasecScores | null>(initialRiasecScores || null);
   const [selectedClusters, setSelectedClusters] = useState<ClusterType[]>([]);
   const [interestedMajorKeys, setInterestedMajorKeys] = useState<string[]>([]);
 
@@ -126,10 +143,12 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
           }
           setPhase('riasec');
         } else if (parsed.phase === 'riasec_result') {
+          // riasec_result 복원 - 페이지 새로고침 시 결과 유지
           if (isValidRiasecScores) {
             if (isValidRiasecAnswers) setRiasecAnswers(parsed.riasecAnswers);
             setRiasecScores(parsed.riasecScores);
             setPhase('riasec_result');
+            console.log('Restored riasec_result phase from localStorage');
           } else {
             console.warn('Invalid riasecScores for riasec_result phase, resetting');
             localStorage.removeItem(STORAGE_KEY);
@@ -312,6 +331,52 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
     setPhase('interest_select');
   }, []);
 
+  // Save RIASEC result to DB (called when RIASEC phase completes)
+  // Also calls onComplete immediately to save to localStorage
+  const saveRiasecResult = useCallback(async (scores: RiasecScores, answers: RiasecAnswer) => {
+    try {
+      const code = generatePilotCode();
+      const deviceInfo = getDeviceInfo();
+
+      await savePilotResult(code, {}, {
+        name: participantInfo?.name || undefined,
+        studentId: participantInfo?.studentId || undefined,
+        email: participantInfo?.email || undefined,
+        riasecScores: scores,
+        riasecAnswers: answers,
+        skippedSupplementary: false,
+        deviceInfo,
+      });
+
+      console.log('RIASEC result saved to DB with code:', code, 'studentId:', participantInfo?.studentId);
+
+      // localStorage는 여기서 삭제하지 않음 - riasec_result 상태를 유지해야 함
+      // 보완검사 완료 또는 건너뛰기 시에만 삭제됨
+
+      // Call onComplete immediately to save result to App state and localStorage
+      // This ensures result is saved even if user navigates away before clicking Skip
+      const pilotResult: PilotResult = {
+        code,
+        name: participantInfo?.name || undefined,
+        studentId: participantInfo?.studentId || undefined,
+        email: participantInfo?.email || undefined,
+        rawAnswers: {},
+        riasecScores: scores,
+        riasecAnswers: answers,
+        skippedSupplementary: false, // User can still do supplementary later
+        valueScores: { achievement: 0, recognition: 0, independence: 0, social: 0, security: 0, economic: 0, growth: 0 },
+        careerDecision: { status: 'exploring', score: 0 },
+        selfEfficacy: {},
+        preferences: {},
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+      };
+      onComplete?.(pilotResult);
+    } catch (e) {
+      console.error('Failed to save RIASEC result:', e);
+    }
+  }, [participantInfo, onComplete]);
+
   // Answer RIASEC question and auto-advance
   const answerRiasecQuestion = useCallback((choice: 'A' | 'B') => {
     const questionId = QUESTION_POOL[riasecIndex].id;
@@ -325,11 +390,14 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
         const scores = calculateRiasecScores(newAnswers);
         setRiasecScores(scores);
         setPhase('riasec_result');
+
+        // Save RIASEC result immediately to DB
+        saveRiasecResult(scores, newAnswers);
       } else {
         setRiasecIndex(prev => prev + 1);
       }
     }, 300);
-  }, [riasecIndex, riasecAnswers, calculateRiasecScores]);
+  }, [riasecIndex, riasecAnswers, calculateRiasecScores, saveRiasecResult]);
 
   // Answer current question and auto-advance
   const answerQuestion = useCallback((answer: PilotAnswer) => {
@@ -355,10 +423,13 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
       const scores = calculateRiasecScores(riasecAnswers);
       setRiasecScores(scores);
       setPhase('riasec_result');
+
+      // Save RIASEC result immediately to DB
+      saveRiasecResult(scores, riasecAnswers);
     } else {
       setRiasecIndex(prev => prev + 1);
     }
-  }, [riasecIndex, riasecAnswers, calculateRiasecScores]);
+  }, [riasecIndex, riasecAnswers, calculateRiasecScores, saveRiasecResult]);
 
   // Navigation
   const canGoPrevious = currentIndex > 0;
@@ -464,7 +535,8 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
         deviceInfo: getDeviceInfo(),
       });
       localStorage.removeItem(STORAGE_KEY);
-      setResult({
+
+      const pilotResult: PilotResult = {
         code,
         name: participantInfo?.name || undefined,
         studentId: participantInfo?.studentId || undefined,
@@ -479,14 +551,17 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
         preferences: {},
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-      });
+      };
+
+      setResult(pilotResult);
       setPhase('complete');
+      onComplete?.(pilotResult);
     } catch (e) {
       setError('결과 저장에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
-  }, [participantInfo, riasecScores, riasecAnswers]);
+  }, [participantInfo, riasecScores, riasecAnswers, onComplete]);
 
   const goToNext = useCallback(async () => {
     if (!canGoNext) return;

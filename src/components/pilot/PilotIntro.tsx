@@ -13,6 +13,7 @@ interface PilotIntroProps {
   onStart: () => void;
   participantInfo: ParticipantInfo;
   onParticipantInfoChange: (info: ParticipantInfo) => void;
+  mode?: 'mju' | 'external' | 'default';
 }
 
 // Unified color palette
@@ -30,13 +31,13 @@ const COLORS = {
   },
 };
 
-export default function PilotIntro({ onStart, participantInfo, onParticipantInfoChange }: PilotIntroProps) {
+export default function PilotIntro({ onStart, participantInfo, onParticipantInfoChange, mode = 'default' }: PilotIntroProps) {
   const { name, studentId, email } = participantInfo;
   const isValidEmail = email.includes('@') && email.includes('.');
   const isValidName = name.trim().length >= 2;
 
   const [selectedType, setSelectedType] = useState<RiasecCode | null>(null);
-  const [isMjuStudent, setIsMjuStudent] = useState(true);
+  const [isMjuStudent, setIsMjuStudent] = useState(mode !== 'external');
   const [consentChecked, setConsentChecked] = useState(false);
 
   const canStart = isValidName && isValidEmail && consentChecked;
@@ -60,19 +61,21 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
           transition={{ duration: 0.5 }}
           className="flex-1 flex flex-col justify-center lg:pr-8 mb-10 lg:mb-0"
         >
-          {/* MJU Logo */}
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="mb-8"
-          >
-            <img
-              src="/mju-logo.png"
-              alt="명지대학교"
-              className="h-12 lg:h-14 object-contain"
-            />
-          </motion.div>
+          {/* MJU Logo - hidden in external mode */}
+          {mode !== 'external' && (
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="mb-8"
+            >
+              <img
+                src="/mju-logo.png"
+                alt="명지대학교"
+                className="h-12 lg:h-14 object-contain"
+              />
+            </motion.div>
+          )}
 
           {/* Title */}
           <motion.div
@@ -80,25 +83,38 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <p
-              className="text-sm font-medium tracking-widest uppercase mb-3"
-              style={{ color: COLORS.secondary }}
-            >
-              Myongji University
-            </p>
+            {mode !== 'external' && (
+              <p
+                className="text-sm font-medium tracking-widest uppercase mb-3"
+                style={{ color: COLORS.secondary }}
+              >
+                Myongji University
+              </p>
+            )}
             <h1
               className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight mb-6"
               style={{ color: COLORS.primary, fontFamily: "'Pretendard', sans-serif" }}
             >
-              MJU 전공<br />
-              진로 적합도 검사
+              {mode === 'external' ? (
+                <>
+                  진로<br />
+                  적합도 검사
+                </>
+              ) : (
+                <>
+                  MJU 전공<br />
+                  진로 적합도 검사
+                </>
+              )}
             </h1>
             <p
               className="text-base lg:text-lg leading-relaxed max-w-md"
               style={{ color: COLORS.text.secondary }}
             >
               Holland의 RIASEC 이론을 기반으로 나의 진로 흥미 유형을 파악하고,
-              명지대학교 학과 중 나에게 적합한 전공을 추천받아 보세요.
+              {mode === 'external'
+                ? ' 나에게 적합한 전공을 추천받아 보세요.'
+                : ' 명지대학교 학과 중 나에게 적합한 전공을 추천받아 보세요.'}
             </p>
           </motion.div>
 
@@ -175,28 +191,30 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
               />
             </div>
 
-            {/* MJU Student Toggle */}
-            <div className="mb-4">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isMjuStudent}
-                  onChange={(e) => {
-                    setIsMjuStudent(e.target.checked);
-                    if (!e.target.checked) {
-                      handleChange('studentId', '');
-                    }
-                  }}
-                  className="w-5 h-5 rounded border-2 accent-blue-600"
-                />
-                <span className="text-sm font-medium" style={{ color: COLORS.text.primary }}>
-                  명지대학교 재학생/졸업생입니다
-                </span>
-              </label>
-            </div>
+            {/* MJU Student Toggle - only show in default mode */}
+            {mode === 'default' && (
+              <div className="mb-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isMjuStudent}
+                    onChange={(e) => {
+                      setIsMjuStudent(e.target.checked);
+                      if (!e.target.checked) {
+                        handleChange('studentId', '');
+                      }
+                    }}
+                    className="w-5 h-5 rounded border-2 accent-blue-600"
+                  />
+                  <span className="text-sm font-medium" style={{ color: COLORS.text.primary }}>
+                    명지대학교 재학생/졸업생입니다
+                  </span>
+                </label>
+              </div>
+            )}
 
-            {/* Student ID Input (conditional) */}
-            {isMjuStudent && (
+            {/* Student ID Input (conditional) - hidden in external mode */}
+            {isMjuStudent && mode !== 'external' && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -271,7 +289,7 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
               {[
                 { text: '나의 진로 흥미 유형 분석', check: true },
                 { text: 'RIASEC 6가지 차원 점수', check: true },
-                { text: '명지대 맞춤형 학과 추천', check: true },
+                { text: mode === 'external' ? '맞춤형 학과 추천' : '명지대 맞춤형 학과 추천', check: true },
               ].map((item, idx) => (
                 <div key={idx} className="flex items-center gap-3">
                   <div

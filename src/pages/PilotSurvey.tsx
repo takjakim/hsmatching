@@ -10,11 +10,18 @@ import RiasecQuestion from '../components/pilot/RiasecQuestion';
 import RiasecResult from '../components/pilot/RiasecResult';
 import InterestSelect from '../components/pilot/InterestSelect';
 import MajorPreview from '../components/pilot/MajorPreview';
-import { PilotResult as PilotResultType } from '../types/pilot';
+import { PilotResult as PilotResultType, RiasecScores, RiasecAnswer } from '../types/pilot';
 
 interface PilotSurveyProps {
   onNavigate?: (page: string) => void;
   onComplete?: (result: PilotResultType) => void;
+  isLoggedIn?: boolean;
+  currentStudentId?: string | null;
+  mode?: 'mju' | 'external' | 'default';
+  // 보완검사부터 시작할 때 사용
+  initialRiasecScores?: RiasecScores;
+  initialRiasecAnswers?: RiasecAnswer;
+  startAtSupplementary?: boolean;
 }
 
 interface ParticipantInfo {
@@ -23,10 +30,19 @@ interface ParticipantInfo {
   email: string;
 }
 
-export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps) {
+export default function PilotSurvey({
+  onNavigate,
+  onComplete,
+  isLoggedIn = false,
+  currentStudentId,
+  mode = 'default',
+  initialRiasecScores,
+  initialRiasecAnswers,
+  startAtSupplementary = false,
+}: PilotSurveyProps) {
   const [participantInfo, setParticipantInfo] = useState<ParticipantInfo>({
     name: '',
-    studentId: '',
+    studentId: currentStudentId || '',
     email: '',
   });
 
@@ -63,8 +79,15 @@ export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps
     interestedMajorKeys,
     toggleInterestedMajor,
   } = usePilotSurvey({
-    participantInfo: participantInfo.name && participantInfo.email ? participantInfo : undefined,
+    // 로그인 사용자는 studentId만 있어도 저장, 비로그인은 name+email 필요
+    participantInfo: isLoggedIn && currentStudentId
+      ? { name: '', studentId: currentStudentId, email: '' }
+      : (participantInfo.name && participantInfo.email ? participantInfo : undefined),
     onComplete,
+    skipIntro: isLoggedIn || startAtSupplementary,
+    initialRiasecScores,
+    initialRiasecAnswers,
+    startAtSupplementary,
   });
 
   // Auto-reset if phase state is inconsistent (e.g. after HMR or corrupt localStorage)
@@ -98,6 +121,7 @@ export default function PilotSurvey({ onNavigate, onComplete }: PilotSurveyProps
         onStart={startSurvey}
         participantInfo={participantInfo}
         onParticipantInfoChange={setParticipantInfo}
+        mode={mode}
       />
     );
   }

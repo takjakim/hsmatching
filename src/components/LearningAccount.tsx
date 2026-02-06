@@ -43,7 +43,8 @@ export default function LearningAccount({
 
   return (
     <div className="space-y-6">
-      {/* 헤더 배너 */}
+      {/* 헤더 배너 - 임시 주석처리 */}
+      {/*
       <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 rounded-2xl p-6 text-white shadow-lg">
         <div className="flex items-center justify-between">
           <div>
@@ -58,8 +59,10 @@ export default function LearningAccount({
           </div>
         </div>
       </div>
+      */}
 
-      {/* 통계 카드 */}
+      {/* 통계 카드 - 임시 주석처리 */}
+      {/*
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <motion.div
           whileHover={{ scale: 1.02 }}
@@ -90,8 +93,10 @@ export default function LearningAccount({
           <div className="text-gray-600 text-sm mt-1">참여 분야</div>
         </motion.div>
       </div>
+      */}
 
-      {/* 카테고리별 진행도 */}
+      {/* 카테고리별 진행도 - 임시 주석처리 */}
+      {/*
       <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
           <span>📊</span> 카테고리별 진행도
@@ -134,6 +139,7 @@ export default function LearningAccount({
           })}
         </div>
       </div>
+      */}
 
       {/* 수료증 발급 가능 활동 */}
       {completedActivities.length > 0 && (
@@ -285,7 +291,8 @@ export default function LearningAccount({
         </div>
       </div>
 
-      {/* 추천 비교과 활동 */}
+      {/* 추천 비교과 활동 - 임시 주석처리 */}
+      {/*
       <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
           <span>💡</span> 추천 비교과 활동
@@ -343,6 +350,7 @@ export default function LearningAccount({
           })}
         </div>
       </div>
+      */}
 
       {/* 수료증 모달 */}
       {showCertificateModal && selectedActivity && (

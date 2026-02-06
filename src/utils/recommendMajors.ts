@@ -22,9 +22,24 @@ const EXCLUDED_MAJOR_KEYWORDS = [
   '약대',
 ];
 
+// 미래융합대학 전공 키워드 (신입생 제외 대상)
+const FUTURE_CONVERGENCE_KEYWORDS = [
+  '미래융합',
+  '융합경영',
+  '융합디자인',
+  '복지경영',
+  '부동산',
+  '심리치료',
+  '물류유통'
+];
+
 function isExcludedMajor(majorName: string): boolean {
   const normalized = majorName.toLowerCase();
   return EXCLUDED_MAJOR_KEYWORDS.some(keyword => normalized.includes(keyword));
+}
+
+function isFutureConvergenceMajor(majorName: string): boolean {
+  return FUTURE_CONVERGENCE_KEYWORDS.some(keyword => majorName.includes(keyword));
 }
 
 interface MajorProfile {
@@ -121,6 +136,7 @@ function buildReasons(topDims: Dim[], majorVec: Record<Dim, number>) {
 interface RecommendOptions {
   limit?: number;
   clusterScores?: Partial<Record<ClusterType, number>>; // 🆕 계열 점수
+  grade?: number; // 학년 (1학년인 경우 미래융합대학 전공 제외)
 }
 
 // 🆕 인접 계열 매핑 (유사한 계열 간 부분 보너스)
@@ -140,6 +156,7 @@ export function recommendMajors(
 ): RecommendedMajor[] {
   const limit = Math.max(1, options.limit ?? 5);
   const clusterScores = options.clusterScores;
+  const grade = options.grade;
 
   if (!careerTestResult) {
     return [];
@@ -158,6 +175,8 @@ export function recommendMajors(
   const scoredMajors = MAJORS
     // Filter out excluded majors (medical-related)
     .filter((major) => !isExcludedMajor(major.name))
+    // Filter out future convergence majors for freshmen (grade 1)
+    .filter((major) => grade !== 1 || !isFutureConvergenceMajor(major.name))
     .map((major) => {
     const majorVector = prepareVector(major.vec);
     if (majorVector.magnitude === 0) {

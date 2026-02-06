@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from "recharts";
 import { motion } from "framer-motion";
 import { getCurrentCourses, AVAILABLE_COURSES, CURRENT_STUDENT, getCurrentCompetency } from "../data/dummyData";
@@ -6,17 +6,147 @@ import { calculateLearningProfile, compareProfiles, recommendCourses } from "../
 import { recommendRoles, getRoleDescription } from "../utils/roleRecommendation";
 import { recommendMajors } from "../utils/recommendMajors";
 import { getWorkpediaJobUrl, getWorkpediaJobCode } from "../data/workpediaJobMap";
+import { getPilotResultByStudentId, PilotResult } from "../../lib/supabase";
 
 type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C' | 'V';
 type RiasecResult = Record<Dim, number>;
+// App.tsx에서 전달되는 타입 (V 없음)
+type PropRiasecResult = Record<'R' | 'I' | 'A' | 'S' | 'E' | 'C', number>;
 
 interface CareerInsightProps {
-  riasecResult: RiasecResult | null;
+  riasecResult: PropRiasecResult | null;
   onStartTest: () => void;
   onNavigate?: (page: string) => void;
+  currentStudentId?: string | null;
 }
 
-export default function CareerInsight({ riasecResult, onStartTest, onNavigate }: CareerInsightProps) {
+export default function CareerInsight({ riasecResult: propRiasecResult, onStartTest, onNavigate, currentStudentId }: CareerInsightProps) {
+  const [dbResult, setDbResult] = useState<PilotResult | null>(null);
+  const [isLoading, setIsLoading] = useState(true); // 초기값을 true로 변경
+
+  console.log('[CareerInsight] Render - currentStudentId:', currentStudentId, 'propRiasecResult:', propRiasecResult, 'dbResult:', dbResult);
+
+  // DB에서 최신 RIASEC 결과 불러오기
+  useEffect(() => {
+    async function loadDbResult() {
+      if (currentStudentId) {
+        console.log('[CareerInsight] Loading DB result for student:', currentStudentId);
+        setIsLoading(true);
+        try {
+          const result = await getPilotResultByStudentId(currentStudentId);
+          console.log('[CareerInsight] Loaded DB result:', result);
+          console.log('[CareerInsight] riasec_scores:', result?.riasec_scores);
+          setDbResult(result);
+        } catch (error) {
+          console.error('[CareerInsight] Failed to load DB result:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        console.log('[CareerInsight] No currentStudentId, skipping DB load');
+        setIsLoading(false);
+      }
+    }
+    loadDbResult();
+  }, [currentStudentId]);
+
+  // DB 결과 또는 prop을 RiasecResult 형식(V 포함)으로 변환
+  const riasecResult = useMemo((): RiasecResult | null => {
+    console.log('[CareerInsight] useMemo - dbResult:', dbResult, 'propRiasecResult:', propRiasecResult);
+    // DB 결과가 있으면 DB 결과 사용
+    if (dbResult?.riasec_scores) {
+      const scores = dbResult.riasec_scores;
+      console.log('[CareerInsight] Using DB scores:', scores);
+      const maxScore = Math.max(scores.R, scores.I, scores.A, scores.S, scores.E, scores.C) || 1;
+      const result = {
+        R: scores.R / maxScore,
+        I: scores.I / maxScore,
+        A: scores.A / maxScore,
+        S: scores.S / maxScore,
+        E: scores.E / maxScore,
+        C: scores.C / maxScore,
+        V: 0
+      };
+      console.log('[CareerInsight] Normalized result:', result);
+      return result;
+    }
+    // DB 결과 없으면 prop 사용 (V 추가)
+    if (propRiasecResult) {
+      console.log('[CareerInsight] Using prop result with V:', propRiasecResult);
+      return {
+        ...propRiasecResult,
+        V: 0
+      };
+    }
+    console.log('[CareerInsight] No result available');
+    return null;
+  }, [dbResult, propRiasecResult]);
+
+  // 모든 useMemo 훅을 early return 전에 선언 (React hooks 규칙)
+  const CURRENT_COURSES = getCurrentCourses();
+  const competencyResult = getCurrentCompetency();
+
+  // 기본 RIASEC 결과 (null이면 빈 객체 사용)
+  const careerTestResult = riasecResult || { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0, V: 0 };
+
+  // 학습 프로파일 계산
+  const learningProfile = useMemo(() => {
+    return calculateLearningProfile(CURRENT_COURSES);
+  }, [CURRENT_COURSES]);
+
+  // 프로파일 비교
+  const comparison = useMemo(() => {
+    return compareProfiles(careerTestResult, learningProfile.normalized);
+  }, [careerTestResult, learningProfile]);
+
+  // 추천 과목
+  const recommendedCourses = useMemo(() => {
+    return recommendCourses(careerTestResult, AVAILABLE_COURSES, 5);
+  }, [careerTestResult]);
+
+  // 추천 직무
+  const recommendedRoles = useMemo(() => {
+    return recommendRoles(careerTestResult, 8);
+  }, [careerTestResult]);
+
+  // 추천 학과 (새 알고리즘)
+  const recommendedMajorsList = useMemo(() => {
+    return recommendMajors(careerTestResult, { limit: 5 });
+  }, [careerTestResult]);
+
+  // 무전공 학생 여부 확인
+  const isFreshman = CURRENT_STUDENT.department === "무전공" || CURRENT_STUDENT.grade === 1;
+
+  // 레이더 차트 데이터 (RIASEC 라벨 한글로 표기)
+  const radarData = useMemo(() => {
+    const dims: Array<'R' | 'I' | 'A' | 'S' | 'E' | 'C'> = ['R', 'I', 'A', 'S', 'E', 'C'];
+    const dimLabels: Record<string, string> = {
+      R: "R(현장형)",
+      I: "I(탐구형)",
+      A: "A(예술형)",
+      S: "S(사회형)",
+      E: "E(진취형)",
+      C: "C(사무형)"
+    };
+    return dims.map(dim => ({
+      axis: dimLabels[dim] || dim,
+      진로적성: Math.round(careerTestResult[dim] * 100),
+      학습경험: Math.round(learningProfile.normalized[dim] * 100)
+    }));
+  }, [careerTestResult, learningProfile]);
+
+  // 로딩 중
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600">검사 결과를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   // 검사를 완료하지 않은 경우
   if (!riasecResult) {
     return (
@@ -86,56 +216,6 @@ export default function CareerInsight({ riasecResult, onStartTest, onNavigate }:
     );
   }
 
-  const careerTestResult = riasecResult;
-  const CURRENT_COURSES = getCurrentCourses();
-  const competencyResult = getCurrentCompetency();
-
-  // 학습 프로파일 계산
-  const learningProfile = useMemo(() => {
-    return calculateLearningProfile(CURRENT_COURSES);
-  }, [CURRENT_COURSES]);
-
-  // 프로파일 비교
-  const comparison = useMemo(() => {
-    return compareProfiles(careerTestResult, learningProfile.normalized);
-  }, [careerTestResult, learningProfile]);
-
-  // 추천 과목
-  const recommendedCourses = useMemo(() => {
-    return recommendCourses(careerTestResult, AVAILABLE_COURSES, 5);
-  }, [careerTestResult]);
-
-  // 추천 직무
-  const recommendedRoles = useMemo(() => {
-    return recommendRoles(careerTestResult, 8);
-  }, [careerTestResult]);
-
-  // 추천 학과 (새 알고리즘)
-  const recommendedMajors = useMemo(() => {
-    return recommendMajors(careerTestResult, { limit: 5 });
-  }, [careerTestResult]);
-
-  // 무전공 학생 여부 확인
-  const isFreshman = CURRENT_STUDENT.department === "무전공" || CURRENT_STUDENT.grade === 1;
-
-  // 레이더 차트 데이터 (RIASEC 라벨 한글로 표기)
-  const radarData = useMemo(() => {
-    const dims: Array<'R' | 'I' | 'A' | 'S' | 'E' | 'C'> = ['R', 'I', 'A', 'S', 'E', 'C'];
-    const dimLabels: Record<string, string> = {
-      R: "R(현장형)",
-      I: "I(탐구형)",
-      A: "A(예술형)",
-      S: "S(사회형)",
-      E: "E(진취형)",
-      C: "C(사무형)"
-    };
-    return dims.map(dim => ({
-      axis: dimLabels[dim] || dim,
-      진로적성: Math.round(careerTestResult[dim] * 100),
-      학습경험: Math.round(learningProfile.normalized[dim] * 100)
-    }));
-  }, [careerTestResult, learningProfile]);
-
   // 일치도에 따른 색상
   const getAlignmentColor = (score: number) => {
     if (score >= 80) return "text-green-600 bg-green-50 border-green-200";
@@ -178,13 +258,13 @@ export default function CareerInsight({ riasecResult, onStartTest, onNavigate }:
         <h3 className="text-lg font-bold text-gray-800 mb-4">
           🎓 적성에 맞는 추천 학과 Top 5
         </h3>
-        {recommendedMajors.length === 0 ? (
+        {recommendedMajorsList.length === 0 ? (
           <div className="text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-300 rounded-xl p-4 text-center">
             MJU 전공 진로 적합도 검사를 완료하면 개인화된 학과 추천을 확인할 수 있습니다.
           </div>
         ) : (
           <div className="space-y-3">
-            {recommendedMajors.map((major, index) => (
+            {recommendedMajorsList.map((major, index) => (
               <div 
                 key={major.key}
                 onClick={() => {
@@ -240,7 +320,7 @@ export default function CareerInsight({ riasecResult, onStartTest, onNavigate }:
         )}
         
         {/* 전공능력 자가진단 버튼 */}
-        {recommendedMajors.length > 0 && onNavigate && (
+        {recommendedMajorsList.length > 0 && onNavigate && (
           <button
             onClick={() => onNavigate("roadmap-explorer")}
             className="mt-4 w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center justify-center space-x-2"

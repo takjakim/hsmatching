@@ -14,6 +14,7 @@ import { Course } from "../types/student";
 import { exportToDocx, exportToPdfSimple } from "../utils/exportPlanner";
 import { recommendMajors, type RecommendedMajor } from "../utils/recommendMajors";
 import { getMajorHierarchyEntries, type MajorHierarchyEntry } from "../data/majorList";
+import { getMajorCourses, mapStudentDepartment, getStudentGrades, saveCurriculumPlan, getCurriculumPlansByStudentId, deleteCurriculumPlan, saveCustomMajorPlan, getCustomMajorPlansByStudentId, deleteCustomMajorPlan, type MajorCourse, type StudentGradeRecord, type CurriculumPlan, type CustomMajorPlanDB } from "../../lib/supabase";
 import subjectListCsv from "../../subject_lst.csv?raw";
 
 type Dim = 'R' | 'I' | 'A' | 'S' | 'E' | 'C';
@@ -31,6 +32,8 @@ interface PlannedCourse extends Course {
   plannedId: string;
   targetGrade?: number; // 이수예정 학년
   isCompleted?: boolean; // 이미 수강 완료한 과목인지
+  majorName?: string; // 소속 전공명
+  majorShortName?: string; // 소속 전공 약칭
 }
 
 // 저장 데이터 타입
@@ -56,6 +59,7 @@ interface CustomMajorPlan {
 
 interface CurriculumPlannerProps {
   riasecResult?: Record<Dim, number> | null;
+  currentStudentId?: string;
 }
 
 interface SubjectMajorOption {
@@ -188,6 +192,39 @@ function getSubjectCoursesForMajor(majorName: string): Course[] {
   return courses;
 }
 
+// DB에서 교과목 가져오기
+async function fetchCoursesFromDB(majorName: string): Promise<Course[]> {
+  // 전공명에서 학과/학부명 추출
+  const mapping = mapStudentDepartment(majorName);
+  if (!mapping) {
+    // CSV 기반 데이터로 폴백
+    return getSubjectCoursesForMajor(majorName);
+  }
+
+  try {
+    const dbCourses = await getMajorCourses(mapping.department, mapping.major || undefined);
+    if (dbCourses.length === 0) {
+      // DB에 데이터가 없으면 CSV 기반 데이터로 폴백
+      return getSubjectCoursesForMajor(majorName);
+    }
+
+    return dbCourses.map((course, index) => ({
+      year: new Date().getFullYear(),
+      semester: 1,
+      courseNumber: `DB-${mapping.department.slice(0, 4)}-${index + 1}`,
+      courseName: course.course_name,
+      completionType: "전공",
+      credits: 3,
+      timeAndRoom: "",
+      retake: false,
+      professor: ""
+    }));
+  } catch (error) {
+    console.error('Failed to fetch courses from DB:', error);
+    return getSubjectCoursesForMajor(majorName);
+  }
+}
+
 function findSubjectMajorByName(name: string): SubjectMajorOption | null {
   const normalizedTarget = normalizeMajorName(name);
 
@@ -204,31 +241,48 @@ function findSubjectMajorByName(name: string): SubjectMajorOption | null {
   return matches.sort((a, b) => a.fullName.length - b.fullName.length)[0];
 }
 
-export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerProps) {
+export default function CurriculumPlanner({ riasecResult, currentStudentId }: CurriculumPlannerProps) {
   const plannerRef = useRef<HTMLDivElement>(null);
+
+  // 3단계에서 숨긴 전공 목록 (localStorage에서 불러오기)
+  const hiddenMajors = useMemo<Set<string>>(() => {
+    if (!currentStudentId) return new Set();
+    try {
+      const saved = localStorage.getItem(`hiddenMajors_${currentStudentId}`);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  }, [currentStudentId]);
+
+  // DB에서 가져온 전공별 교과목 캐시
+  const [dbCoursesCache, setDbCoursesCache] = useState<Map<string, Course[]>>(new Map());
 
   const recommendedMajors = useMemo<RecommendedMajor[]>(() => {
     if (!riasecResult) return [];
-    return recommendMajors(riasecResult, { limit: 3 });
+    return recommendMajors(riasecResult, { limit: 5 }); // 더 많이 가져와서 필터링 후에도 충분히 남도록
   }, [riasecResult]);
 
   const recommendedMajorOptions = useMemo<SelectedMajor[]>(() => {
-    return recommendedMajors.map((major) => {
-      const mapped = findSubjectMajorByName(major.name);
-      if (!mapped) {
+    return recommendedMajors
+      .filter((major) => !hiddenMajors.has(major.name)) // 숨긴 전공 필터링
+      .slice(0, 3) // 필터링 후 상위 3개만
+      .map((major) => {
+        const mapped = findSubjectMajorByName(major.name);
+        if (!mapped) {
+          return {
+            fullName: major.name,
+            shortName: major.name,
+            matchScore: major.matchScore
+          };
+        }
         return {
-          fullName: major.name,
-          shortName: major.name,
+          fullName: mapped.fullName,
+          shortName: mapped.shortName,
           matchScore: major.matchScore
         };
-      }
-      return {
-        fullName: mapped.fullName,
-        shortName: mapped.shortName,
-        matchScore: major.matchScore
-      };
-    });
-  }, [recommendedMajors]);
+      });
+  }, [recommendedMajors, hiddenMajors]);
 
   const [selectedMajors, setSelectedMajors] = useState<SelectedMajor[]>([]);
   const [activeMajor, setActiveMajor] = useState<string>("");
@@ -274,13 +328,58 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
   // 내보내기 드롭다운
   const [showExportDropdown, setShowExportDropdown] = useState(false);
 
+  // 교과목 검색
+  const [courseSearchQuery, setCourseSearchQuery] = useState("");
+
   // 나만의 전공 조합 관련 상태
   const [customMajorName, setCustomMajorName] = useState("");
   const [showCustomMajorModal, setShowCustomMajorModal] = useState(false);
   const [savedCustomMajors, setSavedCustomMajors] = useState<CustomMajorPlan[]>([]);
 
-  // 학점 정보
-  const gradesData = getCurrentGrades();
+  // 학점 정보 (DB에서 가져옴)
+  const [studentGrades, setStudentGrades] = useState<StudentGradeRecord[]>([]);
+  const [isLoadingGrades, setIsLoadingGrades] = useState(false);
+
+  // 학생 성적 데이터 로드
+  useEffect(() => {
+    if (!currentStudentId) return;
+
+    const loadGrades = async () => {
+      setIsLoadingGrades(true);
+      try {
+        const grades = await getStudentGrades(currentStudentId);
+        setStudentGrades(grades);
+      } catch (error) {
+        console.error('Failed to load student grades:', error);
+      } finally {
+        setIsLoadingGrades(false);
+      }
+    };
+
+    loadGrades();
+  }, [currentStudentId]);
+
+  // 학점 정보 계산 (DB 데이터 우선, 없으면 더미 데이터)
+  const gradesData = useMemo(() => {
+    if (studentGrades.length > 0) {
+      // DB에서 가져온 실제 데이터 사용
+      const totalAcquiredCredits = studentGrades.reduce((sum, g) => sum + (g.acquired_credits || 0), 0);
+      const validGrades = studentGrades.filter(g => g.gpa && g.gpa > 0);
+      const averageGpa = validGrades.length > 0
+        ? validGrades.reduce((sum, g) => sum + (g.gpa || 0), 0) / validGrades.length
+        : 0;
+      const lastSemesterGpa = studentGrades[0]?.gpa || null;
+
+      return {
+        totalAcquiredCredits,
+        averageGpa,
+        lastSemesterGpa
+      };
+    }
+
+    // DB 데이터가 없으면 더미 데이터 사용
+    return getCurrentGrades();
+  }, [studentGrades]);
 
   const majorHierarchy = useMemo<MajorHierarchyCollege[]>(() => {
     const collegeMap = new Map<string, Map<string, Map<string, SelectedMajor>>>();
@@ -398,17 +497,47 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
     return selected?.shortName || getMajorShortName(activeMajor);
   }, [activeMajor, selectedMajors]);
 
-  const buildPlannedCourses = (majorName: string) => {
+  const buildPlannedCourses = (majorName: string, majorShortName?: string, dbCourses?: Course[]) => {
     const completedCourses = getCoursesByGradeUpTo(CURRENT_STUDENT.grade);
     const completedCourseNumbers = new Set(completedCourses.map((c) => c.courseNumber));
 
-    return getSubjectCoursesForMajor(majorName).map((course, idx) => ({
+    // DB에서 가져온 교과목이 있으면 사용, 없으면 기존 CSV 데이터 사용
+    const courses = dbCourses || dbCoursesCache.get(majorName) || getSubjectCoursesForMajor(majorName);
+    const shortName = majorShortName || getMajorShortName(majorName);
+
+    return courses.map((course, idx) => ({
       ...course,
-      plannedId: `course-${idx}-${course.courseNumber}`,
+      plannedId: `${majorName}-course-${idx}-${course.courseNumber}`,
       targetGrade: getCourseGrade(course.courseNumber),
-      isCompleted: completedCourseNumbers.has(course.courseNumber)
+      isCompleted: completedCourseNumbers.has(course.courseNumber),
+      majorName: majorName,
+      majorShortName: shortName
     }));
   };
+
+  // 선택된 모든 전공의 교과목을 DB에서 가져오기
+  useEffect(() => {
+    if (selectedMajors.length === 0) return;
+
+    const loadAllCoursesFromDB = async () => {
+      const newCache = new Map(dbCoursesCache);
+      let updated = false;
+
+      for (const major of selectedMajors) {
+        if (!newCache.has(major.fullName)) {
+          const courses = await fetchCoursesFromDB(major.fullName);
+          newCache.set(major.fullName, courses);
+          updated = true;
+        }
+      }
+
+      if (updated) {
+        setDbCoursesCache(newCache);
+      }
+    };
+
+    loadAllCoursesFromDB();
+  }, [selectedMajors]);
 
   // 교과목 풀 초기화 함수
   const initializeSemesters = (majorName?: string) => {
@@ -440,18 +569,65 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
     return { newSemesters, remaining };
   };
 
+  // 저장된 계획 불러오기 (DB 우선, localStorage 폴백)
   useEffect(() => {
-    const saved = localStorage.getItem('curriculumPlans');
-    if (saved) {
-      setSavedPlans(JSON.parse(saved));
-    }
+    const loadPlans = async () => {
+      // 로그인한 경우 DB에서 가져오기
+      if (currentStudentId) {
+        const dbPlans = await getCurriculumPlansByStudentId(currentStudentId);
+        if (dbPlans.length > 0) {
+          setSavedPlans(dbPlans.map(p => ({
+            name: p.name,
+            majorName: p.major_name,
+            createdAt: p.created_at || new Date().toISOString(),
+            updatedAt: p.updated_at || new Date().toISOString(),
+            semesters: p.semesters
+          })));
+        } else {
+          // DB에 없으면 localStorage에서 가져오기
+          const saved = localStorage.getItem('curriculumPlans');
+          if (saved) {
+            setSavedPlans(JSON.parse(saved));
+          }
+        }
+      } else {
+        // 비로그인 시 localStorage에서 가져오기
+        const saved = localStorage.getItem('curriculumPlans');
+        if (saved) {
+          setSavedPlans(JSON.parse(saved));
+        }
+      }
+    };
 
-    // Load custom major combinations
-    const savedCustom = localStorage.getItem('customMajorPlans');
-    if (savedCustom) {
-      setSavedCustomMajors(JSON.parse(savedCustom));
-    }
-  }, []);
+    loadPlans();
+
+    // Load custom major combinations (DB 우선)
+    const loadCustomMajors = async () => {
+      if (currentStudentId) {
+        const dbPlans = await getCustomMajorPlansByStudentId(currentStudentId);
+        if (dbPlans.length > 0) {
+          setSavedCustomMajors(dbPlans.map(p => ({
+            id: p.id || Date.now().toString(),
+            name: p.name,
+            majors: {
+              primary: p.primary_major,
+              secondary: p.secondary_major,
+              minor: p.minor_major,
+            },
+            createdAt: p.created_at || new Date().toISOString(),
+          })));
+          return;
+        }
+      }
+      // localStorage 폴백
+      const savedCustom = localStorage.getItem('customMajorPlans');
+      if (savedCustom) {
+        setSavedCustomMajors(JSON.parse(savedCustom));
+      }
+    };
+
+    loadCustomMajors();
+  }, [currentStudentId]);
 
   useEffect(() => {
     if (!activeMajor) {
@@ -460,24 +636,42 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
       return;
     }
 
+    // 학기 데이터는 활성 전공 기준으로 유지
     if (majorPlanners[activeMajor]) {
       setSemesters(majorPlanners[activeMajor]);
-
-      const placedIds = new Set<string>();
-      majorPlanners[activeMajor].forEach(sem => {
-        sem.courses.forEach(c => placedIds.add(c.plannedId));
-      });
-
-      const allCoursesWithId = buildPlannedCourses(activeMajor);
-      setAvailableCourses(allCoursesWithId.filter(c => !placedIds.has(c.plannedId)));
-      return;
+    } else {
+      const { newSemesters } = initializeSemesters(activeMajor);
+      setSemesters(newSemesters);
+      setMajorPlanners(prev => ({ ...prev, [activeMajor]: newSemesters }));
     }
 
-    const { newSemesters, remaining } = initializeSemesters(activeMajor);
-    setSemesters(newSemesters);
-    setAvailableCourses(remaining);
-    setMajorPlanners(prev => ({ ...prev, [activeMajor]: newSemesters }));
-  }, [activeMajor, majorPlanners]);
+    // 모든 선택된 전공의 교과목을 합쳐서 교과목 풀 생성
+    const allPlacedIds = new Set<string>();
+
+    // 모든 전공의 학기에 배치된 과목 ID 수집
+    selectedMajors.forEach(major => {
+      const planner = majorPlanners[major.fullName];
+      if (planner) {
+        planner.forEach(sem => {
+          sem.courses.forEach(c => allPlacedIds.add(c.plannedId));
+        });
+      }
+    });
+
+    // 모든 선택된 전공의 교과목 합치기
+    const allCourses: PlannedCourse[] = [];
+    selectedMajors.forEach(major => {
+      const courses = buildPlannedCourses(major.fullName, major.shortName);
+      courses.forEach(course => {
+        // 이미 배치된 과목은 제외
+        if (!allPlacedIds.has(course.plannedId)) {
+          allCourses.push(course);
+        }
+      });
+    });
+
+    setAvailableCourses(allCourses);
+  }, [activeMajor, selectedMajors, majorPlanners, dbCoursesCache]);
 
   const handleSelectMajor = (major: SelectedMajor) => {
     setSelectedMajors(prev => {
@@ -604,10 +798,20 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
 
   // 총 학점 계산
   const totalCredits = useMemo(() => {
-    return semesters.reduce((sum, sem) => 
+    return semesters.reduce((sum, sem) =>
       sum + sem.courses.reduce((s, c) => s + c.credits, 0), 0
     );
   }, [semesters]);
+
+  // 검색 필터링된 교과목 목록
+  const filteredAvailableCourses = useMemo(() => {
+    if (!courseSearchQuery.trim()) return availableCourses;
+    const query = courseSearchQuery.trim().toLowerCase();
+    return availableCourses.filter(course =>
+      course.courseName.toLowerCase().includes(query) ||
+      (course.professor && course.professor.toLowerCase().includes(query))
+    );
+  }, [availableCourses, courseSearchQuery]);
 
   // 학기별 학점
   const semesterCredits = useMemo(() => {
@@ -661,7 +865,8 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
   };
 
   // 계획 저장
-  const savePlan = () => {
+  // 계획 저장 (DB + localStorage 폴백)
+  const savePlan = async () => {
     if (!activeMajor) {
       alert('전공을 선택한 후 저장할 수 있습니다.');
       return;
@@ -673,6 +878,32 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
       semesterData[key] = sem.courses.map(c => c.courseNumber);
     });
 
+    // DB 저장 시도 (로그인한 경우)
+    if (currentStudentId) {
+      const result = await saveCurriculumPlan({
+        student_id: currentStudentId,
+        name: planName,
+        major_name: activeMajor,
+        semesters: semesterData
+      });
+
+      if (result) {
+        // DB에서 최신 목록 다시 가져오기
+        const plans = await getCurriculumPlansByStudentId(currentStudentId);
+        setSavedPlans(plans.map(p => ({
+          name: p.name,
+          majorName: p.major_name,
+          createdAt: p.created_at || new Date().toISOString(),
+          updatedAt: p.updated_at || new Date().toISOString(),
+          semesters: p.semesters
+        })));
+        setShowSaveModal(false);
+        alert('계획이 저장되었습니다!');
+        return;
+      }
+    }
+
+    // localStorage 폴백 (비로그인 또는 DB 실패)
     const newPlan: SavedPlan = {
       name: planName,
       majorName: activeMajor,
@@ -685,7 +916,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
       p => p.name === planName && p.majorName === activeMajor
     );
     let updatedPlans: SavedPlan[];
-    
+
     if (existingIndex >= 0) {
       updatedPlans = [...savedPlans];
       updatedPlans[existingIndex] = { ...newPlan, createdAt: savedPlans[existingIndex].createdAt };
@@ -778,7 +1009,8 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
   };
 
   // 나만의 전공 조합 저장
-  const saveCustomMajor = () => {
+  // 나만의 전공 조합 저장 (DB + localStorage 폴백)
+  const saveCustomMajor = async () => {
     if (!customMajorName.trim()) {
       alert('조합 이름을 입력해주세요.');
       return;
@@ -789,6 +1021,37 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
       return;
     }
 
+    // DB 저장 시도 (로그인한 경우)
+    if (currentStudentId) {
+      const result = await saveCustomMajorPlan({
+        student_id: currentStudentId,
+        name: customMajorName,
+        primary_major: selectedMajors[0]?.fullName || "",
+        secondary_major: selectedMajors[1]?.fullName,
+        minor_major: selectedMajors[2]?.fullName,
+      });
+
+      if (result) {
+        // DB에서 최신 목록 다시 가져오기
+        const plans = await getCustomMajorPlansByStudentId(currentStudentId);
+        setSavedCustomMajors(plans.map(p => ({
+          id: p.id || Date.now().toString(),
+          name: p.name,
+          majors: {
+            primary: p.primary_major,
+            secondary: p.secondary_major,
+            minor: p.minor_major,
+          },
+          createdAt: p.created_at || new Date().toISOString(),
+        })));
+        setShowCustomMajorModal(false);
+        setCustomMajorName("");
+        alert('나만의 전공 조합이 저장되었습니다!');
+        return;
+      }
+    }
+
+    // localStorage 폴백 (비로그인 또는 DB 실패)
     const newCustomMajor: CustomMajorPlan = {
       id: Date.now().toString(),
       name: customMajorName,
@@ -853,8 +1116,14 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
   };
 
   // 저장된 나만의 전공 조합 삭제
-  const deleteCustomMajor = (id: string) => {
+  // 나만의 전공 조합 삭제 (DB + localStorage)
+  const deleteCustomMajorHandler = async (id: string, name: string) => {
     if (confirm('이 전공 조합을 삭제하시겠습니까?')) {
+      // DB 삭제 시도 (로그인한 경우)
+      if (currentStudentId) {
+        await deleteCustomMajorPlan(currentStudentId, name);
+      }
+
       const updated = savedCustomMajors.filter(plan => plan.id !== id);
       setSavedCustomMajors(updated);
       localStorage.setItem('customMajorPlans', JSON.stringify(updated));
@@ -939,7 +1208,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        deleteCustomMajor(customPlan.id);
+                        deleteCustomMajorHandler(customPlan.id, customPlan.name);
                       }}
                       className="text-gray-400 hover:text-red-500 transition-colors"
                       title="삭제"
@@ -956,7 +1225,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
         </div>
       )}
 
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200">
         <div className="flex items-end px-4 pt-2 bg-gray-50 border-b border-gray-200 overflow-x-auto scrollbar-hide">
           {selectedMajors.map((major, idx) => {
             const isActive = activeMajor === major.fullName;
@@ -998,8 +1267,9 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
           })}
 
           {selectedMajors.length === 0 && (
-            <div className="px-6 py-3 text-sm text-gray-400 italic">
-              상단에서 전공을 선택해주세요.
+            <div className="px-6 py-3 text-sm text-gray-500 font-medium flex items-center gap-2">
+              <span className="text-lg">👇</span>
+              <span>아래에서 전공을 선택해주세요</span>
             </div>
           )}
         </div>
@@ -1358,6 +1628,20 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
       </div>
 
       {/* 메인 플래너 영역 */}
+      {selectedMajors.length === 0 ? (
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-8 text-center border-2 border-dashed border-blue-200">
+          <div className="text-6xl mb-4">📚</div>
+          <h3 className="text-2xl font-bold text-gray-800 mb-2">전공을 선택해주세요</h3>
+          <p className="text-gray-600 mb-4">
+            위의 <strong>"전공 탐색"</strong> 섹션에서 원하는 전공을 선택하시면<br />
+            해당 전공의 교과목을 확인하고 커리큘럼을 계획할 수 있습니다.
+          </p>
+          <div className="flex justify-center gap-2 text-sm text-gray-500">
+            <span>💡</span>
+            <span>여러 전공을 선택하여 융합 전공 커리큘럼도 설계할 수 있어요!</span>
+          </div>
+        </div>
+      ) : (
       <div className="grid lg:grid-cols-4 gap-4">
         {/* 교과목 풀 - 사이드바 (sticky) */}
         <div className="lg:col-span-1">
@@ -1365,10 +1649,34 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
             <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2 border-b border-gray-100 pb-2 text-sm">
               <span>📚</span> 교과목 풀
               <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded-full text-gray-600">
-                {availableCourses.length}개
+                {filteredAvailableCourses.length}/{availableCourses.length}개
               </span>
             </h3>
-          
+
+          {/* 교과목 검색 */}
+          <div className="relative mb-3">
+            <input
+              type="text"
+              value={courseSearchQuery}
+              onChange={(e) => setCourseSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-8 py-1.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none text-xs placeholder-gray-400"
+              placeholder="교과목 검색..."
+            />
+            <svg className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            {courseSearchQuery && (
+              <button
+                onClick={() => setCourseSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-200 transition-colors"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+
           {/* 학년별 필터/범례 */}
           <div className="flex flex-wrap gap-1 mb-3 pb-2 border-b border-gray-200">
             {[1, 2, 3, 4].map(grade => (
@@ -1378,9 +1686,9 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
               </div>
             ))}
           </div>
-          
+
           <div className="space-y-2">
-            {availableCourses.map(course => {
+            {filteredAvailableCourses.map(course => {
               const grade = course.targetGrade || getCourseGrade(course.courseNumber);
               const module = getModuleForCourse(course.courseNumber);
               
@@ -1401,6 +1709,10 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1 mb-1 flex-wrap">
+                        {/* 전공명 배지 */}
+                        <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700" title={course.majorName}>
+                          {course.majorShortName || '전공'}
+                        </span>
                         {/* 학년 배지 */}
                         <span className={`px-1.5 py-0.5 rounded text-xs font-bold text-white ${getGradeColor(grade)}`}>
                           {grade ? `${grade}학년` : '미정'}
@@ -1414,7 +1726,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                         </span>
                         {/* 모듈 표시 */}
                         {module && (
-                          <span 
+                          <span
                             className="px-1.5 py-0.5 rounded text-xs font-medium text-white"
                             style={{ backgroundColor: module.color }}
                           >
@@ -1430,6 +1742,13 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
                 </motion.div>
               );
             })}
+
+            {filteredAvailableCourses.length === 0 && availableCourses.length > 0 && (
+              <div className="text-center text-gray-400 py-8">
+                <div className="text-4xl mb-2">🔍</div>
+                <p className="text-sm">"{courseSearchQuery}" 검색 결과가 없습니다</p>
+              </div>
+            )}
 
             {availableCourses.length === 0 && (
               <div className="text-center text-gray-400 py-8">
@@ -1559,6 +1878,7 @@ export default function CurriculumPlanner({ riasecResult }: CurriculumPlannerPro
           ))}
         </div>
       </div>
+      )}
 
       <AnimatePresence>
         {showSaveModal && (

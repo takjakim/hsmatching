@@ -249,23 +249,23 @@ export default function MajorPreview({ selectedClusters, onStartRiasec, onBack, 
       <AnimatePresence>
         {selectedMajor && (
           <>
-            {/* Backdrop */}
+            {/* Backdrop - z-index를 Layout 헤더(z-50)보다 높게 설정 */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-30 bg-black/40"
+              className="fixed inset-0 z-[60] bg-black/40"
               onClick={() => setSelectedMajorKey(null)}
             />
 
-            {/* Modal */}
+            {/* Modal - z-index를 Layout 헤더(z-50)보다 높게 설정 */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 40 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 40 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed inset-0 z-40 flex items-center justify-center p-4"
+              className="fixed inset-0 z-[70] flex items-center justify-center p-4"
               onClick={() => setSelectedMajorKey(null)}
             >
               <div

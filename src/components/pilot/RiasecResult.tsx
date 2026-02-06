@@ -44,6 +44,7 @@ interface RiasecResultProps {
   onSkip?: () => void;
   onNavigate?: (page: string) => void;
   onRestart?: () => void;
+  onStartSupplementary?: () => void;  // 보완검사 시작 (건너뛴 경우)
   participantName?: string;
   supplementaryData?: SupplementaryData;
   isComplete?: boolean;  // true if survey is complete (shows different UI)
@@ -740,6 +741,7 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
   onSkip,
   onNavigate,
   onRestart,
+  onStartSupplementary,
   participantName,
   supplementaryData,
   isComplete = false,
@@ -2383,11 +2385,26 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
             <div className="flex flex-col sm:flex-row gap-4">
               {isComplete ? (
                 <>
-                  {onNavigate && (
+                  {/* 보완검사 안한 경우: 보완검사하기 버튼, 한 경우: 메인으로 버튼 */}
+                  {!supplementaryData && onStartSupplementary ? (
                     <motion.button
                       whileHover={{ y: -3, scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => onNavigate('landing')}
+                      onClick={onStartSupplementary}
+                      className="px-10 py-4 rounded-2xl font-semibold shadow-lg transition-all duration-300"
+                      style={{
+                        backgroundColor: '#FFFFFF',
+                        color: COLORS.primary,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      }}
+                    >
+                      보완검사하기
+                    </motion.button>
+                  ) : onNavigate && (
+                    <motion.button
+                      whileHover={{ y: -3, scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => onNavigate('dashboard')}
                       className="px-10 py-4 rounded-2xl font-semibold shadow-lg transition-all duration-300"
                       style={{
                         backgroundColor: '#FFFFFF',

@@ -33,3 +33,13 @@ npm-debug.log*
 
 # Zip files
 *.zip
+
+# oh-my-claudecode state
+.omc/
+
+# Data files (CSV with sensitive info)
+*.csv
+졸업생취업데이터/
+
+# SQL data dumps
+sql/*.csv
