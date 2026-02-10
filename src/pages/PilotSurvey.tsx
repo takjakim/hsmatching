@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePilotSurvey } from '../hooks/usePilotSurvey';
-import { getStudentIdFromUrl } from '../utils/tokenAuth';
+import { getStudentIdFromUrl, getUserInfoFromUrl } from '../utils/tokenAuth';
 import PilotIntro from '../components/pilot/PilotIntro';
 import LikertQuestion from '../components/pilot/LikertQuestion';
 import SingleSelectQuestion from '../components/pilot/SingleSelectQuestion';
@@ -41,28 +41,32 @@ export default function PilotSurvey({
   initialRiasecAnswers,
   startAtSupplementary = false,
 }: PilotSurveyProps) {
-  // URL 토큰에서 학번 추출 (외부 시스템 연동용)
+  // URL에서 사용자 정보 추출 (이니스트 SSO 연동)
+  const [urlUserInfo] = useState(() => getUserInfoFromUrl());
+  // 기존 토큰 방식 호환 (학번만)
   const [tokenStudentId] = useState<string | null>(() => getStudentIdFromUrl());
 
-  // 학번 우선순위: URL 토큰 > props > 입력
-  const effectiveStudentId = tokenStudentId || currentStudentId || '';
+  // 외부 연동 여부: URL에서 사용자 정보가 있으면 true
+  const isExternalAccess = !!(urlUserInfo?.name && urlUserInfo?.email) || !!tokenStudentId;
 
-  // 토큰으로 접속 시 더미 데이터 사용 (외부 시스템 연동 테스트용)
-  const isExternalAccess = !!tokenStudentId;
+  // 학번 우선순위: URL 사용자정보 > URL 토큰 > props > 입력
+  const effectiveStudentId = urlUserInfo?.studentId || tokenStudentId || currentStudentId || '';
 
   const [participantInfo, setParticipantInfo] = useState<ParticipantInfo>({
-    name: isExternalAccess ? '김삼순' : '',
+    name: urlUserInfo?.name || (tokenStudentId ? '김삼순' : ''),
     studentId: effectiveStudentId,
-    email: isExternalAccess ? 'test@test.com' : '',
+    email: urlUserInfo?.email || (tokenStudentId ? 'test@test.com' : ''),
   });
 
-  // URL 토큰으로 학번이 전달된 경우 콘솔 로그 (디버깅용)
+  // URL에서 사용자 정보가 전달된 경우 콘솔 로그 (디버깅용)
   useEffect(() => {
-    if (tokenStudentId) {
-      console.log('[TokenAuth] URL 토큰에서 학번 추출됨:', tokenStudentId);
-      console.log('[TokenAuth] 외부 연동 모드 - 더미 데이터 사용:', { name: '김삼순', email: 'test@test.com' });
+    if (urlUserInfo) {
+      console.log('[TokenAuth] URL에서 사용자 정보 추출됨:', urlUserInfo);
+    } else if (tokenStudentId) {
+      console.log('[TokenAuth] URL 토큰에서 학번만 추출됨:', tokenStudentId);
+      console.log('[TokenAuth] 외부 연동 모드 - 더미 데이터 사용');
     }
-  }, [tokenStudentId]);
+  }, [urlUserInfo, tokenStudentId]);
 
   const {
     phase,
