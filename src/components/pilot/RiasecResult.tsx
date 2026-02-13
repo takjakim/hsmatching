@@ -2403,7 +2403,7 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
                     <motion.button
                       whileHover={{ y: -3, scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => onNavigate('dashboard')}
+                      onClick={() => onNavigate('landing')}
                       className="px-10 py-4 rounded-2xl font-semibold shadow-lg transition-all duration-300"
                       style={{
                         backgroundColor: '#FFFFFF',

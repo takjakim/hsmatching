@@ -68,6 +68,7 @@ export default function PilotSurvey({
     riasecAnswers,
     riasecScores,
     currentRiasecQuestion,
+    riasecDisplayValue,
     answerRiasecQuestion,
     goToPreviousRiasec,
     riasecCanGoPrevious,
@@ -171,7 +172,7 @@ export default function PilotSurvey({
     return (
       <RiasecQuestion
         question={currentRiasecQuestion}
-        value={riasecAnswers[currentRiasecQuestion.id]}
+        value={riasecDisplayValue}
         onChange={answerRiasecQuestion}
         onPrevious={goToPreviousRiasec}
         canGoPrevious={riasecCanGoPrevious}

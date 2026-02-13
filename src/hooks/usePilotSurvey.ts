@@ -20,6 +20,30 @@ import { QUESTION_POOL, ClusterType } from '../data/questionPool';
 const STORAGE_KEY = 'pilot_survey_progress';
 const AUTO_SAVE_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
+// Fisher-Yates shuffle
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+interface ShuffledRiasecItem {
+  originalIndex: number;
+  swapped: boolean; // true = A/B visually swapped
+}
+
+function generateShuffledOrder(): ShuffledRiasecItem[] {
+  return shuffleArray(
+    QUESTION_POOL.map((_, i) => ({
+      originalIndex: i,
+      swapped: Math.random() < 0.5,
+    }))
+  );
+}
+
 interface ParticipantInfo {
   name: string;
   studentId: string;
@@ -66,6 +90,7 @@ interface UsePilotSurveyReturn {
   riasecAnswers: RiasecAnswer;
   riasecScores: RiasecScores | null;
   currentRiasecQuestion: typeof QUESTION_POOL[0] | null;
+  riasecDisplayValue: 'A' | 'B' | undefined;
   answerRiasecQuestion: (choice: 'A' | 'B') => void;
   goToPreviousRiasec: () => void;
   goToNextRiasec: () => void;
@@ -115,13 +140,44 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
   const [selectedClusters, setSelectedClusters] = useState<ClusterType[]>([]);
   const [interestedMajorKeys, setInterestedMajorKeys] = useState<string[]>([]);
 
+  // Shuffled RIASEC question order + A/B swap flags (restored from localStorage or generated fresh)
+  const [shuffledOrder, setShuffledOrder] = useState<ShuffledRiasecItem[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.shuffledOrder?.length === QUESTION_POOL.length) {
+          return parsed.shuffledOrder;
+        }
+      } catch { /* ignore */ }
+    }
+    return generateShuffledOrder();
+  });
+
   // Calculate active questions based on current answers (handles conditional questions)
   const activeQuestions = useMemo(() => {
     return getActiveQuestions(answers);
   }, [answers]);
 
   const currentQuestion = activeQuestions[currentIndex] || null;
-  const currentRiasecQuestion = QUESTION_POOL[riasecIndex] || null;
+
+  // Shuffled RIASEC: return question with A/B potentially swapped
+  const currentRiasecQuestion = useMemo(() => {
+    const item = shuffledOrder[riasecIndex];
+    if (!item) return null;
+    const orig = QUESTION_POOL[item.originalIndex];
+    if (!item.swapped) return orig;
+    return { ...orig, A: orig.B, B: orig.A };
+  }, [shuffledOrder, riasecIndex]);
+
+  // Display value: translate stored answer back to swapped display coordinates
+  const riasecDisplayValue = useMemo((): 'A' | 'B' | undefined => {
+    const item = shuffledOrder[riasecIndex];
+    if (!item) return undefined;
+    const stored = riasecAnswers[QUESTION_POOL[item.originalIndex].id];
+    if (!stored) return undefined;
+    return item.swapped ? (stored === 'A' ? 'B' : 'A') : stored;
+  }, [shuffledOrder, riasecIndex, riasecAnswers]);
 
   // Load saved progress from localStorage
   useEffect(() => {
@@ -191,6 +247,7 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
         riasecIndex,
         riasecAnswers,
         riasecScores,
+        shuffledOrder,
         savedAt: new Date().toISOString()
       }));
     };
@@ -201,7 +258,7 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
     // Save periodically
     const interval = setInterval(saveProgress, AUTO_SAVE_INTERVAL);
     return () => clearInterval(interval);
-  }, [answers, currentIndex, phase, riasecIndex, riasecAnswers, riasecScores]);
+  }, [answers, currentIndex, phase, riasecIndex, riasecAnswers, riasecScores, shuffledOrder]);
 
   // Calculate RIASEC scores
   const calculateRiasecScores = useCallback((answers: RiasecAnswer): RiasecScores => {
@@ -299,6 +356,7 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
     setPhase('riasec');
     setRiasecIndex(0);
     setRiasecAnswers({});
+    setShuffledOrder(generateShuffledOrder());
   }, []);
 
   // Start survey (redirects to interest_select)
@@ -389,8 +447,11 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
 
   // Answer RIASEC question and auto-advance
   const answerRiasecQuestion = useCallback((choice: 'A' | 'B') => {
-    const questionId = QUESTION_POOL[riasecIndex].id;
-    const newAnswers = { ...riasecAnswers, [questionId]: choice };
+    const item = shuffledOrder[riasecIndex];
+    const questionId = QUESTION_POOL[item.originalIndex].id;
+    // Translate display choice back to original A/B if swapped
+    const actualChoice = item.swapped ? (choice === 'A' ? 'B' : 'A') : choice;
+    const newAnswers = { ...riasecAnswers, [questionId]: actualChoice };
     setRiasecAnswers(newAnswers);
 
     // Auto-advance after a short delay for visual feedback
@@ -407,7 +468,7 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
         setRiasecIndex(prev => prev + 1);
       }
     }, 300);
-  }, [riasecIndex, riasecAnswers, calculateRiasecScores, saveRiasecResult]);
+  }, [riasecIndex, riasecAnswers, shuffledOrder, calculateRiasecScores, saveRiasecResult]);
 
   // Answer current question and auto-advance
   const answerQuestion = useCallback((answer: PilotAnswer) => {
@@ -651,13 +712,17 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
 
   // Reset survey
   const resetSurvey = useCallback(() => {
-    setPhase('intro');
+    setPhase(skipIntro ? 'interest_select' : 'intro');
     setCurrentIndex(0);
     setAnswers({});
     setResult(null);
     setError(null);
+    setRiasecIndex(0);
+    setRiasecAnswers({});
+    setRiasecScores(null);
+    setShuffledOrder(generateShuffledOrder());
     localStorage.removeItem(STORAGE_KEY);
-  }, []);
+  }, [skipIntro]);
 
   return {
     // Existing
@@ -683,6 +748,7 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
     riasecAnswers,
     riasecScores,
     currentRiasecQuestion,
+    riasecDisplayValue,
     answerRiasecQuestion,
     goToPreviousRiasec,
     goToNextRiasec,

@@ -102,8 +102,8 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
             >
               {mode === 'external' ? (
                 <>
-                  진로<br />
-                  적합도 검사
+                  MJU 전공<br />
+                  진로 적합도 검사
                 </>
               ) : (
                 <>
@@ -460,7 +460,7 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
                   }}
                 >
                   <p className="mb-2">
-                    <strong>1. 수집 항목:</strong> 이름, 학번(선택), 이메일 주소, 검사 응답 결과, 기기 정보
+                    <strong>1. 수집 항목:</strong> 이름, 이메일 주소, 검사 응답 결과, 기기 정보
                   </p>
                   <p className="mb-2">
                     <strong>2. 수집 목적:</strong> 진로 흥미 유형 검사 결과 제공 및 명지대학교 진로교육 연구

@@ -36,7 +36,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentPage, setCurrentPage] = useState(() => {
     const path = window.location.pathname.replace(/^\//, '');
-    const publicPages = ['landing', 'result-viewer', 'login', 'pilot', 'riasec', 'riasec-old', 'mju', 'assessment'];
+    const publicPages = ['landing', 'result-viewer', 'login', 'testlogin', 'pilot', 'riasec', 'riasec-old', 'mju', 'assessment'];
     if (path && publicPages.includes(path)) return path;
     return 'landing'; // 파일럿 기간: 기본 페이지를 랜딩(외부검사)으로 변경
   });
@@ -96,7 +96,7 @@ export default function App() {
     const savedAdminUser = localStorage.getItem('auth_adminUser');
 
     const initialPath = window.location.pathname.replace(/^\//, '');
-    const publicPages = ['landing', 'result-viewer', 'login', 'pilot', 'riasec', 'riasec-old', 'mju', 'assessment'];
+    const publicPages = ['landing', 'result-viewer', 'login', 'testlogin', 'pilot', 'riasec', 'riasec-old', 'mju', 'assessment'];
 
     if (savedIsLoggedIn && savedStudentId) {
       setIsLoggedIn(true);
@@ -145,13 +145,13 @@ export default function App() {
     if (!authInitialized) return;
 
     const handlePopState = () => {
-      const path = window.location.pathname.replace(/^\//, '') || 'login';
+      const path = window.location.pathname.replace(/^\//, '') || 'landing';
       // 보호된 페이지에 비로그인 상태로 접근하는 경우 처리
-      const publicPages = ['landing', 'result-viewer', 'login', 'pilot', 'riasec', 'riasec-old', 'mju', 'assessment'];
+      const publicPages = ['landing', 'result-viewer', 'login', 'testlogin', 'pilot', 'riasec', 'riasec-old', 'mju', 'assessment'];
       if (!isLoggedIn && !publicPages.includes(path)) {
         // 원래 가려던 페이지를 sessionStorage에 저장
         sessionStorage.setItem('redirectAfterLogin', path);
-        setCurrentPage('login');
+        setCurrentPage('landing');
       } else {
         setCurrentPage(path);
       }
@@ -163,7 +163,7 @@ export default function App() {
     if (!isLoggedIn) {
       const initialPath = window.location.pathname.replace(/^\//, '');
       if (initialPath) {
-        const publicPages = ['landing', 'result-viewer', 'login', 'pilot', 'riasec', 'riasec-old', 'mju', 'assessment'];
+        const publicPages = ['landing', 'result-viewer', 'login', 'testlogin', 'pilot', 'riasec', 'riasec-old', 'mju', 'assessment'];
 
         if (initialPath === 'pilot') {
           setCurrentPage('pilot');
@@ -172,7 +172,7 @@ export default function App() {
         } else if (!publicPages.includes(initialPath)) {
           // 비로그인 상태로 보호된 페이지 접근 시
           sessionStorage.setItem('redirectAfterLogin', initialPath);
-          setCurrentPage('login');
+          setCurrentPage('landing');
         } else if (initialPath !== currentPage) {
           setCurrentPage(initialPath);
         }
@@ -190,15 +190,15 @@ export default function App() {
         window.history.pushState({}, '', `/${currentPage}`);
       }
       localStorage.setItem('auth_currentPage', currentPage);
-    } else if (currentPage === 'login') {
-      // 로그인 페이지로 이동 시 URL 업데이트
+    } else if (currentPage === 'login' || currentPage === 'landing') {
+      // 파일럿 기간: landing 페이지 URL 업데이트
       const currentPath = window.location.pathname.replace(/^\//, '');
-      if (currentPath !== 'login') {
-        window.history.pushState({}, '', '/login');
+      if (currentPath !== 'landing') {
+        window.history.pushState({}, '', '/landing');
       }
     } else if (currentPage) {
       // 공개 페이지 URL 업데이트
-      const publicPages = ['landing', 'result-viewer', 'pilot', 'riasec', 'riasec-old', 'mju', 'assessment'];
+      const publicPages = ['landing', 'result-viewer', 'testlogin', 'pilot', 'riasec', 'riasec-old', 'mju', 'assessment'];
       if (publicPages.includes(currentPage)) {
         const currentPath = window.location.pathname.replace(/^\//, '');
         if (currentPath !== currentPage) {
@@ -369,10 +369,10 @@ export default function App() {
     setIsLoggedIn(false);
     setIsAdmin(false);
     setAdminUser(null);
-    setCurrentPage("login");
+    setCurrentPage("landing");
 
-    // URL도 login으로 업데이트
-    window.history.pushState({}, '', '/login');
+    // URL도 landing으로 업데이트
+    window.history.pushState({}, '', '/landing');
   };
 
   const handleRiasecComplete = (result: Record<Dim, number>) => {
@@ -518,7 +518,7 @@ export default function App() {
   useEffect(() => {
     // 초기 로드 시에만 실행 (currentPage가 초기값일 때)
     if (!isLoggedIn && currentPage === "dashboard") {
-      setCurrentPage("login");
+      setCurrentPage("landing");
     }
   }, [isLoggedIn]); // currentPage 의존성 제거하여 무한 루프 방지
 
@@ -611,6 +611,9 @@ export default function App() {
         // 파일럿 기간: 로그인 비활성화 → 랜딩(외부검사)으로 리다이렉트
         setCurrentPage("landing");
         return null;
+      case "testlogin":
+        // 테스터용 로그인 페이지 (/testlogin)
+        return <Login onLogin={handleLogin} />;
       case "dashboard":
         // 관리자는 대시보드 접근 불가
         if (isAdmin) {
@@ -820,7 +823,7 @@ export default function App() {
   };
 
   // 공개 페이지 (로그인 불필요)
-  const publicPages = ["landing", "result-viewer", "login", "pilot", "riasec", "riasec-old", "mju", "assessment"];
+  const publicPages = ["landing", "result-viewer", "login", "testlogin", "pilot", "riasec", "riasec-old", "mju", "assessment"];
   const isPublicPage = publicPages.includes(currentPage);
 
   // 검사 페이지들
