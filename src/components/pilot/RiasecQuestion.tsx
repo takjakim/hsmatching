@@ -126,7 +126,7 @@ export default function RiasecQuestion({
                   transition={{ duration: 0.15 }}
                 >
                   <h1
-                    className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight lg:leading-snug"
+                    className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight lg:leading-snug break-keep"
                     style={{
                       color: COLORS.primary,
                       fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",

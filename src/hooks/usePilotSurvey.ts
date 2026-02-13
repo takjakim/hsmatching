@@ -34,6 +34,10 @@ interface UsePilotSurveyOptions {
   initialRiasecScores?: RiasecScores;
   initialRiasecAnswers?: RiasecAnswer;
   startAtSupplementary?: boolean;
+  // SSO 추가 정보
+  department?: string;
+  major?: string;
+  source?: string;
 }
 
 interface UsePilotSurveyReturn {
@@ -87,6 +91,9 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
     initialRiasecScores,
     initialRiasecAnswers,
     startAtSupplementary = false,
+    department,
+    major,
+    source,
   } = options;
 
   // 보완검사부터 시작하는 경우 phase를 supplementary로 설정
@@ -346,6 +353,9 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
         riasecAnswers: answers,
         skippedSupplementary: false,
         deviceInfo,
+        department,
+        major,
+        source,
       });
 
       console.log('RIASEC result saved to DB with code:', code, 'studentId:', participantInfo?.studentId);
@@ -491,6 +501,9 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
           riasecScores: riasecScores || undefined,
           riasecAnswers: riasecAnswers || undefined,
           deviceInfo,
+          department,
+          major,
+          source,
         });
 
         // Clear saved progress
@@ -533,6 +546,9 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
         riasecAnswers,
         skippedSupplementary: true,
         deviceInfo: getDeviceInfo(),
+        department,
+        major,
+        source,
       });
       localStorage.removeItem(STORAGE_KEY);
 
@@ -611,6 +627,9 @@ export function usePilotSurvey(options: UsePilotSurveyOptions = {}): UsePilotSur
           riasecScores: riasecScores || undefined,
           riasecAnswers: riasecAnswers || undefined,
           deviceInfo,
+          department,
+          major,
+          source,
         });
 
         // Clear saved progress

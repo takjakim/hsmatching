@@ -13,7 +13,8 @@ interface PilotIntroProps {
   onStart: () => void;
   participantInfo: ParticipantInfo;
   onParticipantInfoChange: (info: ParticipantInfo) => void;
-  mode?: 'mju' | 'external' | 'default';
+  mode?: 'mju' | 'external' | 'default' | 'sso';
+  ssoData?: { membernum: string; membername: string; departcode?: string; departname?: string; majorcode?: string; majorname?: string };
 }
 
 // Unified color palette
@@ -31,7 +32,7 @@ const COLORS = {
   },
 };
 
-export default function PilotIntro({ onStart, participantInfo, onParticipantInfoChange, mode = 'default' }: PilotIntroProps) {
+export default function PilotIntro({ onStart, participantInfo, onParticipantInfoChange, mode = 'default', ssoData }: PilotIntroProps) {
   const { name, studentId, email } = participantInfo;
   const isValidEmail = email.includes('@') && email.includes('.');
   const isValidName = name.trim().length >= 2;
@@ -39,8 +40,12 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
   const [selectedType, setSelectedType] = useState<RiasecCode | null>(null);
   const [isMjuStudent, setIsMjuStudent] = useState(mode !== 'external');
   const [consentChecked, setConsentChecked] = useState(false);
+  const [consent1, setConsent1] = useState(false);
+  const [consent2, setConsent2] = useState(false);
+  const [consent3, setConsent3] = useState(false);
 
-  const canStart = isValidName && isValidEmail && consentChecked;
+  const canStartSso = consent1 && consent2; // consent3 is optional
+  const canStart = mode === 'sso' ? canStartSso : (isValidName && isValidEmail && consentChecked);
 
   const handleChange = (field: keyof ParticipantInfo, value: string) => {
     onParticipantInfoChange({ ...participantInfo, [field]: value });
@@ -169,29 +174,50 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
               </p>
             </div>
 
-            {/* Name Input */}
-            <div className="mb-4">
-              <label
-                className="block text-sm font-semibold mb-2"
-                style={{ color: COLORS.text.primary }}
-              >
-                이름 <span style={{ color: '#EF4444' }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => handleChange('name', e.target.value)}
-                placeholder="홍길동"
-                className="w-full p-3.5 rounded-xl border-2 outline-none transition-all text-base"
-                style={{
-                  borderColor: name ? (isValidName ? COLORS.primary : '#F87171') : '#E2E8F0',
-                  backgroundColor: COLORS.surface,
-                  color: COLORS.text.primary,
-                }}
-              />
-            </div>
+            {/* SSO Info Card or Name Input */}
+            {mode === 'sso' && ssoData ? (
+              <div className="mb-4 p-4 rounded-xl border-2" style={{ backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }}>
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#22C55E' }}>
+                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold mb-2" style={{ color: '#166534' }}>SSO 인증 완료</p>
+                    <div className="space-y-1 text-sm" style={{ color: '#15803D' }}>
+                      <p><span className="font-semibold">이름:</span> {ssoData.membername}</p>
+                      <p><span className="font-semibold">학번:</span> {ssoData.membernum}</p>
+                      {ssoData.departname && <p><span className="font-semibold">학과:</span> {ssoData.departname}</p>}
+                      {ssoData.majorname && <p><span className="font-semibold">전공:</span> {ssoData.majorname}</p>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-4">
+                <label
+                  className="block text-sm font-semibold mb-2"
+                  style={{ color: COLORS.text.primary }}
+                >
+                  이름 <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => handleChange('name', e.target.value)}
+                  placeholder="홍길동"
+                  className="w-full p-3.5 rounded-xl border-2 outline-none transition-all text-base"
+                  style={{
+                    borderColor: name ? (isValidName ? COLORS.primary : '#F87171') : '#E2E8F0',
+                    backgroundColor: COLORS.surface,
+                    color: COLORS.text.primary,
+                  }}
+                />
+              </div>
+            )}
 
-            {/* MJU Student Toggle - only show in default mode */}
+            {/* MJU Student Toggle - hidden in SSO mode */}
             {mode === 'default' && (
               <div className="mb-4">
                 <label className="flex items-center gap-3 cursor-pointer">
@@ -213,8 +239,8 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
               </div>
             )}
 
-            {/* Student ID Input (conditional) - hidden in external mode */}
-            {isMjuStudent && mode !== 'external' && (
+            {/* Student ID Input (conditional) - hidden in external and SSO mode */}
+            {isMjuStudent && mode !== 'external' && mode !== 'sso' && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
@@ -241,27 +267,29 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
               </motion.div>
             )}
 
-            {/* Email Input */}
-            <div className="mb-6">
-              <label
-                className="block text-sm font-semibold mb-2"
-                style={{ color: COLORS.text.primary }}
-              >
-                이메일 주소 <span style={{ color: '#EF4444' }}>*</span>
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                placeholder="example@email.com"
-                className="w-full p-3.5 rounded-xl border-2 outline-none transition-all text-base"
-                style={{
-                  borderColor: email ? (isValidEmail ? COLORS.primary : '#F87171') : '#E2E8F0',
-                  backgroundColor: COLORS.surface,
-                  color: COLORS.text.primary,
-                }}
-              />
-            </div>
+            {/* Email Input - hidden in SSO mode */}
+            {mode !== 'sso' && (
+              <div className="mb-6">
+                <label
+                  className="block text-sm font-semibold mb-2"
+                  style={{ color: COLORS.text.primary }}
+                >
+                  이메일 주소 <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => handleChange('email', e.target.value)}
+                  placeholder="example@email.com"
+                  className="w-full p-3.5 rounded-xl border-2 outline-none transition-all text-base"
+                  style={{
+                    borderColor: email ? (isValidEmail ? COLORS.primary : '#F87171') : '#E2E8F0',
+                    backgroundColor: COLORS.surface,
+                    color: COLORS.text.primary,
+                  }}
+                />
+              </div>
+            )}
 
             {/* RIASEC Types - Mobile only */}
             <div className="lg:hidden mb-6">
@@ -314,56 +342,152 @@ export default function PilotIntro({ onStart, participantInfo, onParticipantInfo
             </div>
 
             {/* Consent Section */}
-            <div
-              className="mb-6 p-5 rounded-xl border"
-              style={{
-                backgroundColor: COLORS.bg,
-                borderColor: '#E2E8F0',
-              }}
-            >
-              <h3
-                className="text-sm font-bold mb-3"
-                style={{ color: COLORS.text.primary }}
-              >
-                개인정보 수집 및 이용 동의
-              </h3>
+            {mode === 'sso' ? (
+              <div className="mb-6">
+                {/* 동의 1: 개인정보 수집·이용 (필수) */}
+                <div className="mb-3">
+                  <div
+                    className="p-3 rounded-lg mb-2 overflow-y-auto text-xs leading-relaxed"
+                    style={{
+                      backgroundColor: COLORS.surface,
+                      border: `1px solid #E2E8F0`,
+                      maxHeight: '120px',
+                      color: COLORS.text.secondary,
+                    }}
+                  >
+                    <p className="font-bold mb-1">개인정보 수집·이용 동의</p>
+                    <p className="mb-1"><strong>1. 수집 항목:</strong></p>
+                    <p className="mb-1">- MYiCap을 통해 제공받는 정보: 학번, 이름, 학과(코드/명), 전공(코드/명)</p>
+                    <p className="mb-1">- 서비스 이용 중 생성되는 정보: 진로적성검사(RIASEC) 응답 및 결과, 핵심역량진단 응답 및 결과, 전공능력진단 결과, 롤모델 선택 정보, 커리큘럼 설계 내역</p>
+                    <p className="mb-1">- 자동 수집 정보: 서비스 이용 기록(접속 일시, 접속 기기 정보)</p>
+                    <p className="mb-1"><strong>2. 수집 목적:</strong> 진로 흥미 유형 분석 및 결과 제공, 핵심역량 진단·분석, 전공 적합도 매칭·추천, 졸업생 롤모델 매칭, 커리큘럼 설계 지원</p>
+                    <p className="mb-1"><strong>3. 보유 기간:</strong> 재학 기간 중 보관하며, 구체적인 보관 및 파기 기준은 명지대학교 개인정보 처리방침에 따릅니다. 단, 동의 철회 시 지체 없이 파기합니다.</p>
+                    <p><strong>4. 동의 거부 시:</strong> 서비스 이용이 제한됩니다. 동의는 자발적이며, 거부에 따른 학업상 불이익은 없습니다.</p>
+                  </div>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={consent1}
+                      onChange={(e) => setConsent1(e.target.checked)}
+                      className="w-5 h-5 rounded border-2 accent-blue-600"
+                    />
+                    <span className="text-sm font-medium" style={{ color: COLORS.text.primary }}>
+                      위 내용에 동의합니다 <span style={{ color: '#EF4444' }}>(필수)</span>
+                    </span>
+                  </label>
+                </div>
+
+                {/* 동의 2: 제3자 제공 (필수) */}
+                <div className="mb-3">
+                  <div
+                    className="p-3 rounded-lg mb-2 overflow-y-auto text-xs leading-relaxed"
+                    style={{
+                      backgroundColor: COLORS.surface,
+                      border: `1px solid #E2E8F0`,
+                      maxHeight: '120px',
+                      color: COLORS.text.secondary,
+                    }}
+                  >
+                    <p className="font-bold mb-1">개인정보 제3자 제공 동의</p>
+                    <p className="mb-1"><strong>1. 제공받는 자:</strong> 명지대학교 진로상담 담당 부서</p>
+                    <p className="mb-1"><strong>2. 제공 항목:</strong> 학번, 이름, 검사 참여 여부, 진로적성검사(RIASEC) 결과 요약, 핵심역량진단 결과 요약, 전공 매칭 결과</p>
+                    <p className="mb-1"><strong>3. 제공 목적:</strong> 재학생 진로교육 운영 및 진로상담 지원</p>
+                    <p><strong>4. 보유 기간:</strong> 명지대학교 개인정보 처리방침에 따름</p>
+                  </div>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={consent2}
+                      onChange={(e) => setConsent2(e.target.checked)}
+                      className="w-5 h-5 rounded border-2 accent-blue-600"
+                    />
+                    <span className="text-sm font-medium" style={{ color: COLORS.text.primary }}>
+                      위 내용에 동의합니다 <span style={{ color: '#EF4444' }}>(필수)</span>
+                    </span>
+                  </label>
+                </div>
+
+                {/* 동의 3: 연구 목적 (선택) */}
+                <div className="mb-3">
+                  <div
+                    className="p-3 rounded-lg mb-2 overflow-y-auto text-xs leading-relaxed"
+                    style={{
+                      backgroundColor: COLORS.surface,
+                      border: `1px solid #E2E8F0`,
+                      maxHeight: '100px',
+                      color: COLORS.text.secondary,
+                    }}
+                  >
+                    <p className="font-bold mb-1">연구 목적 활용 동의</p>
+                    <p className="mb-1"><strong>1. 활용 항목:</strong> 검사 응답 결과, 역량진단 결과, 전공 매칭 결과 (비식별 처리)</p>
+                    <p className="mb-1"><strong>2. 활용 목적:</strong> 명지대학교 진로교육 연구 및 프로그램 개선을 위한 통계 분석</p>
+                    <p><strong>3. 보유 기간:</strong> 연구 목적 달성 시까지 (비식별 처리된 통계 데이터는 별도 보관 가능)</p>
+                  </div>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={consent3}
+                      onChange={(e) => setConsent3(e.target.checked)}
+                      className="w-5 h-5 rounded border-2 accent-blue-600"
+                    />
+                    <span className="text-sm font-medium" style={{ color: COLORS.text.primary }}>
+                      위 내용에 동의합니다 <span style={{ color: '#64748B' }}>(선택)</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            ) : (
               <div
-                className="p-3 rounded-lg mb-4 overflow-y-auto text-xs leading-relaxed"
+                className="mb-6 p-5 rounded-xl border"
                 style={{
-                  backgroundColor: COLORS.surface,
-                  border: `1px solid #E2E8F0`,
-                  maxHeight: '150px',
-                  color: COLORS.text.secondary,
+                  backgroundColor: COLORS.bg,
+                  borderColor: '#E2E8F0',
                 }}
               >
-                <p className="mb-2">
-                  <strong>1. 수집 항목:</strong> 이름, 학번(선택), 이메일 주소, 검사 응답 결과, 기기 정보
-                </p>
-                <p className="mb-2">
-                  <strong>2. 수집 목적:</strong> 진로 흥미 유형 검사 결과 제공 및 명지대학교 진로교육 연구
-                </p>
-                <p className="mb-2">
-                  <strong>3. 보유 기간:</strong> 검사일로부터 90일 후 자동 파기
-                </p>
-                <p className="mb-2">
-                  <strong>4. 동의 거부 시 불이익:</strong> 본 검사 참여가 제한됩니다. 동의는 자발적이며, 동의 거부 시 불이익은 없습니다.
-                </p>
-                <p>
-                  <strong>5.</strong> 개인정보는 「개인정보보호법」에 따라 안전하게 처리되며, 수집 목적 외 제3자 제공은 하지 않습니다.
-                </p>
+                <h3
+                  className="text-sm font-bold mb-3"
+                  style={{ color: COLORS.text.primary }}
+                >
+                  개인정보 수집 및 이용 동의
+                </h3>
+                <div
+                  className="p-3 rounded-lg mb-4 overflow-y-auto text-xs leading-relaxed"
+                  style={{
+                    backgroundColor: COLORS.surface,
+                    border: `1px solid #E2E8F0`,
+                    maxHeight: '150px',
+                    color: COLORS.text.secondary,
+                  }}
+                >
+                  <p className="mb-2">
+                    <strong>1. 수집 항목:</strong> 이름, 학번(선택), 이메일 주소, 검사 응답 결과, 기기 정보
+                  </p>
+                  <p className="mb-2">
+                    <strong>2. 수집 목적:</strong> 진로 흥미 유형 검사 결과 제공 및 명지대학교 진로교육 연구
+                  </p>
+                  <p className="mb-2">
+                    <strong>3. 보유 기간:</strong> 검사일로부터 90일 후 자동 파기
+                  </p>
+                  <p className="mb-2">
+                    <strong>4. 동의 거부 시 불이익:</strong> 본 검사 참여가 제한됩니다. 동의는 자발적이며, 동의 거부 시 불이익은 없습니다.
+                  </p>
+                  <p>
+                    <strong>5.</strong> 개인정보는 「개인정보보호법」에 따라 안전하게 처리되며, 수집 목적 외 제3자 제공은 하지 않습니다.
+                  </p>
+                </div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={consentChecked}
+                    onChange={(e) => setConsentChecked(e.target.checked)}
+                    className="w-5 h-5 rounded border-2 accent-blue-600"
+                  />
+                  <span className="text-sm font-medium" style={{ color: COLORS.text.primary }}>
+                    위 내용에 동의합니다 <span style={{ color: '#EF4444' }}>(필수)</span>
+                  </span>
+                </label>
               </div>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={consentChecked}
-                  onChange={(e) => setConsentChecked(e.target.checked)}
-                  className="w-5 h-5 rounded border-2 accent-blue-600"
-                />
-                <span className="text-sm font-medium" style={{ color: COLORS.text.primary }}>
-                  위 내용에 동의합니다 <span style={{ color: '#EF4444' }}>(필수)</span>
-                </span>
-              </label>
-            </div>
+            )}
 
             {/* Start Button */}
             <motion.button

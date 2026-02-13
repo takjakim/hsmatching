@@ -34,7 +34,12 @@ type RiasecResult = Record<Dim, number>;
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentPage, setCurrentPage] = useState("login");
+  const [currentPage, setCurrentPage] = useState(() => {
+    const path = window.location.pathname.replace(/^\//, '');
+    const publicPages = ['landing', 'result-viewer', 'login', 'pilot', 'riasec', 'riasec-old', 'mju', 'assessment'];
+    if (path && publicPages.includes(path)) return path;
+    return 'landing'; // 파일럿 기간: 기본 페이지를 랜딩(외부검사)으로 변경
+  });
   const [riasecResult, setRiasecResult] = useState<RiasecResult | null>(null);
   const [competencyResult, setCompetencyResult] = useState<any>(null);
   const [currentStudentId, setCurrentStudentId] = useState<string | null>(null);
@@ -50,6 +55,22 @@ export default function App() {
   }>({});
   // Dashboard 리마운트 강제를 위한 카운터
   const [dashboardKey, setDashboardKey] = useState(0);
+
+  // SSO 데이터 (URL 파라미터에서 초기 로드 시 캡처 - useEffect에서 URL이 변경되기 전에 저장)
+  const [ssoData] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('sso') === '1') {
+      return {
+        membernum: params.get('membernum') || '',
+        membername: params.get('membername') || '',
+        departcode: params.get('departcode') || undefined,
+        departname: params.get('departname') || undefined,
+        majorcode: params.get('majorcode') || undefined,
+        majorname: params.get('majorname') || undefined,
+      };
+    }
+    return null;
+  });
 
   // 첫 번째 추천 전공 계산
   const firstRecommendedMajor = useMemo(() => {
@@ -74,6 +95,9 @@ export default function App() {
     const savedIsAdmin = localStorage.getItem('auth_isAdmin') === 'true';
     const savedAdminUser = localStorage.getItem('auth_adminUser');
 
+    const initialPath = window.location.pathname.replace(/^\//, '');
+    const publicPages = ['landing', 'result-viewer', 'login', 'pilot', 'riasec', 'riasec-old', 'mju', 'assessment'];
+
     if (savedIsLoggedIn && savedStudentId) {
       setIsLoggedIn(true);
       setCurrentStudentId(savedStudentId);
@@ -86,9 +110,6 @@ export default function App() {
         }
       }
       // URL에서 경로를 먼저 확인하고, 없으면 저장된 페이지 복원
-      const initialPath = window.location.pathname.replace(/^\//, '');
-      const publicPages = ['landing', 'result-viewer', 'login', 'pilot', 'riasec', 'riasec-old', 'mju', 'assessment'];
-
       if (initialPath && initialPath !== 'login' && !publicPages.includes(initialPath)) {
         // URL에 유효한 경로가 있으면 해당 경로 사용
         setCurrentPage(initialPath);
@@ -102,6 +123,12 @@ export default function App() {
         } else {
           setCurrentPage("dashboard");
         }
+      }
+    } else {
+      // 비로그인 상태: URL이 공개 페이지면 해당 페이지로 즉시 설정
+      // (currentPage 기본값 'login'과 URL 동기화 useEffect 간 레이스 컨디션 방지)
+      if (initialPath && initialPath !== 'login' && publicPages.includes(initialPath)) {
+        setCurrentPage(initialPath);
       }
     }
     setAuthInitialized(true);
@@ -575,31 +602,15 @@ export default function App() {
 
     switch (currentPage) {
       case "landing":
-        return (
-          <PublicLanding
-            onStartTest={() => {
-              console.log("검사 시작 버튼 클릭됨 - riasec로 이동");
-              // URL 해시 제거
-              window.history.replaceState(null, '', window.location.pathname);
-              setCurrentPage("riasec");
-            }}
-            onViewResult={() => {
-              console.log("결과 조회 버튼 클릭됨 - result-viewer로 이동");
-              window.history.replaceState(null, '', window.location.pathname);
-              setCurrentPage("result-viewer");
-            }}
-            onLogin={() => {
-              console.log("로그인 버튼 클릭됨 - login으로 이동");
-              window.history.replaceState(null, '', window.location.pathname);
-              setCurrentPage("login");
-            }}
-          />
-        );
+        // 파일럿 기간: 랜딩 → 외부사용자 검사 화면
+        return <PilotSurvey onNavigate={setCurrentPage} onComplete={handlePilotComplete} isLoggedIn={isLoggedIn} currentStudentId={currentStudentId} mode="external" />;
       case "pilot":
         // 레거시 /pilot 경로 - 새 riasec으로 리다이렉트
         return <PilotSurvey onNavigate={setCurrentPage} onComplete={handlePilotComplete} isLoggedIn={isLoggedIn} currentStudentId={currentStudentId} />;
       case "login":
-        return <Login onLogin={handleLogin} />;
+        // 파일럿 기간: 로그인 비활성화 → 랜딩(외부검사)으로 리다이렉트
+        setCurrentPage("landing");
+        return null;
       case "dashboard":
         // 관리자는 대시보드 접근 불가
         if (isAdmin) {
@@ -753,9 +764,15 @@ export default function App() {
       case "riasec":
         // 새로운 파일럿 테스트로 교체
         return <PilotSurvey onNavigate={setCurrentPage} onComplete={handlePilotComplete} isLoggedIn={isLoggedIn} currentStudentId={currentStudentId} />;
-      case "mju":
-        // MJU 전용 검사
+      case "mju": {
+        // SSO 데이터가 있으면 SSO 모드로 실행 (ssoData는 앱 초기화 시 URL에서 캡처됨)
+        if (ssoData) {
+          return <PilotSurvey onNavigate={setCurrentPage} onComplete={handlePilotComplete} isLoggedIn={isLoggedIn} currentStudentId={currentStudentId} mode="sso" ssoData={ssoData} />;
+        }
+
+        // Default MJU mode (non-SSO)
         return <PilotSurvey onNavigate={setCurrentPage} onComplete={handlePilotComplete} isLoggedIn={isLoggedIn} currentStudentId={currentStudentId} mode="mju" />;
+      }
       case "assessment":
         // 외부 기관용 검사
         return <PilotSurvey onNavigate={setCurrentPage} onComplete={handlePilotComplete} isLoggedIn={isLoggedIn} currentStudentId={currentStudentId} mode="external" />;

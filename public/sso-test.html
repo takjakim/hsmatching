@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>SSO 연동 테스트</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; }
+    h1 { color: #1E3A5F; }
+    .field { margin: 12px 0; }
+    label { display: block; font-weight: bold; margin-bottom: 4px; color: #333; }
+    input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
+    button { margin-top: 20px; padding: 12px 24px; background: #1E3A5F; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+    button:hover { background: #2a4f7a; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+    .btn-green { background: #16a34a; }
+    .btn-green:hover { background: #15803d; }
+    .info { background: #f0f7ff; border: 1px solid #b3d4fc; border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 13px; }
+    #result { margin-top: 24px; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background: #f8fafc; width: 130px; }
+    td.enc { word-break: break-all; font-family: monospace; font-size: 11px; color: #666; }
+    .url-box { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin: 12px 0; word-break: break-all; font-family: monospace; font-size: 12px; }
+    .step { font-weight: bold; color: #1E3A5F; margin-top: 20px; font-size: 15px; }
+  </style>
+</head>
+<body>
+  <h1>MYiCap SSO 연동 테스트</h1>
+  <div class="info">
+    이니스트(MYiCap)에서 SSO로 데이터를 POST하는 것을 시뮬레이션합니다.<br>
+    1단계: 값 입력 → 암호화 확인 &nbsp; 2단계: 확인 후 실제 전송
+  </div>
+
+  <div class="field">
+    <label>학번 (membernum)</label>
+    <input id="membernum" value="60251001">
+  </div>
+  <div class="field">
+    <label>이름 (membername)</label>
+    <input id="membername" value="테스트학생1">
+  </div>
+  <div class="field">
+    <label>학과코드 (departcode)</label>
+    <input id="departcode" value="SW">
+  </div>
+  <div class="field">
+    <label>학과명 (departname)</label>
+    <input id="departname" value="컴퓨터공학과">
+  </div>
+  <div class="field">
+    <label>전공코드 (majorcode)</label>
+    <input id="majorcode" value="SW01">
+  </div>
+  <div class="field">
+    <label>전공명 (majorname)</label>
+    <input id="majorname" value="소프트웨어전공">
+  </div>
+
+  <button id="btnEncrypt" onclick="encryptAll()">1단계: 암호화 미리보기</button>
+
+  <div id="result"></div>
+
+  <!-- Hidden form for actual POST submit -->
+  <form id="ssoForm" method="POST" action="/api/sso/receive" style="display:none;"></form>
+
+  <script>
+    const FIELDS = ['membernum', 'membername', 'departcode', 'departname', 'majorcode', 'majorname'];
+
+    async function aesEncrypt(plainText) {
+      const keyStr = 'MJU_ineast';
+      const keyBytes = new Uint8Array(16);
+      const encoder = new TextEncoder();
+      Buffer = encoder.encode(keyStr);
+      keyBytes.set(encoder.encode(keyStr).slice(0, 16));
+      const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-CBC' }, false, ['encrypt']);
+      const encrypted = await crypto.subtle.encrypt({ name: 'AES-CBC', iv: keyBytes }, key, encoder.encode(plainText));
+      return btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+    }
+
+    async function encryptAll() {
+      const result = document.getElementById('result');
+      const encData = {};
+
+      for (const f of FIELDS) {
+        const plain = document.getElementById(f).value;
+        encData[f] = { plain, encrypted: await aesEncrypt(plain) };
+      }
+
+      // Build POST body string
+      const postBody = FIELDS.map(f => `${f}=${encodeURIComponent(encData[f].encrypted)}`).join('&');
+
+      let html = '<div class="step">암호화 결과</div>';
+      html += '<table><tr><th>필드</th><th>원본</th><th>암호화 (AES-128-CBC, Base64)</th></tr>';
+      for (const f of FIELDS) {
+        html += `<tr><td>${f}</td><td>${encData[f].plain}</td><td class="enc">${encData[f].encrypted}</td></tr>`;
+      }
+      html += '</table>';
+
+      html += '<div class="step">POST 요청 정보</div>';
+      html += `<div><b>URL:</b></div>`;
+      html += `<div class="url-box">POST /api/sso/receive</div>`;
+      html += `<div><b>Body (application/x-www-form-urlencoded):</b></div>`;
+      html += `<div class="url-box">${postBody}</div>`;
+
+      html += `<div class="step">curl 명령어</div>`;
+      const curlParts = FIELDS.map(f => `-d "${f}=${encodeURIComponent(encData[f].encrypted)}"`).join(' \\\n  ');
+      html += `<div class="url-box">curl -X POST \\\n  ${curlParts} \\\n  http://localhost:5173/api/sso/receive -v</div>`;
+
+      html += `<br><button class="btn-green" onclick="submitSSO()">2단계: 실제 전송 (검사 페이지로 이동)</button>`;
+
+      result.innerHTML = html;
+
+      // Prepare hidden form
+      const form = document.getElementById('ssoForm');
+      form.innerHTML = '';
+      for (const f of FIELDS) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = f;
+        input.value = encData[f].encrypted;
+        form.appendChild(input);
+      }
+    }
+
+    function submitSSO() {
+      document.getElementById('ssoForm').submit();
+    }
+  </script>
+</body>
+</html>

@@ -17,7 +17,8 @@ interface PilotSurveyProps {
   onComplete?: (result: PilotResultType) => void;
   isLoggedIn?: boolean;
   currentStudentId?: string | null;
-  mode?: 'mju' | 'external' | 'default';
+  mode?: 'mju' | 'external' | 'default' | 'sso';
+  ssoData?: { membernum: string; membername: string; departcode?: string; departname?: string; majorcode?: string; majorname?: string };
   // 보완검사부터 시작할 때 사용
   initialRiasecScores?: RiasecScores;
   initialRiasecAnswers?: RiasecAnswer;
@@ -36,13 +37,14 @@ export default function PilotSurvey({
   isLoggedIn = false,
   currentStudentId,
   mode = 'default',
+  ssoData,
   initialRiasecScores,
   initialRiasecAnswers,
   startAtSupplementary = false,
 }: PilotSurveyProps) {
   const [participantInfo, setParticipantInfo] = useState<ParticipantInfo>({
-    name: '',
-    studentId: currentStudentId || '',
+    name: ssoData?.membername || '',
+    studentId: ssoData?.membernum || currentStudentId || '',
     email: '',
   });
 
@@ -79,15 +81,20 @@ export default function PilotSurvey({
     interestedMajorKeys,
     toggleInterestedMajor,
   } = usePilotSurvey({
-    // 로그인 사용자는 studentId만 있어도 저장, 비로그인은 name+email 필요
-    participantInfo: isLoggedIn && currentStudentId
-      ? { name: '', studentId: currentStudentId, email: '' }
-      : (participantInfo.name && participantInfo.email ? participantInfo : undefined),
+    // SSO 사용자는 ssoData에서 자동 설정, 로그인 사용자는 studentId만, 비로그인은 name+email 필요
+    participantInfo: mode === 'sso' && ssoData
+      ? { name: ssoData.membername, studentId: ssoData.membernum, email: '' }
+      : isLoggedIn && currentStudentId
+        ? { name: '', studentId: currentStudentId, email: '' }
+        : (participantInfo.name && participantInfo.email ? participantInfo : undefined),
     onComplete,
-    skipIntro: isLoggedIn || startAtSupplementary,
+    skipIntro: isLoggedIn || startAtSupplementary || mode === 'sso',
     initialRiasecScores,
     initialRiasecAnswers,
     startAtSupplementary,
+    department: ssoData?.departname,
+    major: ssoData?.majorname,
+    source: mode === 'sso' ? 'sso' : mode === 'external' ? 'external' : 'direct',
   });
 
   // Auto-reset if phase state is inconsistent (e.g. after HMR or corrupt localStorage)
@@ -122,6 +129,7 @@ export default function PilotSurvey({
         participantInfo={participantInfo}
         onParticipantInfoChange={setParticipantInfo}
         mode={mode}
+        ssoData={ssoData}
       />
     );
   }

@@ -234,6 +234,9 @@ export async function savePilotResult(
     riasecScores?: any;
     riasecAnswers?: any;
     skippedSupplementary?: boolean;
+    department?: string;
+    major?: string;
+    source?: string;
   }
 ): Promise<void> {
   const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
@@ -256,6 +259,9 @@ export async function savePilotResult(
         riasec_scores: options?.riasecScores || null,
         riasec_answers: options?.riasecAnswers || null,
         skipped_supplementary: options?.skippedSupplementary || false,
+        department: options?.department || null,
+        major: options?.major || null,
+        source: options?.source || 'direct',
         expires_at: expiresAt
       }, {
         onConflict: 'code'
