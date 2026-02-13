@@ -772,7 +772,6 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
       const page2Element = document.getElementById('pdf-page-2');
       const page3Element = document.getElementById('pdf-page-3');
       const page4Element = document.getElementById('pdf-page-4');
-      const page5Element = document.getElementById('pdf-page-5');
 
       if (!page1Element || !page2Element) {
         throw new Error('PDF content not found');
@@ -888,8 +887,8 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
         );
       }
 
-      // Add Page 4 - Before/After Comparison
-      if (page4Element && supplementaryData) {
+      // Add Page 4 - 추천 직무
+      if (page4Element) {
         pdf.addPage();
 
         const canvas4 = await html2canvas(page4Element, {
@@ -917,38 +916,6 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
           margin,
           img4Width,
           img4Height
-        );
-      }
-
-      // Add Page 5 - 추천 직무
-      if (page5Element) {
-        pdf.addPage();
-
-        const canvas5 = await html2canvas(page5Element, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#FFFFFF',
-        });
-
-        const img5Data = canvas5.toDataURL('image/png');
-        let img5Width = contentWidth;
-        let img5Height = (canvas5.height * contentWidth) / canvas5.width;
-
-        if (img5Height > contentHeight) {
-          const scale = contentHeight / img5Height;
-          img5Height = contentHeight;
-          img5Width = contentWidth * scale;
-        }
-
-        const x5 = margin + (contentWidth - img5Width) / 2;
-        pdf.addImage(
-          img5Data,
-          'PNG',
-          x5,
-          margin,
-          img5Width,
-          img5Height
         );
       }
 
@@ -1145,12 +1112,45 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
     majorScore: selectedMajor ? Math.round(((selectedMajor.vec[dim] || 0) / majorMax) * 100) : 0,
   }));
 
+  // PDF-specific: always use supplementary-applied scores as default in PDF
+  // adjustedScores already falls back to `scores` when no supplementary selfEfficacy
+  const pdfScores = adjustedScores;
+  const pdfUserMax = Math.max(...dimensions.map(d => pdfScores[d])) || 1;
+  const pdfSortedDimensions = [...dimensions]
+    .map(dim => ({ dim, score: pdfScores[dim] }))
+    .sort((a, b) => b.score - a.score);
+  const pdfTop3 = pdfSortedDimensions.slice(0, 3);
+  const pdfRiasecCode = pdfTop3.map(t => t.dim).join('');
+
   // Generate 3-code explanation
   const codeExplanation = {
     first: CODE_POSITION_EXPLANATIONS[top3[0].dim].primary,
     second: CODE_POSITION_EXPLANATIONS[top3[1].dim].secondary,
     third: CODE_POSITION_EXPLANATIONS[top3[2].dim].tertiary,
   };
+
+  const pdfCodeExplanation = {
+    first: CODE_POSITION_EXPLANATIONS[pdfTop3[0].dim].primary,
+    second: CODE_POSITION_EXPLANATIONS[pdfTop3[1].dim].secondary,
+    third: CODE_POSITION_EXPLANATIONS[pdfTop3[2].dim].tertiary,
+  };
+
+  // PDF-specific: job recommendations for both adjusted and original scores
+  const pdfAdjustedRoles = useMemo(() => {
+    const topMajor = adjustedMajors[0];
+    if (topMajor) {
+      return recommendRoles(pdfScores, 8, topMajor.key, topMajor.cluster);
+    }
+    return recommendRoles(pdfScores, 8);
+  }, [pdfScores, adjustedMajors]);
+
+  const pdfOriginalRoles = useMemo(() => {
+    const topMajor = originalMajors[0];
+    if (topMajor) {
+      return recommendRoles(scores, 8, topMajor.key, topMajor.cluster);
+    }
+    return recommendRoles(scores, 8);
+  }, [scores, originalMajors]);
 
   return (
     <div
@@ -2546,15 +2546,15 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
                     textAlign: 'center',
                     marginBottom: '12px',
                   }}>
-                    <p style={{ fontSize: '8px', opacity: 0.7, marginBottom: '2px' }}>나의 RIASEC CODE</p>
+                    <p style={{ fontSize: '8px', opacity: 0.7, marginBottom: '2px' }}>나의 RIASEC CODE{supplementaryData ? ' (보완검사 적용)' : ''}</p>
                     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '28px', fontWeight: 'bold', letterSpacing: '5px' }}>{riasecCode}</span>
+                      <span style={{ fontSize: '28px', fontWeight: 'bold', letterSpacing: '5px' }}>{pdfRiasecCode}</span>
                       <span style={{ fontSize: '14px', fontWeight: '500', opacity: 0.85 }}>형 인재입니다.</span>
                     </div>
                   </div>
 
                   {/* Code Explanation - Use SVG for perfect centering */}
-                  {top3.map((t, idx) => (
+                  {pdfTop3.map((t, idx) => (
                     <div key={t.dim} style={{
                       display: 'flex',
                       alignItems: 'flex-start',
@@ -2577,7 +2577,7 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
                           {idx === 0 ? '주요' : idx === 1 ? '보조' : '잠재'}: {RIASEC_LABELS[t.dim].name}
                         </p>
                         <p style={{ fontSize: '9px', color: COLORS.pdf.text.secondary, lineHeight: '1.3' }}>
-                          {idx === 0 ? codeExplanation.first : idx === 1 ? codeExplanation.second : codeExplanation.third}
+                          {idx === 0 ? pdfCodeExplanation.first : idx === 1 ? pdfCodeExplanation.second : pdfCodeExplanation.third}
                         </p>
                       </div>
                     </div>
@@ -2619,11 +2619,11 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
                       );
                     })}
 
-                    {/* User profile polygon */}
+                    {/* User profile polygon (supplementary-applied when available) */}
                     <polygon
                       points={dimensions.map((dim, i) => {
                         const angle = (Math.PI / 3) * i - Math.PI / 2;
-                        const value = (scores[dim] / userMax) * 100;
+                        const value = (pdfScores[dim] / pdfUserMax) * 100;
                         const x = 150 + value * Math.cos(angle);
                         const y = 130 + value * Math.sin(angle);
                         return `${x},${y}`;
@@ -2653,7 +2653,7 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
                     {/* Data points */}
                     {dimensions.map((dim, i) => {
                       const angle = (Math.PI / 3) * i - Math.PI / 2;
-                      const value = (scores[dim] / userMax) * 100;
+                      const value = (pdfScores[dim] / pdfUserMax) * 100;
                       const x = 150 + value * Math.cos(angle);
                       const y = 130 + value * Math.sin(angle);
                       return (
@@ -2693,7 +2693,7 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
                     {/* Legend - centered */}
                     <g transform="translate(150, 245)" textAnchor="middle">
                       <rect x="-70" y="-5" width="10" height="10" fill="rgba(30, 58, 95, 0.3)" stroke={COLORS.pdf.primary} strokeWidth="1" />
-                      <text x="-55" y="0" fontSize="9" fill={COLORS.pdf.text.secondary} dominantBaseline="central" textAnchor="start">나의 프로파일</text>
+                      <text x="-55" y="0" fontSize="9" fill={COLORS.pdf.text.secondary} dominantBaseline="central" textAnchor="start">{supplementaryData ? '보정 프로파일' : '나의 프로파일'}</text>
                       {selectedMajor && (
                         <>
                           <rect x="15" y="-5" width="10" height="10" fill="rgba(232, 184, 109, 0.3)" stroke={COLORS.pdf.accent} strokeWidth="1" />
@@ -2718,7 +2718,7 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
               </h2>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
-                {sortedDimensions.map((item, idx) => (
+                {pdfSortedDimensions.map((item, idx) => (
                   <div key={item.dim} style={{
                     backgroundColor: 'white',
                     borderRadius: '8px',
@@ -2755,7 +2755,7 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
                       overflow: 'hidden',
                     }}>
                       <div style={{
-                        width: `${(item.score / Math.max(...sortedDimensions.map(d => d.score))) * 100}%`,
+                        width: `${(item.score / Math.max(...pdfSortedDimensions.map(d => d.score))) * 100}%`,
                         height: '100%',
                         backgroundColor: RIASEC_LABELS[item.dim].color,
                         borderRadius: '2px',
@@ -2775,7 +2775,7 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
             </div>
           </div>
 
-          {/* ==================== PAGE 2 ==================== */}
+          {/* ==================== PAGE 2: 추천 전공 (적용 전/후 비교) ==================== */}
           <div
             id="pdf-page-2"
             style={{
@@ -2786,194 +2786,214 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
               wordBreak: 'keep-all',
             }}
           >
-            {/* Section 3: Recommended Majors - Each as separate card */}
-            <div style={{ marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: COLORS.primary, marginBottom: '16px' }}>
+            {/* Section Header */}
+            <div style={{ marginBottom: '14px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: COLORS.primary, marginBottom: '4px' }}>
                 3. 추천 전공 분석
               </h2>
+              {supplementaryData && (
+                <p style={{ fontSize: '9px', color: COLORS.muted }}>
+                  보완검사 적용 전/후 추천 전공을 비교합니다. 좌측은 보정 적용, 우측은 원래 RIASEC 기반 추천입니다.
+                </p>
+              )}
+            </div>
 
-              {recommendedMajors.map((major, idx) => (
-                <div key={major.name} style={{
-                  backgroundColor: '#F8FAFC',
-                  borderRadius: '12px',
-                  padding: '20px',
-                  marginBottom: '16px',
-                  border: '1px solid #E2E8F0',
-                }}>
-                  {/* Major Header */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
-                    {/* Ranking badge with SVG for perfect centering */}
-                    <svg width="36" height="36" style={{ flexShrink: 0 }}>
-                      <defs>
-                        <linearGradient id={`grad-${idx}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor={COLORS.primary} />
-                          <stop offset="100%" stopColor={COLORS.secondary} />
-                        </linearGradient>
-                      </defs>
-                      <rect width="36" height="36" rx="10" fill={`url(#grad-${idx})`} />
-                      <text x="18" y="18" textAnchor="middle" dominantBaseline="central" fill="white" fontSize="18" fontWeight="bold">
-                        {idx + 1}
-                      </text>
-                    </svg>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        <h3 style={{ fontSize: '15px', fontWeight: 'bold', color: COLORS.primary, margin: 0 }}>
-                          {major.name}
-                        </h3>
-                        <span style={{ fontSize: '11px', color: COLORS.muted }}>
-                          {major.college}
-                        </span>
-                        {/* Match score badge with SVG for perfect centering */}
-                        <svg width="75" height="22">
-                          <rect width="75" height="22" rx="10" fill={COLORS.accent} />
-                          <text x="37.5" y="11" textAnchor="middle" dominantBaseline="central" fill="white" fontSize="11" fontWeight="600">
-                            적합도 {Math.round(major.matchScore * 100)}%
-                          </text>
-                        </svg>
-                      </div>
-                    </div>
+            {supplementaryData && adjustedMajors.length > 0 ? (
+              /* ===== 2-Column: Left=적용후, Right=적용전 ===== */
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                {/* Left Column: 적용 후 */}
+                <div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    marginBottom: '10px', paddingBottom: '6px', borderBottom: '2px solid #3B82F6',
+                  }}>
+                    <svg width="18" height="18"><rect width="18" height="18" rx="4" fill="#3B82F6" /><text x="9" y="9" textAnchor="middle" dominantBaseline="central" fill="white" fontSize="10" fontWeight="bold">A</text></svg>
+                    <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#1E40AF' }}>보완검사 적용 후</span>
                   </div>
-
-                  {/* Major Content Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px', gap: '16px' }}>
-                    {/* Left: Description & Match Reason */}
-                    <div>
-                      <div style={{
-                        backgroundColor: 'white',
-                        borderRadius: '8px',
-                        padding: '12px',
-                        marginBottom: '10px',
-                        border: '1px solid #E2E8F0',
+                  {adjustedMajors.slice(0, 5).map((major, idx) => {
+                    const isNew = !originalMajors.some(m => m.name === major.name);
+                    return (
+                      <div key={`adj-${major.name}`} style={{
+                        backgroundColor: '#EFF6FF', borderRadius: '10px', padding: '12px',
+                        marginBottom: '8px', border: '2px solid #3B82F6',
                       }}>
-                        <p style={{ fontSize: '10px', fontWeight: '600', color: COLORS.muted, marginBottom: '6px' }}>
-                          전공 소개
-                        </p>
-                        <p style={{ fontSize: '11px', color: COLORS.text.secondary, lineHeight: '1.5' }}>
-                          {major.description}
-                        </p>
+                        {/* Header row */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                          <div style={{
+                            width: '26px', height: '26px', borderRadius: '6px',
+                            background: 'linear-gradient(135deg, #2563EB, #60A5FA)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                          }}>
+                            <span style={{ color: 'white', fontSize: '13px', fontWeight: 'bold' }}>{idx + 1}</span>
+                          </div>
+                          <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#1E40AF', flex: 1 }}>{major.name}</span>
+                          <span style={{ fontSize: '8px', color: '#6B7280', flexShrink: 0 }}>{major.college}</span>
+                        </div>
+                        {/* Score badges */}
+                        <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+                          <span style={{
+                            fontSize: '9px', fontWeight: '600', color: 'white', backgroundColor: '#3B82F6',
+                            padding: '2px 8px', borderRadius: '8px',
+                          }}>적합도 {Math.round(major.matchScore * 100)}%</span>
+                          <span style={{
+                            fontSize: '8px', fontWeight: '600', color: 'white', backgroundColor: '#60A5FA',
+                            padding: '2px 6px', borderRadius: '4px',
+                          }}>Applied</span>
+                          {isNew && (
+                            <span style={{
+                              fontSize: '8px', fontWeight: 'bold', color: 'white', backgroundColor: '#10B981',
+                              padding: '2px 6px', borderRadius: '4px',
+                            }}>NEW</span>
+                          )}
+                        </div>
+                        <div style={{
+                          backgroundColor: 'white', borderRadius: '6px', padding: '8px',
+                          marginBottom: '6px', border: '1px solid #BFDBFE',
+                        }}>
+                          <p style={{ fontSize: '8px', fontWeight: '600', color: '#6B7280', marginBottom: '3px' }}>전공 소개</p>
+                          <p style={{ fontSize: '9px', color: '#374151', lineHeight: '1.5', margin: 0 }}>{major.description}</p>
+                        </div>
+                        <div style={{
+                          backgroundColor: '#DBEAFE', borderRadius: '6px', padding: '8px',
+                          borderLeft: '3px solid #3B82F6',
+                        }}>
+                          <p style={{ fontSize: '8px', fontWeight: '600', color: '#1E40AF', marginBottom: '3px' }}>왜 맞을까요?</p>
+                          <p style={{ fontSize: '9px', color: '#1E40AF', lineHeight: '1.5', margin: 0 }}>{major.matchReason}</p>
+                        </div>
                       </div>
-                      <div style={{
-                        backgroundColor: '#F0FDF4',
-                        borderRadius: '8px',
-                        padding: '12px',
-                        borderLeft: `3px solid #10B981`,
+                    );
+                  })}
+                </div>
+
+                {/* Right Column: 적용 전 */}
+                <div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    marginBottom: '10px', paddingBottom: '6px', borderBottom: '2px solid #94A3B8',
+                  }}>
+                    <svg width="18" height="18"><rect width="18" height="18" rx="4" fill={COLORS.primary} /><text x="9" y="9" textAnchor="middle" dominantBaseline="central" fill="white" fontSize="10" fontWeight="bold">B</text></svg>
+                    <span style={{ fontSize: '11px', fontWeight: 'bold', color: COLORS.primary }}>보완검사 적용 전</span>
+                  </div>
+                  {originalMajors.slice(0, 5).map((major, idx) => {
+                    const retained = adjustedMajors.some(m => m.name === major.name);
+                    return (
+                      <div key={`orig-${major.name}`} style={{
+                        backgroundColor: '#F8FAFC', borderRadius: '10px', padding: '12px',
+                        marginBottom: '8px', border: '1px solid #E2E8F0',
                       }}>
-                        <p style={{ fontSize: '10px', color: '#166534', fontWeight: '600', marginBottom: '6px' }}>
-                          왜 맞을까요?
-                        </p>
-                        <p style={{ fontSize: '11px', color: '#15803D', lineHeight: '1.5' }}>
-                          {major.matchReason}
-                        </p>
+                        {/* Header row */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                          <div style={{
+                            width: '26px', height: '26px', borderRadius: '6px',
+                            background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.secondary})`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                          }}>
+                            <span style={{ color: 'white', fontSize: '13px', fontWeight: 'bold' }}>{idx + 1}</span>
+                          </div>
+                          <span style={{ fontSize: '12px', fontWeight: 'bold', color: COLORS.primary, flex: 1 }}>{major.name}</span>
+                          <span style={{ fontSize: '8px', color: '#6B7280', flexShrink: 0 }}>{major.college}</span>
+                        </div>
+                        {/* Score badges */}
+                        <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+                          <span style={{
+                            fontSize: '9px', fontWeight: '600', color: 'white', backgroundColor: COLORS.accent,
+                            padding: '2px 8px', borderRadius: '8px',
+                          }}>적합도 {Math.round(major.matchScore * 100)}%</span>
+                          {retained && (
+                            <span style={{
+                              fontSize: '8px', fontWeight: 'bold', color: '#059669', backgroundColor: '#F0FDF4',
+                              padding: '2px 6px', borderRadius: '4px', border: '1px solid #10B981',
+                            }}>유지</span>
+                          )}
+                        </div>
+                        <div style={{
+                          backgroundColor: 'white', borderRadius: '6px', padding: '8px',
+                          marginBottom: '6px', border: '1px solid #E2E8F0',
+                        }}>
+                          <p style={{ fontSize: '8px', fontWeight: '600', color: '#6B7280', marginBottom: '3px' }}>전공 소개</p>
+                          <p style={{ fontSize: '9px', color: '#374151', lineHeight: '1.5', margin: 0 }}>{major.description}</p>
+                        </div>
+                        <div style={{
+                          backgroundColor: '#F0FDF4', borderRadius: '6px', padding: '8px',
+                          borderLeft: '3px solid #10B981',
+                        }}>
+                          <p style={{ fontSize: '8px', fontWeight: '600', color: '#166534', marginBottom: '3px' }}>왜 맞을까요?</p>
+                          <p style={{ fontSize: '9px', color: '#15803D', lineHeight: '1.5', margin: 0 }}>{major.matchReason}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              /* ===== Single column: no supplementary ===== */
+              <div>
+                <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: COLORS.primary, marginBottom: '10px' }}>추천 전공</h3>
+                {originalMajors.slice(0, 5).map((major, idx) => (
+                  <div key={`orig-${major.name}`} style={{
+                    backgroundColor: '#F8FAFC', borderRadius: '10px', padding: '14px',
+                    marginBottom: '10px', border: '1px solid #E2E8F0',
+                    display: 'grid', gridTemplateColumns: '1fr 160px', gap: '12px',
+                  }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <div style={{
+                          width: '28px', height: '28px', borderRadius: '8px',
+                          background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.secondary})`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        }}>
+                          <span style={{ color: 'white', fontSize: '14px', fontWeight: 'bold' }}>{idx + 1}</span>
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '14px', fontWeight: 'bold', color: COLORS.primary }}>{major.name}</span>
+                            <span style={{ fontSize: '10px', color: '#6B7280' }}>{major.college}</span>
+                            <span style={{
+                              fontSize: '10px', fontWeight: '600', color: 'white', backgroundColor: COLORS.accent,
+                              padding: '2px 8px', borderRadius: '10px',
+                            }}>적합도 {Math.round(major.matchScore * 100)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '10px', marginBottom: '6px', border: '1px solid #E2E8F0' }}>
+                        <p style={{ fontSize: '9px', fontWeight: '600', color: '#6B7280', marginBottom: '3px' }}>전공 소개</p>
+                        <p style={{ fontSize: '10px', color: '#374151', lineHeight: '1.5' }}>{major.description}</p>
+                      </div>
+                      <div style={{ backgroundColor: '#F0FDF4', borderRadius: '8px', padding: '10px', borderLeft: '3px solid #10B981' }}>
+                        <p style={{ fontSize: '9px', color: '#166534', fontWeight: '600', marginBottom: '3px' }}>왜 맞을까요?</p>
+                        <p style={{ fontSize: '10px', color: '#15803D', lineHeight: '1.5' }}>{major.matchReason}</p>
                       </div>
                     </div>
-
-                    {/* Right: Mini Radar Comparison */}
-                    <div style={{
-                      backgroundColor: 'white',
-                      borderRadius: '8px',
-                      padding: '10px',
-                      border: '1px solid #E2E8F0',
-                    }}>
-                      <p style={{ fontSize: '9px', fontWeight: '600', color: COLORS.muted, marginBottom: '6px', textAlign: 'center' }}>
-                        프로파일 비교
-                      </p>
-                      <svg viewBox="0 0 160 140" style={{ width: '100%', height: 'auto' }}>
-                        {/* Mini hexagon grid */}
+                    {/* Mini Radar for single-column mode */}
+                    <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '8px', border: '1px solid #E2E8F0' }}>
+                      <p style={{ fontSize: '8px', fontWeight: '600', color: '#6B7280', marginBottom: '4px', textAlign: 'center' }}>프로파일 비교</p>
+                      <svg viewBox="0 0 160 130" style={{ width: '100%', height: 'auto' }}>
                         {[50, 35, 20].map((r) => (
-                          <polygon
-                            key={r}
-                            points={dimensions.map((_, i) => {
-                              const angle = (Math.PI / 3) * i - Math.PI / 2;
-                              const x = 80 + r * Math.cos(angle);
-                              const y = 60 + r * Math.sin(angle);
-                              return `${x},${y}`;
-                            }).join(' ')}
-                            fill="none"
-                            stroke="#E2E8F0"
-                            strokeWidth="0.5"
-                          />
+                          <polygon key={r} points={dimensions.map((_, i) => { const angle = (Math.PI / 3) * i - Math.PI / 2; return `${80 + r * Math.cos(angle)},${55 + r * Math.sin(angle)}`; }).join(' ')} fill="none" stroke="#E2E8F0" strokeWidth="0.5" />
                         ))}
-
-                        {/* User profile */}
-                        <polygon
-                          points={dimensions.map((dim, i) => {
-                            const angle = (Math.PI / 3) * i - Math.PI / 2;
-                            const value = (scores[dim] / userMax) * 50;
-                            const x = 80 + value * Math.cos(angle);
-                            const y = 60 + value * Math.sin(angle);
-                            return `${x},${y}`;
-                          }).join(' ')}
-                          fill="rgba(30, 58, 95, 0.25)"
-                          stroke={COLORS.primary}
-                          strokeWidth="1.5"
-                        />
-
-                        {/* Major profile */}
-                        <polygon
-                          points={dimensions.map((dim, i) => {
-                            const angle = (Math.PI / 3) * i - Math.PI / 2;
-                            const majorMaxVal = Math.max(...dimensions.map(d => major.vec[d] || 0)) || 1;
-                            const value = ((major.vec[dim] || 0) / majorMaxVal) * 50;
-                            const x = 80 + value * Math.cos(angle);
-                            const y = 60 + value * Math.sin(angle);
-                            return `${x},${y}`;
-                          }).join(' ')}
-                          fill="rgba(232, 184, 109, 0.25)"
-                          stroke={COLORS.accent}
-                          strokeWidth="1.5"
-                          strokeDasharray="3,1"
-                        />
-
-                        {/* Labels */}
-                        {dimensions.map((dim, i) => {
-                          const angle = (Math.PI / 3) * i - Math.PI / 2;
-                          const x = 80 + 60 * Math.cos(angle);
-                          const y = 60 + 60 * Math.sin(angle);
-                          return (
-                            <text
-                              key={dim}
-                              x={x}
-                              y={y}
-                              textAnchor="middle"
-                              dominantBaseline="central"
-                              fill={RIASEC_LABELS[dim].color}
-                              fontSize="8"
-                              fontWeight="bold"
-                            >
-                              {dim}
-                            </text>
-                          );
-                        })}
-
-                        {/* Mini Legend */}
-                        <g transform="translate(10, 125)">
-                          <rect x="0" y="0" width="8" height="8" fill="rgba(30, 58, 95, 0.25)" stroke={COLORS.primary} strokeWidth="0.5" />
-                          <text x="12" y="4" fontSize="7" fill={COLORS.text.secondary} dominantBaseline="central">나</text>
-                          <rect x="30" y="0" width="8" height="8" fill="rgba(232, 184, 109, 0.25)" stroke={COLORS.accent} strokeWidth="0.5" />
-                          <text x="42" y="4" fontSize="7" fill={COLORS.text.secondary} dominantBaseline="central">전공</text>
+                        <polygon points={dimensions.map((dim, i) => { const angle = (Math.PI / 3) * i - Math.PI / 2; const origMax = Math.max(...dimensions.map(d => scores[d])) || 1; const value = (scores[dim] / origMax) * 50; return `${80 + value * Math.cos(angle)},${55 + value * Math.sin(angle)}`; }).join(' ')} fill="rgba(30, 58, 95, 0.2)" stroke={COLORS.primary} strokeWidth="1.5" />
+                        <polygon points={dimensions.map((dim, i) => { const angle = (Math.PI / 3) * i - Math.PI / 2; const majorMaxVal = Math.max(...dimensions.map(d => major.vec[d] || 0)) || 1; const value = ((major.vec[dim] || 0) / majorMaxVal) * 50; return `${80 + value * Math.cos(angle)},${55 + value * Math.sin(angle)}`; }).join(' ')} fill="rgba(232, 184, 109, 0.2)" stroke={COLORS.accent} strokeWidth="1.5" strokeDasharray="3,1" />
+                        {dimensions.map((dim, i) => { const angle = (Math.PI / 3) * i - Math.PI / 2; return (<text key={dim} x={80 + 60 * Math.cos(angle)} y={55 + 60 * Math.sin(angle)} textAnchor="middle" dominantBaseline="central" fill={RIASEC_LABELS[dim].color} fontSize="8" fontWeight="bold">{dim}</text>); })}
+                        <g transform="translate(10, 118)">
+                          <rect x="0" y="0" width="8" height="8" fill="rgba(30, 58, 95, 0.2)" stroke={COLORS.primary} strokeWidth="0.5" />
+                          <text x="12" y="4" fontSize="7" fill="#6B7280" dominantBaseline="central">나</text>
+                          <rect x="30" y="0" width="8" height="8" fill="rgba(232, 184, 109, 0.2)" stroke={COLORS.accent} strokeWidth="0.5" />
+                          <text x="42" y="4" fontSize="7" fill="#6B7280" dominantBaseline="central">전공</text>
                         </g>
                       </svg>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             {/* PDF Footer */}
             <div style={{
-              borderTop: '2px solid #E2E8F0',
-              paddingTop: '14px',
-              marginTop: '10px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
+              borderTop: '2px solid #E2E8F0', paddingTop: '14px', marginTop: '10px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
-              <p style={{ fontSize: '9px', color: COLORS.muted }}>
-                명지대학교 진로교육 프로그램 · RIASEC 검사 결과보고서
-              </p>
-              <p style={{ fontSize: '9px', color: COLORS.muted }}>
-                본 결과는 참고용이며, 전문 상담과 함께 활용하시기 바랍니다.
-              </p>
+              <p style={{ fontSize: '9px', color: COLORS.muted }}>명지대학교 진로교육 프로그램 · 추천 전공 분석</p>
+              <p style={{ fontSize: '9px', color: COLORS.muted }}>본 결과는 참고용이며, 전문 상담과 함께 활용하시기 바랍니다.</p>
             </div>
           </div>
 
@@ -3393,408 +3413,9 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
             </div>
           )}
 
-          {/* ==================== PAGE 4: BEFORE/AFTER COMPARISON ==================== */}
-          {supplementaryData && (
-            <div
-              id="pdf-page-4"
-              style={{
-                width: '800px',
-                padding: '24px',
-                backgroundColor: '#FFFFFF',
-                fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
-                wordBreak: 'keep-all',
-              }}
-            >
-              {/* Page Header */}
-              <div style={{ marginBottom: '20px' }}>
-                <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: COLORS.primary, marginBottom: '8px' }}>
-                  5. 보완 프로파일 적용 전/후 비교
-                </h2>
-                <p style={{ fontSize: '10px', color: COLORS.muted }}>
-                  자기효능감을 반영한 보정 점수와 전공 추천 변화를 비교합니다. (RIASEC 0.9 + 자기효능감 0.3 가중치 적용)
-                </p>
-              </div>
-
-              {/* Two Column Comparison */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                {/* Left Column: Before (Original) */}
-                <div style={{
-                  backgroundColor: '#F8FAFC',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  border: '2px solid #E2E8F0',
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    marginBottom: '16px',
-                  }}>
-                    <div style={{
-                      width: '28px',
-                      height: '28px',
-                      borderRadius: '8px',
-                      backgroundColor: COLORS.primary,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                      <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold' }}>전</span>
-                    </div>
-                    <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: COLORS.primary }}>
-                      보완 프로파일 적용 전
-                    </h3>
-                  </div>
-
-                  {/* Original Radar Chart */}
-                  <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                    <svg viewBox="0 0 200 180" style={{ width: '180px', height: '160px' }}>
-                      {/* Hexagon grid */}
-                      {[60, 45, 30].map((r) => (
-                        <polygon
-                          key={r}
-                          points={dimensions.map((_, i) => {
-                            const angle = (Math.PI / 3) * i - Math.PI / 2;
-                            const x = 100 + r * Math.cos(angle);
-                            const y = 80 + r * Math.sin(angle);
-                            return `${x},${y}`;
-                          }).join(' ')}
-                          fill="none"
-                          stroke="#E2E8F0"
-                          strokeWidth="0.5"
-                        />
-                      ))}
-                      {/* Original profile */}
-                      <polygon
-                        points={dimensions.map((dim, i) => {
-                          const angle = (Math.PI / 3) * i - Math.PI / 2;
-                          const maxVal = Math.max(...dimensions.map(d => scores[d])) || 1;
-                          const value = (scores[dim] / maxVal) * 60;
-                          const x = 100 + value * Math.cos(angle);
-                          const y = 80 + value * Math.sin(angle);
-                          return `${x},${y}`;
-                        }).join(' ')}
-                        fill="rgba(30, 58, 95, 0.3)"
-                        stroke={COLORS.primary}
-                        strokeWidth="2"
-                      />
-                      {/* Labels */}
-                      {dimensions.map((dim, i) => {
-                        const angle = (Math.PI / 3) * i - Math.PI / 2;
-                        const x = 100 + 75 * Math.cos(angle);
-                        const y = 80 + 75 * Math.sin(angle);
-                        return (
-                          <g key={dim}>
-                            <text
-                              x={x}
-                              y={y}
-                              textAnchor="middle"
-                              dominantBaseline="central"
-                              fill={RIASEC_LABELS[dim].color}
-                              fontSize="10"
-                              fontWeight="bold"
-                            >
-                              {dim}
-                            </text>
-                            <text
-                              x={x}
-                              y={y + 12}
-                              textAnchor="middle"
-                              dominantBaseline="central"
-                              fill={COLORS.muted}
-                              fontSize="8"
-                            >
-                              {scores[dim].toFixed(1)}
-                            </text>
-                          </g>
-                        );
-                      })}
-                    </svg>
-                  </div>
-
-                  {/* Original Major Recommendations */}
-                  <div>
-                    <p style={{ fontSize: '11px', fontWeight: 'bold', color: COLORS.primary, marginBottom: '10px' }}>
-                      추천 전공
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {originalMajors.map((major, idx) => (
-                        <div
-                          key={major.name}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            padding: '8px 10px',
-                            backgroundColor: '#FFFFFF',
-                            borderRadius: '8px',
-                            border: '1px solid #E2E8F0',
-                          }}
-                        >
-                          <svg width="20" height="20">
-                            <circle cx="10" cy="10" r="10" fill={COLORS.primary} />
-                            <text x="10" y="10" textAnchor="middle" dominantBaseline="central" fill="white" fontSize="10" fontWeight="bold">
-                              {idx + 1}
-                            </text>
-                          </svg>
-                          <div style={{ flex: 1 }}>
-                            <p style={{ fontSize: '11px', fontWeight: 'bold', color: COLORS.text.primary }}>
-                              {major.name}
-                            </p>
-                            <p style={{ fontSize: '9px', color: COLORS.muted }}>
-                              {major.college}
-                            </p>
-                          </div>
-                          <span style={{
-                            fontSize: '10px',
-                            fontWeight: 'bold',
-                            color: COLORS.primary,
-                            backgroundColor: `${COLORS.primary}15`,
-                            padding: '3px 8px',
-                            borderRadius: '6px',
-                          }}>
-                            {Math.round(major.matchScore * 100)}%
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Column: After (Adjusted) */}
-                <div style={{
-                  backgroundColor: '#EFF6FF',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  border: '2px solid #3B82F6',
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    marginBottom: '16px',
-                  }}>
-                    <div style={{
-                      width: '28px',
-                      height: '28px',
-                      borderRadius: '8px',
-                      backgroundColor: '#3B82F6',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                      <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold' }}>후</span>
-                    </div>
-                    <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: '#1E40AF' }}>
-                      보완 프로파일 적용 후
-                    </h3>
-                  </div>
-
-                  {/* Adjusted Radar Chart */}
-                  <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                    <svg viewBox="0 0 200 180" style={{ width: '180px', height: '160px' }}>
-                      {/* Hexagon grid */}
-                      {[60, 45, 30].map((r) => (
-                        <polygon
-                          key={r}
-                          points={dimensions.map((_, i) => {
-                            const angle = (Math.PI / 3) * i - Math.PI / 2;
-                            const x = 100 + r * Math.cos(angle);
-                            const y = 80 + r * Math.sin(angle);
-                            return `${x},${y}`;
-                          }).join(' ')}
-                          fill="none"
-                          stroke="#BFDBFE"
-                          strokeWidth="0.5"
-                        />
-                      ))}
-                      {/* Adjusted profile */}
-                      <polygon
-                        points={dimensions.map((dim, i) => {
-                          const angle = (Math.PI / 3) * i - Math.PI / 2;
-                          const maxVal = Math.max(...dimensions.map(d => adjustedScores[d])) || 1;
-                          const value = (adjustedScores[dim] / maxVal) * 60;
-                          const x = 100 + value * Math.cos(angle);
-                          const y = 80 + value * Math.sin(angle);
-                          return `${x},${y}`;
-                        }).join(' ')}
-                        fill="rgba(59, 130, 246, 0.3)"
-                        stroke="#3B82F6"
-                        strokeWidth="2"
-                      />
-                      {/* Labels */}
-                      {dimensions.map((dim, i) => {
-                        const angle = (Math.PI / 3) * i - Math.PI / 2;
-                        const x = 100 + 75 * Math.cos(angle);
-                        const y = 80 + 75 * Math.sin(angle);
-                        const diff = adjustedScores[dim] - scores[dim];
-                        return (
-                          <g key={dim}>
-                            <text
-                              x={x}
-                              y={y}
-                              textAnchor="middle"
-                              dominantBaseline="central"
-                              fill={RIASEC_LABELS[dim].color}
-                              fontSize="10"
-                              fontWeight="bold"
-                            >
-                              {dim}
-                            </text>
-                            <text
-                              x={x}
-                              y={y + 12}
-                              textAnchor="middle"
-                              dominantBaseline="central"
-                              fill={diff !== 0 ? (diff > 0 ? '#10B981' : '#EF4444') : COLORS.muted}
-                              fontSize="8"
-                              fontWeight={diff !== 0 ? 'bold' : 'normal'}
-                            >
-                              {adjustedScores[dim].toFixed(1)}
-                              {diff !== 0 && ` (${diff > 0 ? '+' : ''}${diff.toFixed(1)})`}
-                            </text>
-                          </g>
-                        );
-                      })}
-                    </svg>
-                  </div>
-
-                  {/* Adjusted Major Recommendations */}
-                  <div>
-                    <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#1E40AF', marginBottom: '10px' }}>
-                      추천 전공
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {adjustedMajors.map((major, idx) => {
-                        const originalIdx = originalMajors.findIndex(m => m.name === major.name);
-                        const isNew = originalIdx === -1;
-                        const rankChange = originalIdx !== -1 ? originalIdx - idx : null;
-                        return (
-                          <div
-                            key={major.name}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '10px',
-                              padding: '8px 10px',
-                              backgroundColor: isNew ? '#DBEAFE' : '#FFFFFF',
-                              borderRadius: '8px',
-                              border: `1px solid ${isNew ? '#3B82F6' : '#BFDBFE'}`,
-                            }}
-                          >
-                            <svg width="20" height="20">
-                              <circle cx="10" cy="10" r="10" fill="#3B82F6" />
-                              <text x="10" y="10" textAnchor="middle" dominantBaseline="central" fill="white" fontSize="10" fontWeight="bold">
-                                {idx + 1}
-                              </text>
-                            </svg>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <p style={{ fontSize: '11px', fontWeight: 'bold', color: COLORS.text.primary }}>
-                                  {major.name}
-                                </p>
-                                {isNew && (
-                                  <span style={{
-                                    fontSize: '8px',
-                                    padding: '2px 5px',
-                                    borderRadius: '4px',
-                                    backgroundColor: '#3B82F6',
-                                    color: 'white',
-                                  }}>NEW</span>
-                                )}
-                                {rankChange !== null && rankChange !== 0 && (
-                                  <span style={{
-                                    fontSize: '8px',
-                                    color: rankChange > 0 ? '#10B981' : '#EF4444',
-                                    fontWeight: 'bold',
-                                  }}>
-                                    {rankChange > 0 ? `▲${rankChange}` : `▼${Math.abs(rankChange)}`}
-                                  </span>
-                                )}
-                              </div>
-                              <p style={{ fontSize: '9px', color: COLORS.muted }}>
-                                {major.college}
-                              </p>
-                            </div>
-                            <span style={{
-                              fontSize: '10px',
-                              fontWeight: 'bold',
-                              color: '#1E40AF',
-                              backgroundColor: '#DBEAFE',
-                              padding: '3px 8px',
-                              borderRadius: '6px',
-                            }}>
-                              {Math.round(major.matchScore * 100)}%
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Summary Box */}
-              <div style={{
-                marginTop: '20px',
-                padding: '16px',
-                backgroundColor: '#FEF3C7',
-                borderRadius: '12px',
-                border: '1px solid #F59E0B',
-              }}>
-                <h4 style={{ fontSize: '12px', fontWeight: 'bold', color: '#B45309', marginBottom: '10px' }}>
-                  변화 요약
-                </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#B45309' }}>
-                      {dimensions.filter(d => adjustedScores[d] !== scores[d]).length}
-                    </p>
-                    <p style={{ fontSize: '9px', color: '#92400E' }}>점수 변화 영역</p>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#B45309' }}>
-                      {adjustedMajors.filter(m => !originalMajors.find(om => om.name === m.name)).length}
-                    </p>
-                    <p style={{ fontSize: '9px', color: '#92400E' }}>새로운 추천 전공</p>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#B45309' }}>
-                      {(() => {
-                        const changes = adjustedMajors.filter((m, idx) => {
-                          const origIdx = originalMajors.findIndex(om => om.name === m.name);
-                          return origIdx !== -1 && origIdx !== idx;
-                        }).length;
-                        return changes;
-                      })()}
-                    </p>
-                    <p style={{ fontSize: '9px', color: '#92400E' }}>순위 변동 전공</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* PDF Footer */}
-              <div style={{
-                borderTop: '2px solid #E2E8F0',
-                paddingTop: '14px',
-                marginTop: '20px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}>
-                <p style={{ fontSize: '9px', color: COLORS.muted }}>
-                  명지대학교 진로교육 프로그램 · 보완 프로파일 적용 전/후 비교
-                </p>
-                <p style={{ fontSize: '9px', color: COLORS.muted }}>
-                  본 결과는 참고용이며, 전문 상담과 함께 활용하시기 바랍니다.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* ==================== PAGE 5: 추천 직무 ==================== */}
+          {/* ==================== PAGE 4: 추천 직무 ==================== */}
           <div
-            id="pdf-page-5"
+            id="pdf-page-4"
             style={{
               width: '800px',
               padding: '24px',
@@ -3804,126 +3425,175 @@ const RiasecResult: React.FC<RiasecResultProps> = ({
             }}
           >
             {/* Page Header */}
-            <div style={{ marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: COLORS.primary, marginBottom: '8px' }}>
-                {supplementaryData ? '6' : '4'}. 추천 직무
+            <div style={{ marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: COLORS.primary, marginBottom: '4px' }}>
+                {supplementaryData ? '5' : '4'}. 추천 직무
               </h2>
               <p style={{ fontSize: '10px', color: COLORS.muted }}>
-                RIASEC 적성과 추천 전공을 기반으로 분석한 적합 직무입니다
+                {supplementaryData
+                  ? 'RIASEC 적성과 추천 전공을 기반으로 분석한 적합 직무입니다. 보완검사 적용 전/후를 비교합니다.'
+                  : 'RIASEC 적성과 추천 전공을 기반으로 분석한 적합 직무입니다'}
               </p>
             </div>
 
-            {/* Jobs Grid - 2 columns, 4 rows */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              {recommendedRoles.slice(0, 8).map((role, idx) => {
-                const matchPercent = Math.round(role.matchScore * 100);
-                return (
-                  <div
-                    key={role.key}
-                    style={{
-                      backgroundColor: '#F8FAFC',
-                      borderRadius: '12px',
-                      padding: '14px',
-                      border: role.isRelatedToMajor ? '2px solid #F59E0B' : '1px solid #E2E8F0',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                      {/* Rank Badge */}
-                      <div style={{
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '8px',
-                        backgroundColor: idx < 3 ? COLORS.primary : '#94A3B8',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
+            {supplementaryData ? (
+              /* ===== 2-Column: Left=적용후, Right=적용전 ===== */
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                {/* Left: 적용 후 */}
+                <div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    marginBottom: '10px', paddingBottom: '6px', borderBottom: '2px solid #3B82F6',
+                  }}>
+                    <svg width="18" height="18"><rect width="18" height="18" rx="4" fill="#3B82F6" /><text x="9" y="9" textAnchor="middle" dominantBaseline="central" fill="white" fontSize="10" fontWeight="bold">A</text></svg>
+                    <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#1E40AF' }}>보완검사 적용 후</span>
+                  </div>
+                  {pdfAdjustedRoles.slice(0, 8).map((role, idx) => {
+                    const matchPercent = Math.round(role.matchScore * 100);
+                    const isNew = !pdfOriginalRoles.some(r => r.key === role.key);
+                    return (
+                      <div key={`adj-role-${role.key}`} style={{
+                        backgroundColor: '#EFF6FF', borderRadius: '8px', padding: '10px',
+                        marginBottom: '6px', border: '1.5px solid #BFDBFE',
                       }}>
-                        <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold' }}>{idx + 1}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{
+                            width: '22px', height: '22px', borderRadius: '6px',
+                            backgroundColor: idx < 3 ? '#3B82F6' : '#93C5FD',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                          }}>
+                            <span style={{ color: 'white', fontSize: '10px', fontWeight: 'bold' }}>{idx + 1}</span>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '3px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#1E40AF' }}>
+                                {role.name.replace(/\s*\(.*?\)\s*/g, '').trim()}
+                              </span>
+                              {role.isRelatedToMajor && (
+                                <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#B45309', backgroundColor: '#FEF3C7', padding: '1px 4px', borderRadius: '3px' }}>전공연관</span>
+                              )}
+                              {isNew && (
+                                <span style={{ fontSize: '7px', fontWeight: 'bold', color: 'white', backgroundColor: '#10B981', padding: '1px 4px', borderRadius: '3px' }}>NEW</span>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <div style={{ flex: 1, height: '5px', backgroundColor: '#DBEAFE', borderRadius: '3px', overflow: 'hidden' }}>
+                                <div style={{ width: `${matchPercent}%`, height: '100%', backgroundColor: '#3B82F6', borderRadius: '3px' }} />
+                              </div>
+                              <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#2563EB' }}>{matchPercent}%</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
+                    );
+                  })}
+                </div>
 
-                      {/* Job Info */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                          <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: COLORS.text.primary, margin: 0 }}>
-                            {role.name.replace(/\s*\(.*?\)\s*/g, '').trim()}
-                          </h3>
-                          {role.isRelatedToMajor && (
-                            <span style={{
-                              fontSize: '9px',
-                              fontWeight: 'bold',
-                              color: '#B45309',
-                              backgroundColor: '#FEF3C7',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                            }}>
-                              전공연관
-                            </span>
+                {/* Right: 적용 전 */}
+                <div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    marginBottom: '10px', paddingBottom: '6px', borderBottom: '2px solid #94A3B8',
+                  }}>
+                    <svg width="18" height="18"><rect width="18" height="18" rx="4" fill={COLORS.primary} /><text x="9" y="9" textAnchor="middle" dominantBaseline="central" fill="white" fontSize="10" fontWeight="bold">B</text></svg>
+                    <span style={{ fontSize: '11px', fontWeight: 'bold', color: COLORS.primary }}>보완검사 적용 전</span>
+                  </div>
+                  {pdfOriginalRoles.slice(0, 8).map((role, idx) => {
+                    const matchPercent = Math.round(role.matchScore * 100);
+                    const retained = pdfAdjustedRoles.some(r => r.key === role.key);
+                    return (
+                      <div key={`orig-role-${role.key}`} style={{
+                        backgroundColor: '#F8FAFC', borderRadius: '8px', padding: '10px',
+                        marginBottom: '6px', border: '1px solid #E2E8F0',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{
+                            width: '22px', height: '22px', borderRadius: '6px',
+                            backgroundColor: idx < 3 ? COLORS.primary : '#94A3B8',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                          }}>
+                            <span style={{ color: 'white', fontSize: '10px', fontWeight: 'bold' }}>{idx + 1}</span>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '3px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: 'bold', color: COLORS.primary }}>
+                                {role.name.replace(/\s*\(.*?\)\s*/g, '').trim()}
+                              </span>
+                              {role.isRelatedToMajor && (
+                                <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#B45309', backgroundColor: '#FEF3C7', padding: '1px 4px', borderRadius: '3px' }}>전공연관</span>
+                              )}
+                              {retained && (
+                                <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#059669', backgroundColor: '#F0FDF4', padding: '1px 4px', borderRadius: '3px', border: '1px solid #10B981' }}>유지</span>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <div style={{ flex: 1, height: '5px', backgroundColor: '#E2E8F0', borderRadius: '3px', overflow: 'hidden' }}>
+                                <div style={{ width: `${matchPercent}%`, height: '100%', backgroundColor: role.isRelatedToMajor ? '#F59E0B' : COLORS.primary, borderRadius: '3px' }} />
+                              </div>
+                              <span style={{ fontSize: '10px', fontWeight: 'bold', color: COLORS.primary }}>{matchPercent}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              /* ===== Single 2x4 grid: no supplementary ===== */
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                {pdfOriginalRoles.slice(0, 8).map((role, idx) => {
+                  const matchPercent = Math.round(role.matchScore * 100);
+                  return (
+                    <div key={role.key} style={{
+                      backgroundColor: '#F8FAFC', borderRadius: '12px', padding: '14px',
+                      border: role.isRelatedToMajor ? '2px solid #F59E0B' : '1px solid #E2E8F0',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                        <div style={{
+                          width: '28px', height: '28px', borderRadius: '8px',
+                          backgroundColor: idx < 3 ? COLORS.primary : '#94A3B8',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        }}>
+                          <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold' }}>{idx + 1}</span>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                            <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: COLORS.text.primary, margin: 0 }}>
+                              {role.name.replace(/\s*\(.*?\)\s*/g, '').trim()}
+                            </h3>
+                            {role.isRelatedToMajor && (
+                              <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#B45309', backgroundColor: '#FEF3C7', padding: '2px 6px', borderRadius: '4px' }}>전공연관</span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                            <div style={{ flex: 1, height: '6px', backgroundColor: '#E2E8F0', borderRadius: '3px', overflow: 'hidden' }}>
+                              <div style={{ width: `${matchPercent}%`, height: '100%', backgroundColor: role.isRelatedToMajor ? '#F59E0B' : COLORS.primary, borderRadius: '3px' }} />
+                            </div>
+                            <span style={{ fontSize: '11px', fontWeight: 'bold', color: COLORS.primary }}>{matchPercent}%</span>
+                          </div>
+                          {role.matchReasons.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                              {role.matchReasons.slice(0, 2).map((reason, i) => (
+                                <span key={i} style={{ fontSize: '9px', color: COLORS.text.secondary, backgroundColor: '#F1F5F9', padding: '2px 6px', borderRadius: '4px' }}>{reason}</span>
+                              ))}
+                            </div>
                           )}
                         </div>
-
-                        {/* Match Bar */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                          <div style={{
-                            flex: 1,
-                            height: '6px',
-                            backgroundColor: '#E2E8F0',
-                            borderRadius: '3px',
-                            overflow: 'hidden',
-                          }}>
-                            <div style={{
-                              width: `${matchPercent}%`,
-                              height: '100%',
-                              backgroundColor: role.isRelatedToMajor ? '#F59E0B' : COLORS.primary,
-                              borderRadius: '3px',
-                            }} />
-                          </div>
-                          <span style={{ fontSize: '11px', fontWeight: 'bold', color: COLORS.primary }}>
-                            {matchPercent}%
-                          </span>
-                        </div>
-
-                        {/* Match Reasons */}
-                        {role.matchReasons.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                            {role.matchReasons.slice(0, 2).map((reason, i) => (
-                              <span
-                                key={i}
-                                style={{
-                                  fontSize: '9px',
-                                  color: COLORS.text.secondary,
-                                  backgroundColor: '#F1F5F9',
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                }}
-                              >
-                                {reason}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* PDF Footer */}
             <div style={{
-              borderTop: '2px solid #E2E8F0',
-              paddingTop: '14px',
-              marginTop: '20px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
+              borderTop: '2px solid #E2E8F0', paddingTop: '14px', marginTop: '20px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
-              <p style={{ fontSize: '9px', color: COLORS.muted }}>
-                명지대학교 진로교육 프로그램 · 추천 직무 분석
-              </p>
-              <p style={{ fontSize: '9px', color: COLORS.muted }}>
-                본 결과는 참고용이며, 전문 상담과 함께 활용하시기 바랍니다.
-              </p>
+              <p style={{ fontSize: '9px', color: COLORS.muted }}>명지대학교 진로교육 프로그램 · 추천 직무 분석</p>
+              <p style={{ fontSize: '9px', color: COLORS.muted }}>본 결과는 참고용이며, 전문 상담과 함께 활용하시기 바랍니다.</p>
             </div>
           </div>
         </div>
